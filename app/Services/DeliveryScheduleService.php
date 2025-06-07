@@ -67,17 +67,21 @@ class DeliveryScheduleService
     public function testConnection()
     {
         try {
-            // Test with a simple schedule request instead of non-existent test endpoint
-            $response = Http::timeout(30)
-                ->get($this->baseUrl . '/wp-json/mwf-delivery-schedule/v1/schedule', [
-                    'start_date' => date('Y-m-d'),
-                    'end_date' => date('Y-m-d')
+            // Test the actual working WooCommerce API endpoint that provides the data
+            $consumerKey = env('WOOCOMMERCE_CONSUMER_KEY');
+            $consumerSecret = env('WOOCOMMERCE_CONSUMER_SECRET');
+            
+            $response = Http::timeout(10)
+                ->withBasicAuth($consumerKey, $consumerSecret)
+                ->get($this->baseUrl . '/wp-json/wc/v3/subscriptions', [
+                    'per_page' => 1,
+                    'status' => 'active'
                 ]);
 
             if ($response->successful()) {
                 return [
                     'success' => true,
-                    'message' => 'Connection successful'
+                    'message' => 'WooCommerce API connected'
                 ];
             }
 
