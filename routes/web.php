@@ -16,6 +16,13 @@ Route::get('/admin', function () {
 Route::get('/admin/deliveries', [DeliveryController::class, 'index'])->name('admin.deliveries.index');
 Route::get('/admin/api-test', [DeliveryController::class, 'apiTest'])->name('admin.api-test');
 
+// User switching routes
+Route::prefix('admin/users')->group(function () {
+    Route::get('/test', [App\Http\Controllers\Admin\UserSwitchingController::class, 'test'])->name('admin.users.test');
+    Route::get('/search', [App\Http\Controllers\Admin\UserSwitchingController::class, 'search'])->name('admin.users.search');
+    Route::get('/switch/{userId}', [App\Http\Controllers\Admin\UserSwitchingController::class, 'redirect'])->name('admin.users.switch');
+});
+
 // Simple test route
 Route::get('/admin/test', function () {
     return 'Test route works!';

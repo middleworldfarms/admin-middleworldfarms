@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Profile Button Test</title>
+</head>
+
+<body>
+    <h2>Profile Button Test</h2>
+
+    <?php
+    // Simulate some customer data
+    $customers = [
+        ['customer_id' => '123', 'name' => 'John Doe'],
+        ['customer_id' => '456', 'name' => 'Jane Smith'],
+        ['customer_id' => '789', 'name' => 'Bob Johnson']
+    ];
+    ?>
+
+    <table border="1">
+        <tr>
+            <th>Customer Name</th>
+            <th>Customer ID</th>
+            <th>Profile Link</th>
+            <th>Generated URL</th>
+        </tr>
+
+        <?php foreach ($customers as $customer): ?>
+        <?php
+            $customerId = $customer['customer_id'];
+            $customerName = $customer['name'];
+            $profileUrl = "https://middleworldfarms.org/wp-admin/user-edit.php?user_id=" . $customerId;
+            ?>
+        <tr>
+            <td>
+                <?= $customerName ?>
+            </td>
+            <td style="font-weight: bold;">
+                <?= $customerId ?>
+            </td>
+            <td><a href="<?= $profileUrl ?>" target="_blank">Open Profile</a></td>
+            <td><small>
+                    <?= $profileUrl ?>
+                </small></td>
+        </tr>
+        <?php endforeach; ?>
+    </table>
+
+    <p><strong>Test:</strong> Each profile link should have a different user_id parameter. If they all go to the same
+        user, there's a caching or template issue.</p>
+</body>
+
+</html>

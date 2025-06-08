@@ -12,50 +12,76 @@ class DeliveryScheduleService
 
     public function __construct()
     {
-        $this->baseUrl = env('WOOCOMMERCE_URL');
-        $this->apiKey = env('MWF_API_KEY');
+        $this->baseUrl = config('services.woocommerce.api_url', 'https://middleworldfarms.org');
+        $this->apiKey = config('services.wordpress.api_key');
     }
 
     public function getSchedule($startDate = null, $endDate = null, $status = 'active')
     {
         try {
-            $params = [];
+            // First try to get WooCommerce subscription data
+            $consumerKey = config('services.woocommerce.consumer_key');
+            $consumerSecret = config('services.woocommerce.consumer_secret');
+            
+            $params = [
+                'status' => $status,
+                'per_page' => 100,
+                'orderby' => 'date',
+                'order' => 'desc'
+            ];
 
             if ($startDate) {
-                $params['start_date'] = $startDate;
+                $params['after'] = $startDate . 'T00:00:00';
             }
             if ($endDate) {
-                $params['end_date'] = $endDate;
-            }
-            if ($status) {
-                $params['status'] = $status;
+                $params['before'] = $endDate . 'T23:59:59';
             }
 
+            // Try WooCommerce subscriptions first
             $response = Http::timeout(30)
-                ->withHeaders([
-                    'X-MWF-API-Key' => $this->apiKey,
-                    'Content-Type' => 'application/json',
-                    'Accept' => 'application/json'
-                ])
-                ->get($this->baseUrl . '/wp-json/mwf-delivery-schedule/v1/schedule', $params);
+                ->withBasicAuth($consumerKey, $consumerSecret)
+                ->get($this->baseUrl . '/wp-json/wc/v3/subscriptions', $params);
 
             if ($response->successful()) {
-                return $response->json();
+                $subscriptions = $response->json();
+                
+                if (!empty($subscriptions)) {
+                    // Transform WooCommerce subscription data into delivery schedule format
+                    return $this->transformSubscriptionsToSchedule($subscriptions);
+                }
             }
 
-            Log::error('Failed to fetch delivery schedule', [
-                'status' => $response->status(),
-                'body' => $response->body(),
-                'headers' => $response->headers()
-            ]);
+            // If no subscriptions found, try regular orders
+            $orderResponse = Http::timeout(30)
+                ->withBasicAuth($consumerKey, $consumerSecret)
+                ->get($this->baseUrl . '/wp-json/wc/v3/orders', array_merge($params, ['per_page' => 50]));
 
-            return null;
+            if ($orderResponse->successful()) {
+                $orders = $orderResponse->json();
+                
+                if (!empty($orders)) {
+                    return $this->transformOrdersToSchedule($orders);
+                }
+            }
+
+            // If no WooCommerce data available, return structure indicating no data
+            return [
+                'success' => true,
+                'data' => [],
+                'message' => 'No delivery schedule data available from WooCommerce'
+            ];
+            
         } catch (\Exception $e) {
             Log::error('Exception in DeliveryScheduleService::getSchedule', [
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            return null;
+            
+            return [
+                'success' => false,
+                'data' => [],
+                'error' => $e->getMessage()
+            ];
         }
     }
 
@@ -68,8 +94,8 @@ class DeliveryScheduleService
     {
         try {
             // Test the actual working WooCommerce API endpoint that provides the data
-            $consumerKey = env('WOOCOMMERCE_CONSUMER_KEY');
-            $consumerSecret = env('WOOCOMMERCE_CONSUMER_SECRET');
+            $consumerKey = config('services.woocommerce.consumer_key');
+            $consumerSecret = config('services.woocommerce.consumer_secret');
             
             $response = Http::timeout(10)
                 ->withBasicAuth($consumerKey, $consumerSecret)
@@ -101,34 +127,74 @@ class DeliveryScheduleService
     public function testAuth()
     {
         try {
-            // Test authentication with actual API key
+            // First check if MWF API key is configured
+            if (empty($this->apiKey)) {
+                return [
+                    'success' => false,
+                    'message' => 'MWF API key is not configured'
+                ];
+            }
+
+            // Try to test the MWF API endpoint first
             $response = Http::timeout(30)
                 ->withHeaders([
-                    'X-MWF-API-Key' => $this->apiKey,
+                    'X-WC-API-Key' => $this->apiKey,
                     'Content-Type' => 'application/json',
                     'Accept' => 'application/json'
                 ])
-                ->get($this->baseUrl . '/wp-json/mwf-delivery-schedule/v1/schedule', [
-                    'start_date' => date('Y-m-d'),
-                    'end_date' => date('Y-m-d')
+                ->get($this->baseUrl . '/wp-json/mwf/v1/users/recent', [
+                    'per_page' => 1
                 ]);
 
             if ($response->successful()) {
                 return [
                     'success' => true,
-                    'message' => 'Authentication successful'
+                    'message' => 'MWF API authentication successful'
                 ];
+            }
+
+            // If the custom endpoint fails, check if it's a 404 (endpoint doesn't exist)
+            if ($response->status() === 404) {
+                // Try to verify the API key against a generic MWF endpoint
+                $testResponse = Http::timeout(10)
+                    ->withHeaders([
+                        'X-WC-API-Key' => $this->apiKey,
+                        'Accept' => 'application/json'
+                    ])
+                    ->get($this->baseUrl . '/wp-json/mwf/v1/users/search', ['search' => 'test']);
+
+                if ($testResponse->successful()) {
+                    return [
+                        'success' => false,
+                        'message' => 'MWF API key is valid, but delivery schedule data not available. Check WooCommerce subscriptions configuration.'
+                    ];
+                }
+            }
+
+            // Get detailed error information
+            $errorMessage = 'Authentication failed';
+            $responseBody = $response->body();
+            
+            // Try to parse the response for a better error message
+            if ($responseBody) {
+                $decoded = json_decode($responseBody, true);
+                if (isset($decoded['message'])) {
+                    $errorMessage = $decoded['message'];
+                } elseif (isset($decoded['error'])) {
+                    $errorMessage = $decoded['error'];
+                }
             }
 
             return [
                 'success' => false,
+                'message' => $errorMessage,
                 'status' => $response->status(),
-                'body' => $response->body()
+                'details' => $responseBody
             ];
         } catch (\Exception $e) {
             return [
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => 'Connection error: ' . $e->getMessage()
             ];
         }
     }
@@ -303,5 +369,230 @@ class DeliveryScheduleService
         
         // Default to weekly if not specified
         return 'weekly';
+    }
+
+    /**
+     * Transform WooCommerce subscriptions into delivery schedule format
+     */
+    private function transformSubscriptionsToSchedule($subscriptions)
+    {
+        $schedule = [
+            'success' => true,
+            'data' => []
+        ];
+
+        foreach ($subscriptions as $subscription) {
+            // Get customer data
+            $customer = $subscription['billing'] ?? [];
+            $shipping = $subscription['shipping'] ?? [];
+            
+            // Get subscription items (products)
+            $items = [];
+            foreach ($subscription['line_items'] ?? [] as $item) {
+                $items[] = [
+                    'name' => $item['name'],
+                    'quantity' => $item['quantity'],
+                    'price' => $item['price'] ?? 0
+                ];
+            }
+            
+            // Get next payment date for delivery scheduling
+            $nextPaymentDate = $subscription['next_payment_date'] ?? null;
+            $deliveryDate = $nextPaymentDate ? date('Y-m-d', strtotime($nextPaymentDate)) : date('Y-m-d');
+            
+            // Get billing period (weekly, fortnightly, monthly)
+            $frequency = $this->getSubscriptionFrequency($subscription);
+            
+            // Build customer data
+            $customerData = [
+                'id' => $subscription['customer_id'],
+                'name' => trim(($customer['first_name'] ?? '') . ' ' . ($customer['last_name'] ?? '')),
+                'email' => $customer['email'] ?? '',
+                'phone' => $customer['phone'] ?? '',
+                'address' => $this->formatAddress($shipping ?: $customer),
+                'products' => $items,
+                'frequency' => $frequency,
+                'frequency_badge' => $this->getFrequencyBadge($frequency),
+                'status' => $subscription['status'],
+                'subscription_id' => $subscription['id'],
+                'total' => $subscription['total'] ?? 0
+            ];
+            
+            // Add frequency-specific data
+            if (strtolower($frequency) === 'fortnightly') {
+                $customerData['week_type'] = $this->getFortnightlyWeekType($subscription['id'], $deliveryDate);
+                $customerData['should_deliver'] = $this->shouldDeliverFortnightly($subscription['id'], $deliveryDate);
+                $customerData['week_badge'] = $customerData['should_deliver'] ? 'success' : 'secondary';
+            }
+            
+            // Initialize date array if not exists
+            if (!isset($schedule['data'][$deliveryDate])) {
+                $schedule['data'][$deliveryDate] = [
+                    'deliveries' => [],
+                    'collections' => []
+                ];
+            }
+            
+            // Add to deliveries (assuming all subscriptions are deliveries for now)
+            $schedule['data'][$deliveryDate]['deliveries'][] = $customerData;
+        }
+        
+        return $schedule;
+    }
+    
+    /**
+     * Transform WooCommerce orders into delivery schedule format
+     */
+    private function transformOrdersToSchedule($orders)
+    {
+        $schedule = [
+            'success' => true,
+            'data' => []
+        ];
+
+        foreach ($orders as $order) {
+            // Skip orders that aren't relevant for delivery scheduling
+            if (!in_array($order['status'], ['processing', 'completed', 'on-hold'])) {
+                continue;
+            }
+
+            // Get customer data
+            $customer = $order['billing'] ?? [];
+            $shipping = $order['shipping'] ?? [];
+            
+            // Get order items (products)
+            $items = [];
+            foreach ($order['line_items'] ?? [] as $item) {
+                $items[] = [
+                    'name' => $item['name'],
+                    'quantity' => $item['quantity'],
+                    'price' => $item['price'] ?? 0
+                ];
+            }
+            
+            // Use order date for delivery scheduling
+            $deliveryDate = date('Y-m-d', strtotime($order['date_created']));
+            
+            // Build customer data for delivery schedule
+            $customerData = [
+                'id' => $order['customer_id'],
+                'name' => trim(($customer['first_name'] ?? '') . ' ' . ($customer['last_name'] ?? '')),
+                'email' => $customer['email'] ?? '',
+                'phone' => $customer['phone'] ?? '',
+                'address' => $this->formatAddress($shipping ?: $customer),
+                'products' => $items,
+                'frequency' => 'One-time', // Orders are typically one-time
+                'frequency_badge' => 'secondary',
+                'status' => $order['status'],
+                'order_id' => $order['id'],
+                'total' => $order['total'] ?? 0
+            ];
+            
+            // Initialize date array if not exists
+            if (!isset($schedule['data'][$deliveryDate])) {
+                $schedule['data'][$deliveryDate] = [
+                    'deliveries' => [],
+                    'collections' => []
+                ];
+            }
+            
+            // Add to deliveries (assuming orders are deliveries)
+            $schedule['data'][$deliveryDate]['deliveries'][] = $customerData;
+        }
+        
+        return $schedule;
+    }
+
+    /**
+     * Get subscription billing frequency
+     */
+    private function getSubscriptionFrequency($subscription)
+    {
+        $billingPeriod = $subscription['billing_period'] ?? 'week';
+        $billingInterval = $subscription['billing_interval'] ?? 1;
+        
+        if ($billingPeriod === 'week') {
+            return $billingInterval == 1 ? 'Weekly' : 'Fortnightly';
+        } elseif ($billingPeriod === 'month') {
+            return 'Monthly';
+        }
+        
+        return 'Weekly';
+    }
+    
+    /**
+     * Get frequency badge color
+     */
+    private function getFrequencyBadge($frequency)
+    {
+        switch (strtolower($frequency)) {
+            case 'weekly':
+                return 'success';
+            case 'fortnightly':
+                return 'warning';
+            case 'monthly':
+                return 'info';
+            default:
+                return 'secondary';
+        }
+    }
+    
+    /**
+     * Format address array into readable format
+     */
+    private function formatAddress($addressData)
+    {
+        $address = [];
+        
+        if (!empty($addressData['address_1'])) {
+            $address[] = $addressData['address_1'];
+        }
+        if (!empty($addressData['address_2'])) {
+            $address[] = $addressData['address_2'];
+        }
+        if (!empty($addressData['city'])) {
+            $address[] = $addressData['city'];
+        }
+        if (!empty($addressData['state'])) {
+            $address[] = $addressData['state'];
+        }
+        if (!empty($addressData['postcode'])) {
+            $address[] = $addressData['postcode'];
+        }
+        if (!empty($addressData['country'])) {
+            $address[] = $addressData['country'];
+        }
+        
+        return $address;
+    }
+
+    /**
+     * Get fortnightly week type (A or B) for a subscription
+     */
+    private function getFortnightlyWeekType($subscriptionId, $targetDate = null)
+    {
+        if (!$targetDate) {
+            $targetDate = date('Y-m-d');
+        }
+        
+        // Use subscription ID to determine if customer is in A or B group
+        // Even subscription IDs = Group B, Odd subscription IDs = Group A
+        return (intval($subscriptionId) % 2 === 0) ? 'B' : 'A';
+    }
+
+    /**
+     * Check if fortnightly customer should deliver this week
+     */
+    private function shouldDeliverFortnightly($userId, $targetDate = null)
+    {
+        if (!$targetDate) {
+            $targetDate = date('Y-m-d');
+        }
+        
+        $weekType = $this->getFortnightlyWeekType($userId, $targetDate);
+        $currentWeek = date('W', strtotime($targetDate));
+        $currentWeekGroup = ($currentWeek % 2 === 0) ? 'A' : 'B';
+        
+        return $weekType === $currentWeekGroup;
     }
 }

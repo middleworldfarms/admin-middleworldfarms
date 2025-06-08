@@ -10,7 +10,7 @@
     {{-- API Status --}}
     @if(isset($api_test))
         <div class="row mb-4">
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <div class="alert {{ $api_test['connection']['success'] ? 'alert-success' : 'alert-danger' }}">
                     <strong>API Connection:</strong> {{ $api_test['connection']['success'] ? 'Connected' : 'Failed' }}
                     @if($api_test['connection']['success'])
@@ -19,15 +19,66 @@
                 </div>
             </div>
             @if(isset($api_test['auth']))
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <div class="alert {{ $api_test['auth']['success'] ? 'alert-success' : 'alert-danger' }}">
                     <strong>Authentication:</strong> {{ $api_test['auth']['success'] ? 'Authenticated' : 'Failed' }}
+                </div>
+            </div>
+            @endif
+            @if(isset($userSwitchingStatus))
+            <div class="col-md-4">
+                <div class="alert {{ $userSwitchingStatus['success'] ? 'alert-success' : 'alert-warning' }}">
+                    <strong>User Switching:</strong> {{ $userSwitchingStatus['success'] ? 'Available' : 'Limited' }}
+                    @if(isset($userSwitchingStatus['message']))
+                        <br><small>{{ $userSwitchingStatus['message'] }}</small>
+                    @endif
                 </div>
             </div>
             @endif
         </div>
     @endif
     
+    {{-- User Search and Switching --}}
+    @if(isset($userSwitchingStatus) && $userSwitchingStatus['success'])
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">👤 User Management</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="input-group">
+                        <input type="text" id="userSearch" class="form-control" placeholder="Search for customers by name or email...">
+                        <button class="btn btn-outline-secondary" type="button" id="searchButton">
+                            <i class="fas fa-search"></i> Search
+                        </button>
+                    </div>
+                    <div id="searchResults" class="mt-2" style="display: none;"></div>
+                </div>
+                <div class="col-md-4">
+                    <button class="btn btn-info" type="button" data-bs-toggle="collapse" data-bs-target="#recentUsers" aria-expanded="false">
+                        <i class="fas fa-clock"></i> Recent Users
+                    </button>
+                </div>
+            </div>
+            
+            {{-- Recent Users Collapsible Section --}}
+            <div class="collapse mt-3" id="recentUsers">
+                <div class="card card-body">
+                    <div id="recentUsersList">
+                        <div class="text-center">
+                            <div class="spinner-border spinner-border-sm" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            Loading recent users...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
     {{-- Error Display --}}
     @if(isset($error) && $error)
         <div class="alert alert-danger">

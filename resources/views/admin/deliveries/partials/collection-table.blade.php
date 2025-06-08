@@ -11,6 +11,7 @@
                 <th>Week</th>
                 <th>Status</th>
                 <th>Next Payment</th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -86,6 +87,18 @@
                             @endif
                         @else
                             N/A
+                        @endif
+                    </td>
+                    <td>
+                        @if(isset($collection['id']) && !empty($collection['id']))
+                            <a href="{{ route('admin.users.switch', ['userId' => $collection['id']]) }}" 
+                               class="btn btn-sm btn-outline-primary" 
+                               title="Switch to this user's account"
+                               target="_blank">
+                                <i class="fas fa-user-circle"></i> Switch
+                            </a>
+                        @else
+                            <span class="text-muted">-</span>
                         @endif
                     </td>
                 </tr>

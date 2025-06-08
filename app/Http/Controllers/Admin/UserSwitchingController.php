@@ -3,16 +3,37 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Services\MWFUserSwitchingService;
+use App\Services\UserSwitchingService;
 use Illuminate\Http\Request;
 
 class UserSwitchingController extends Controller
 {
-    protected MWFUserSwitchingService $userSwitchingService;
+    protected UserSwitchingService $userSwitchingService;
 
-    public function __construct(MWFUserSwitchingService $userSwitchingService)
+    public function __construct(UserSwitchingService $userSwitchingService)
     {
         $this->userSwitchingService = $userSwitchingService;
+    }
+
+    /**
+     * Test the user switching API connection
+     */
+    public function test()
+    {
+        $result = $this->userSwitchingService->testConnection();
+        
+        if ($result['success']) {
+            $recentUsers = $this->userSwitchingService->getRecentUsers(5);
+            
+            return response()->json([
+                'success' => true,
+                'message' => $result['message'],
+                'recent_users_count' => count($recentUsers),
+                'sample_users' => $recentUsers
+            ]);
+        }
+
+        return response()->json($result, 500);
     }
 
     /**
@@ -219,5 +240,23 @@ class UserSwitchingController extends Controller
                 'error' => 'Server error while switching user'
             ]);
         }
+    }
+
+    /**
+     * Redirect to user switching
+     */
+    public function redirect(int $userId)
+    {
+        $switchUrl = $this->userSwitchingService->switchToUser(
+            $userId,
+            '/my-account/',
+            'admin_panel'
+        );
+
+        if (!$switchUrl) {
+            return redirect()->back()->with('error', 'Failed to switch to user');
+        }
+
+        return redirect($switchUrl);
     }
 }

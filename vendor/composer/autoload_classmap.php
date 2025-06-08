@@ -6,10 +6,15 @@ $vendorDir = dirname(__DIR__);
 $baseDir = dirname($vendorDir);
 
 return array(
+    'App\\Http\\Controllers\\Admin\\CustomerSwitchController' => $baseDir . '/app/Http/Controllers/Admin/CustomerSwitchController.php',
+    'App\\Http\\Controllers\\Admin\\DeliveryController' => $baseDir . '/app/Http/Controllers/Admin/DeliveryController.php',
+    'App\\Http\\Controllers\\Admin\\UserSwitchingController' => $baseDir . '/app/Http/Controllers/Admin/UserSwitchingController.php',
     'App\\Http\\Controllers\\Controller' => $baseDir . '/app/Http/Controllers/Controller.php',
     'App\\Models\\User' => $baseDir . '/app/Models/User.php',
     'App\\Providers\\AppServiceProvider' => $baseDir . '/app/Providers/AppServiceProvider.php',
     'App\\Services\\DeliveryScheduleService' => $baseDir . '/app/Services/DeliveryScheduleService.php',
+    'App\\Services\\MWFUserSwitchingService' => $baseDir . '/app/Services/MWFUserSwitchingService.php',
+    'App\\Services\\WordPressUserService' => $baseDir . '/app/Services/WordPressUserService.php',
     'Attribute' => $vendorDir . '/symfony/polyfill-php80/Resources/stubs/Attribute.php',
     'Brick\\Math\\BigDecimal' => $vendorDir . '/brick/math/src/BigDecimal.php',
     'Brick\\Math\\BigInteger' => $vendorDir . '/brick/math/src/BigInteger.php',
@@ -634,6 +639,7 @@ return array(
     'Illuminate\\Container\\Attributes\\CurrentUser' => $vendorDir . '/laravel/framework/src/Illuminate/Container/Attributes/CurrentUser.php',
     'Illuminate\\Container\\Attributes\\DB' => $vendorDir . '/laravel/framework/src/Illuminate/Container/Attributes/DB.php',
     'Illuminate\\Container\\Attributes\\Database' => $vendorDir . '/laravel/framework/src/Illuminate/Container/Attributes/Database.php',
+    'Illuminate\\Container\\Attributes\\Give' => $vendorDir . '/laravel/framework/src/Illuminate/Container/Attributes/Give.php',
     'Illuminate\\Container\\Attributes\\Log' => $vendorDir . '/laravel/framework/src/Illuminate/Container/Attributes/Log.php',
     'Illuminate\\Container\\Attributes\\RouteParameter' => $vendorDir . '/laravel/framework/src/Illuminate/Container/Attributes/RouteParameter.php',
     'Illuminate\\Container\\Attributes\\Storage' => $vendorDir . '/laravel/framework/src/Illuminate/Container/Attributes/Storage.php',
@@ -860,6 +866,7 @@ return array(
     'Illuminate\\Database\\Eloquent\\Casts\\AsEnumCollection' => $vendorDir . '/laravel/framework/src/Illuminate/Database/Eloquent/Casts/AsEnumCollection.php',
     'Illuminate\\Database\\Eloquent\\Casts\\AsHtmlString' => $vendorDir . '/laravel/framework/src/Illuminate/Database/Eloquent/Casts/AsHtmlString.php',
     'Illuminate\\Database\\Eloquent\\Casts\\AsStringable' => $vendorDir . '/laravel/framework/src/Illuminate/Database/Eloquent/Casts/AsStringable.php',
+    'Illuminate\\Database\\Eloquent\\Casts\\AsUri' => $vendorDir . '/laravel/framework/src/Illuminate/Database/Eloquent/Casts/AsUri.php',
     'Illuminate\\Database\\Eloquent\\Casts\\Attribute' => $vendorDir . '/laravel/framework/src/Illuminate/Database/Eloquent/Casts/Attribute.php',
     'Illuminate\\Database\\Eloquent\\Casts\\Json' => $vendorDir . '/laravel/framework/src/Illuminate/Database/Eloquent/Casts/Json.php',
     'Illuminate\\Database\\Eloquent\\Collection' => $vendorDir . '/laravel/framework/src/Illuminate/Database/Eloquent/Collection.php',

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Services\DeliveryScheduleService;
+use App\Services\UserSwitchingService;
 use Illuminate\Http\Request;
 
 class DeliveryController extends Controller
@@ -11,7 +12,7 @@ class DeliveryController extends Controller
     /**
      * Display the delivery schedule management page.
      */
-    public function index(DeliveryScheduleService $service)
+    public function index(DeliveryScheduleService $service, UserSwitchingService $userService)
     {
         try {
             // Get enhanced schedule data with frequency logic
@@ -20,15 +21,20 @@ class DeliveryController extends Controller
                 'connection' => $service->testConnection(),
                 'auth' => $service->testAuth()
             ];
+            
+            // Test user switching service connection
+            $userSwitchingStatus = $userService->testConnection();
+            
             $error = null;
             
-            return view('admin.deliveries.fixed', compact('scheduleData', 'api_test', 'error'));
+            return view('admin.deliveries.fixed', compact('scheduleData', 'api_test', 'userSwitchingStatus', 'error'));
         } catch (\Exception $e) {
             $scheduleData = null;
             $api_test = ['connection' => ['success' => false], 'auth' => ['success' => false]];
+            $userSwitchingStatus = ['success' => false, 'message' => 'User switching service unavailable'];
             $error = $e->getMessage();
             
-            return view('admin.deliveries.fixed', compact('scheduleData', 'api_test', 'error'));
+            return view('admin.deliveries.fixed', compact('scheduleData', 'api_test', 'userSwitchingStatus', 'error'));
         }
     }
 

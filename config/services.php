@@ -1,7 +1,6 @@
 <?php
 
 return [
-
     /*
     |--------------------------------------------------------------------------
     | Third Party Services
@@ -28,11 +27,23 @@ return [
         'key' => env('RESEND_KEY'),
     ],
 
+    'wordpress' => [
+        'api_key' => env('MWF_API_KEY'),
+        'api_base' => env('MWF_API_BASE_URL'),
+        'base_url' => env('WOOCOMMERCE_URL'),
+    ],
+
+    'woocommerce' => [
+        'consumer_key' => env('WOOCOMMERCE_CONSUMER_KEY'),
+        'consumer_secret' => env('WOOCOMMERCE_CONSUMER_SECRET'),
+        'base_url' => env('WOOCOMMERCE_URL'),
+        'api_url' => env('WOOCOMMERCE_URL'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
-
 ];

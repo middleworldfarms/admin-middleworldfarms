@@ -460,10 +460,15 @@ class ComposerStaticInit88970a0117c062eed55fa8728fc43833
     );
 
     public static $classMap = array (
+        'App\\Http\\Controllers\\Admin\\CustomerSwitchController' => __DIR__ . '/../..' . '/app/Http/Controllers/Admin/CustomerSwitchController.php',
+        'App\\Http\\Controllers\\Admin\\DeliveryController' => __DIR__ . '/../..' . '/app/Http/Controllers/Admin/DeliveryController.php',
+        'App\\Http\\Controllers\\Admin\\UserSwitchingController' => __DIR__ . '/../..' . '/app/Http/Controllers/Admin/UserSwitchingController.php',
         'App\\Http\\Controllers\\Controller' => __DIR__ . '/../..' . '/app/Http/Controllers/Controller.php',
         'App\\Models\\User' => __DIR__ . '/../..' . '/app/Models/User.php',
         'App\\Providers\\AppServiceProvider' => __DIR__ . '/../..' . '/app/Providers/AppServiceProvider.php',
         'App\\Services\\DeliveryScheduleService' => __DIR__ . '/../..' . '/app/Services/DeliveryScheduleService.php',
+        'App\\Services\\MWFUserSwitchingService' => __DIR__ . '/../..' . '/app/Services/MWFUserSwitchingService.php',
+        'App\\Services\\WordPressUserService' => __DIR__ . '/../..' . '/app/Services/WordPressUserService.php',
         'Attribute' => __DIR__ . '/..' . '/symfony/polyfill-php80/Resources/stubs/Attribute.php',
         'Brick\\Math\\BigDecimal' => __DIR__ . '/..' . '/brick/math/src/BigDecimal.php',
         'Brick\\Math\\BigInteger' => __DIR__ . '/..' . '/brick/math/src/BigInteger.php',
@@ -1088,6 +1093,7 @@ class ComposerStaticInit88970a0117c062eed55fa8728fc43833
         'Illuminate\\Container\\Attributes\\CurrentUser' => __DIR__ . '/..' . '/laravel/framework/src/Illuminate/Container/Attributes/CurrentUser.php',
         'Illuminate\\Container\\Attributes\\DB' => __DIR__ . '/..' . '/laravel/framework/src/Illuminate/Container/Attributes/DB.php',
         'Illuminate\\Container\\Attributes\\Database' => __DIR__ . '/..' . '/laravel/framework/src/Illuminate/Container/Attributes/Database.php',
+        'Illuminate\\Container\\Attributes\\Give' => __DIR__ . '/..' . '/laravel/framework/src/Illuminate/Container/Attributes/Give.php',
         'Illuminate\\Container\\Attributes\\Log' => __DIR__ . '/..' . '/laravel/framework/src/Illuminate/Container/Attributes/Log.php',
         'Illuminate\\Container\\Attributes\\RouteParameter' => __DIR__ . '/..' . '/laravel/framework/src/Illuminate/Container/Attributes/RouteParameter.php',
         'Illuminate\\Container\\Attributes\\Storage' => __DIR__ . '/..' . '/laravel/framework/src/Illuminate/Container/Attributes/Storage.php',
@@ -1314,6 +1320,7 @@ class ComposerStaticInit88970a0117c062eed55fa8728fc43833
         'Illuminate\\Database\\Eloquent\\Casts\\AsEnumCollection' => __DIR__ . '/..' . '/laravel/framework/src/Illuminate/Database/Eloquent/Casts/AsEnumCollection.php',
         'Illuminate\\Database\\Eloquent\\Casts\\AsHtmlString' => __DIR__ . '/..' . '/laravel/framework/src/Illuminate/Database/Eloquent/Casts/AsHtmlString.php',
         'Illuminate\\Database\\Eloquent\\Casts\\AsStringable' => __DIR__ . '/..' . '/laravel/framework/src/Illuminate/Database/Eloquent/Casts/AsStringable.php',
+        'Illuminate\\Database\\Eloquent\\Casts\\AsUri' => __DIR__ . '/..' . '/laravel/framework/src/Illuminate/Database/Eloquent/Casts/AsUri.php',
         'Illuminate\\Database\\Eloquent\\Casts\\Attribute' => __DIR__ . '/..' . '/laravel/framework/src/Illuminate/Database/Eloquent/Casts/Attribute.php',
         'Illuminate\\Database\\Eloquent\\Casts\\Json' => __DIR__ . '/..' . '/laravel/framework/src/Illuminate/Database/Eloquent/Casts/Json.php',
         'Illuminate\\Database\\Eloquent\\Collection' => __DIR__ . '/..' . '/laravel/framework/src/Illuminate/Database/Eloquent/Collection.php',

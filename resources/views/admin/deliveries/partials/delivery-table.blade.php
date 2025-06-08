@@ -10,6 +10,7 @@
                 <th>Frequency</th>
                 <th>Week</th>
                 <th>Status</th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -75,6 +76,18 @@
                         <span class="badge bg-{{ isset($delivery['status']) && $delivery['status'] === 'active' ? 'success' : 'warning' }}">
                             {{ ucfirst($delivery['status'] ?? 'pending') }}
                         </span>
+                    </td>
+                    <td>
+                        @if(isset($delivery['id']) && !empty($delivery['id']))
+                            <a href="{{ route('admin.users.switch', ['userId' => $delivery['id']]) }}" 
+                               class="btn btn-sm btn-outline-primary" 
+                               title="Switch to this user's account"
+                               target="_blank">
+                                <i class="fas fa-user-circle"></i> Switch
+                            </a>
+                        @else
+                            <span class="text-muted">-</span>
+                        @endif
                     </td>
                 </tr>
             @endforeach
