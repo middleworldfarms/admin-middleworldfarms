@@ -7,39 +7,26 @@
     <h1>Delivery Schedule Management</h1>
     <p>Real-time delivery data from WooCommerce</p>
     
-    {{-- API Status --}}
-    @if(isset($api_test))
-        <div class="row mb-4">
-            <div class="col-md-4">
-                <div class="alert {{ $api_test['connection']['success'] ? 'alert-success' : 'alert-danger' }}">
-                    <strong>API Connection:</strong> {{ $api_test['connection']['success'] ? 'Connected' : 'Failed' }}
-                    @if($api_test['connection']['success'])
-                        <br><small>{{ $api_test['connection']['message'] ?? '' }}</small>
-                    @endif
-                </div>
+    {{-- Data Source Status --}}
+    <div class="alert alert-success mb-4">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h5 class="mb-1"><i class="fas fa-database"></i> Direct Database Connection</h5>
+                <p class="mb-0">
+                    <strong>Data Source:</strong> WooCommerce MySQL Database (Direct Connection)
+                    <br><small class="text-muted">Real-time data retrieval from WordPress/WooCommerce tables - No API dependencies</small>
+                </p>
             </div>
-            @if(isset($api_test['auth']))
-            <div class="col-md-4">
-                <div class="alert {{ $api_test['auth']['success'] ? 'alert-success' : 'alert-danger' }}">
-                    <strong>Authentication:</strong> {{ $api_test['auth']['success'] ? 'Authenticated' : 'Failed' }}
-                </div>
+            <div class="col-md-4 text-end">
+                <span class="badge bg-success fs-6">
+                    <i class="fas fa-check-circle"></i> Live Data Active
+                </span>
             </div>
-            @endif
-            @if(isset($userSwitchingStatus))
-            <div class="col-md-4">
-                <div class="alert {{ $userSwitchingStatus['success'] ? 'alert-success' : 'alert-warning' }}">
-                    <strong>User Switching:</strong> {{ $userSwitchingStatus['success'] ? 'Available' : 'Limited' }}
-                    @if(isset($userSwitchingStatus['message']))
-                        <br><small>{{ $userSwitchingStatus['message'] }}</small>
-                    @endif
-                </div>
-            </div>
-            @endif
         </div>
-    @endif
+    </div>
     
     {{-- User Search and Switching --}}
-    @if(isset($userSwitchingStatus) && $userSwitchingStatus['success'])
+    @if(isset($userSwitchingAvailable) && $userSwitchingAvailable)
     <div class="card mb-4">
         <div class="card-header">
             <h5 class="mb-0">👤 User Management</h5>

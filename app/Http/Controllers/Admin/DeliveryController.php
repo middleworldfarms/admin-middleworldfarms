@@ -87,16 +87,16 @@ class DeliveryController extends Controller
                         }
                     }
                 }
-            }
-            
-            // No more API test - we're using direct database only
-            $api_test = [
-                'connection' => ['success' => true, 'message' => 'Using direct database connection'],
-                'auth' => ['success' => true, 'message' => 'No authentication needed for direct DB']
+            }            
+            // Direct database connection status
+            $directDbStatus = [
+                'success' => true,
+                'message' => 'Connected directly to WooCommerce database',
+                'data_source' => 'mysql_direct'
             ];
             
-            // User switching status (simplified)
-            $userSwitchingStatus = ['success' => true, 'message' => 'Direct database user switching available'];
+            // Simple user switching status (no confusing API messaging)
+            $userSwitchingAvailable = true;
             
             $error = null;
             
@@ -106,21 +106,18 @@ class DeliveryController extends Controller
                 'totalCollections',
                 'statusCounts',
                 'deliveryStatusCounts',
-                'api_test', 
-                'userSwitchingStatus', 
-                'directDbStatus', 
+                'directDbStatus',
+                'userSwitchingAvailable',
                 'error'
             ));
             
-        } catch (\Exception $e) {
-            $scheduleData = ['data' => []];
+        } catch (\Exception $e) {            $scheduleData = ['data' => []];
             $totalDeliveries = 0;
             $totalCollections = 0;
             $statusCounts = ['active' => 0, 'processing' => 0, 'on-hold' => 0, 'cancelled' => 0, 'pending' => 0, 'completed' => 0, 'refunded' => 0, 'other' => 0];
             $deliveryStatusCounts = ['active' => 0, 'processing' => 0, 'pending' => 0, 'completed' => 0, 'on-hold' => 0, 'cancelled' => 0, 'refunded' => 0, 'other' => 0];
-            $api_test = ['connection' => ['success' => false], 'auth' => ['success' => false]];
-            $userSwitchingStatus = ['success' => false, 'message' => 'User switching service unavailable'];
             $directDbStatus = ['success' => false, 'message' => 'Direct database connection failed: ' . $e->getMessage()];
+            $userSwitchingAvailable = false;
             $error = $e->getMessage();
             
             return view('admin.deliveries.fixed', compact(
@@ -129,9 +126,8 @@ class DeliveryController extends Controller
                 'totalCollections',
                 'statusCounts',
                 'deliveryStatusCounts',
-                'api_test', 
-                'userSwitchingStatus', 
-                'directDbStatus', 
+                'directDbStatus',
+                'userSwitchingAvailable',
                 'error'
             ));
         }
