@@ -364,7 +364,7 @@
                         {{-- Deliveries Only Tab with Status Subtabs --}}
                         <div class="tab-pane fade" id="deliveries" role="tabpanel" aria-labelledby="deliveries-tab">
                             @if($totalDeliveries > 0)
-                                {{-- Delivery Status Subtabs --}}
+                                {{-- Delivery Status Subtabs (Same order as All tab) --}}
                                 <ul class="nav nav-pills mt-3 mb-4" id="deliveriesStatusTab" role="tablist">
                                     <li class="nav-item" role="presentation">
                                         <button class="nav-link" id="deliveries-all-tab" data-bs-toggle="pill" data-bs-target="#deliveries-all" type="button" role="tab" aria-controls="deliveries-all" aria-selected="false">
@@ -378,58 +378,44 @@
                                         </button>
                                     </li>
                                     @endif
-                                    @if($deliveryStatusCounts['processing'] > 0)
                                     <li class="nav-item" role="presentation">
-                                        <button class="nav-link" id="deliveries-processing-tab" data-bs-toggle="pill" data-bs-target="#deliveries-processing" type="button" role="tab" aria-controls="deliveries-processing" aria-selected="false">
-                                            ⚡ Processing ({{ $deliveryStatusCounts['processing'] }})
-                                        </button>
-                                    </li>
-                                    @endif
-                                    @if($deliveryStatusCounts['pending'] > 0)
-                                    <li class="nav-item" role="presentation">
-                                        <button class="nav-link" id="deliveries-pending-tab" data-bs-toggle="pill" data-bs-target="#deliveries-pending" type="button" role="tab" aria-controls="deliveries-pending" aria-selected="false">
-                                            ⏳ Pending ({{ $deliveryStatusCounts['pending'] }})
-                                        </button>
-                                    </li>
-                                    @endif
-                                    @if($deliveryStatusCounts['completed'] > 0)
-                                    <li class="nav-item" role="presentation">
-                                        <button class="nav-link" id="deliveries-completed-tab" data-bs-toggle="pill" data-bs-target="#deliveries-completed" type="button" role="tab" aria-controls="deliveries-completed" aria-selected="false">
-                                            ✅ Completed ({{ $deliveryStatusCounts['completed'] }})
-                                        </button>
-                                    </li>
-                                    @endif
-                                    @if($deliveryStatusCounts['on-hold'] > 0)
-                                    <li class="nav-item" role="presentation">
-                                        <button class="nav-link" id="deliveries-on-hold-tab" data-bs-toggle="pill" data-bs-target="#deliveries-on-hold" type="button" role="tab" aria-controls="deliveries-on-hold" aria-selected="false">
+                                        <button class="nav-link {{ $deliveryStatusCounts['on-hold'] == 0 ? 'text-muted' : '' }}" id="deliveries-on-hold-tab" data-bs-toggle="pill" data-bs-target="#deliveries-on-hold" type="button" role="tab" aria-controls="deliveries-on-hold" aria-selected="false" {{ $deliveryStatusCounts['on-hold'] == 0 ? 'title="No on-hold deliveries"' : '' }}>
                                             ⏸️ On Hold ({{ $deliveryStatusCounts['on-hold'] }})
                                         </button>
                                     </li>
-                                    @endif
-                                    @if($deliveryStatusCounts['cancelled'] > 0)
                                     <li class="nav-item" role="presentation">
-                                        <button class="nav-link" id="deliveries-cancelled-tab" data-bs-toggle="pill" data-bs-target="#deliveries-cancelled" type="button" role="tab" aria-controls="deliveries-cancelled" aria-selected="false">
+                                        <button class="nav-link {{ $deliveryStatusCounts['cancelled'] == 0 ? 'text-muted' : '' }}" id="deliveries-cancelled-tab" data-bs-toggle="pill" data-bs-target="#deliveries-cancelled" type="button" role="tab" aria-controls="deliveries-cancelled" aria-selected="false" {{ $deliveryStatusCounts['cancelled'] == 0 ? 'title="No cancelled deliveries"' : '' }}>
                                             ❌ Cancelled ({{ $deliveryStatusCounts['cancelled'] }})
                                         </button>
                                     </li>
-                                    @endif
-                                    @if($deliveryStatusCounts['refunded'] > 0)
                                     <li class="nav-item" role="presentation">
-                                        <button class="nav-link" id="deliveries-refunded-tab" data-bs-toggle="pill" data-bs-target="#deliveries-refunded" type="button" role="tab" aria-controls="deliveries-refunded" aria-selected="false">
+                                        <button class="nav-link {{ $deliveryStatusCounts['pending'] == 0 ? 'text-muted' : '' }}" id="deliveries-pending-tab" data-bs-toggle="pill" data-bs-target="#deliveries-pending" type="button" role="tab" aria-controls="deliveries-pending" aria-selected="false" {{ $deliveryStatusCounts['pending'] == 0 ? 'title="No pending deliveries"' : '' }}>
+                                            ⏳ Pending ({{ $deliveryStatusCounts['pending'] }})
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link {{ $deliveryStatusCounts['processing'] == 0 ? 'text-muted' : '' }}" id="deliveries-processing-tab" data-bs-toggle="pill" data-bs-target="#deliveries-processing" type="button" role="tab" aria-controls="deliveries-processing" aria-selected="false" {{ $deliveryStatusCounts['processing'] == 0 ? 'title="No processing deliveries"' : '' }}>
+                                            ⚡ Processing ({{ $deliveryStatusCounts['processing'] }})
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link {{ $deliveryStatusCounts['completed'] == 0 ? 'text-muted' : '' }}" id="deliveries-completed-tab" data-bs-toggle="pill" data-bs-target="#deliveries-completed" type="button" role="tab" aria-controls="deliveries-completed" aria-selected="false" {{ $deliveryStatusCounts['completed'] == 0 ? 'title="No completed deliveries"' : '' }}>
+                                            ✅ Completed ({{ $deliveryStatusCounts['completed'] }})
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link {{ $deliveryStatusCounts['refunded'] == 0 ? 'text-muted' : '' }}" id="deliveries-refunded-tab" data-bs-toggle="pill" data-bs-target="#deliveries-refunded" type="button" role="tab" aria-controls="deliveries-refunded" aria-selected="false" {{ $deliveryStatusCounts['refunded'] == 0 ? 'title="No refunded deliveries"' : '' }}>
                                             💰 Refunded ({{ $deliveryStatusCounts['refunded'] }})
                                         </button>
                                     </li>
-                                    @endif
-                                    @if($deliveryStatusCounts['other'] > 0)
                                     <li class="nav-item" role="presentation">
-                                        <button class="nav-link" id="deliveries-other-tab" data-bs-toggle="pill" data-bs-target="#deliveries-other" type="button" role="tab" aria-controls="deliveries-other" aria-selected="false">
+                                        <button class="nav-link {{ $deliveryStatusCounts['other'] == 0 ? 'text-muted' : '' }}" id="deliveries-other-tab" data-bs-toggle="pill" data-bs-target="#deliveries-other" type="button" role="tab" aria-controls="deliveries-other" aria-selected="false" {{ $deliveryStatusCounts['other'] == 0 ? 'title="No other status deliveries"' : '' }}>
                                             📋 Other ({{ $deliveryStatusCounts['other'] }})
                                         </button>
                                     </li>
-                                    @endif
                                 </ul>
 
-                                {{-- Delivery Status Tab Content --}}
+                                {{-- Delivery Status Tab Content (Same order as All tab) --}}
                                 <div class="tab-content" id="deliveriesStatusTabContent">
                                     {{-- All Deliveries --}}
                                     <div class="tab-pane fade" id="deliveries-all" role="tabpanel" aria-labelledby="deliveries-all-tab">
@@ -453,89 +439,103 @@
                                     </div>
                                     @endif
 
-                                    {{-- Processing Deliveries --}}
-                                    @if($deliveryStatusCounts['processing'] > 0)
-                                    <div class="tab-pane fade" id="deliveries-processing" role="tabpanel" aria-labelledby="deliveries-processing-tab">
-                                        @if(isset($scheduleData['deliveriesByStatus']['processing']))
-                                            @foreach($scheduleData['deliveriesByStatus']['processing'] as $date => $dateData)
-                                                <h5 class="mt-3 mb-3 text-primary">{{ $dateData['date_formatted'] ?? $date }}</h5>
-                                                @include('admin.deliveries.partials.delivery-table', ['items' => $dateData['deliveries'], 'type' => 'delivery'])
-                                            @endforeach
-                                        @endif
-                                    </div>
-                                    @endif
-
-                                    {{-- Pending Deliveries --}}
-                                    @if($deliveryStatusCounts['pending'] > 0)
-                                    <div class="tab-pane fade" id="deliveries-pending" role="tabpanel" aria-labelledby="deliveries-pending-tab">
-                                        @if(isset($scheduleData['deliveriesByStatus']['pending']))
-                                            @foreach($scheduleData['deliveriesByStatus']['pending'] as $date => $dateData)
-                                                <h5 class="mt-3 mb-3 text-warning">{{ $dateData['date_formatted'] ?? $date }}</h5>
-                                                @include('admin.deliveries.partials.delivery-table', ['items' => $dateData['deliveries'], 'type' => 'delivery'])
-                                            @endforeach
-                                        @endif
-                                    </div>
-                                    @endif
-
-                                    {{-- Completed Deliveries --}}
-                                    @if($deliveryStatusCounts['completed'] > 0)
-                                    <div class="tab-pane fade" id="deliveries-completed" role="tabpanel" aria-labelledby="deliveries-completed-tab">
-                                        @if(isset($scheduleData['deliveriesByStatus']['completed']))
-                                            @foreach($scheduleData['deliveriesByStatus']['completed'] as $date => $dateData)
-                                                <h5 class="mt-3 mb-3 text-success">{{ $dateData['date_formatted'] ?? $date }}</h5>
-                                                @include('admin.deliveries.partials.delivery-table', ['items' => $dateData['deliveries'], 'type' => 'delivery'])
-                                            @endforeach
-                                        @endif
-                                    </div>
-                                    @endif
-
                                     {{-- On Hold Deliveries --}}
-                                    @if($deliveryStatusCounts['on-hold'] > 0)
                                     <div class="tab-pane fade" id="deliveries-on-hold" role="tabpanel" aria-labelledby="deliveries-on-hold-tab">
-                                        @if(isset($scheduleData['deliveriesByStatus']['on-hold']))
+                                        @if($deliveryStatusCounts['on-hold'] > 0 && isset($scheduleData['deliveriesByStatus']['on-hold']))
                                             @foreach($scheduleData['deliveriesByStatus']['on-hold'] as $date => $dateData)
                                                 <h5 class="mt-3 mb-3 text-warning">{{ $dateData['date_formatted'] ?? $date }}</h5>
                                                 @include('admin.deliveries.partials.delivery-table', ['items' => $dateData['deliveries'], 'type' => 'delivery'])
                                             @endforeach
+                                        @else
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle"></i> No on-hold deliveries found.
+                                            </div>
                                         @endif
                                     </div>
-                                    @endif
 
                                     {{-- Cancelled Deliveries --}}
-                                    @if($deliveryStatusCounts['cancelled'] > 0)
                                     <div class="tab-pane fade" id="deliveries-cancelled" role="tabpanel" aria-labelledby="deliveries-cancelled-tab">
-                                        @if(isset($scheduleData['deliveriesByStatus']['cancelled']))
+                                        @if($deliveryStatusCounts['cancelled'] > 0 && isset($scheduleData['deliveriesByStatus']['cancelled']))
                                             @foreach($scheduleData['deliveriesByStatus']['cancelled'] as $date => $dateData)
                                                 <h5 class="mt-3 mb-3 text-danger">{{ $dateData['date_formatted'] ?? $date }}</h5>
                                                 @include('admin.deliveries.partials.delivery-table', ['items' => $dateData['deliveries'], 'type' => 'delivery'])
                                             @endforeach
+                                        @else
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle"></i> No cancelled deliveries found.
+                                            </div>
                                         @endif
                                     </div>
-                                    @endif
+
+                                    {{-- Pending Deliveries --}}
+                                    <div class="tab-pane fade" id="deliveries-pending" role="tabpanel" aria-labelledby="deliveries-pending-tab">
+                                        @if($deliveryStatusCounts['pending'] > 0 && isset($scheduleData['deliveriesByStatus']['pending']))
+                                            @foreach($scheduleData['deliveriesByStatus']['pending'] as $date => $dateData)
+                                                <h5 class="mt-3 mb-3 text-warning">{{ $dateData['date_formatted'] ?? $date }}</h5>
+                                                @include('admin.deliveries.partials.delivery-table', ['items' => $dateData['deliveries'], 'type' => 'delivery'])
+                                            @endforeach
+                                        @else
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle"></i> No pending deliveries found.
+                                            </div>
+                                        @endif
+                                    </div>
+
+                                    {{-- Processing Deliveries --}}
+                                    <div class="tab-pane fade" id="deliveries-processing" role="tabpanel" aria-labelledby="deliveries-processing-tab">
+                                        @if($deliveryStatusCounts['processing'] > 0 && isset($scheduleData['deliveriesByStatus']['processing']))
+                                            @foreach($scheduleData['deliveriesByStatus']['processing'] as $date => $dateData)
+                                                <h5 class="mt-3 mb-3 text-primary">{{ $dateData['date_formatted'] ?? $date }}</h5>
+                                                @include('admin.deliveries.partials.delivery-table', ['items' => $dateData['deliveries'], 'type' => 'delivery'])
+                                            @endforeach
+                                        @else
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle"></i> No processing deliveries found.
+                                            </div>
+                                        @endif
+                                    </div>
+
+                                    {{-- Completed Deliveries --}}
+                                    <div class="tab-pane fade" id="deliveries-completed" role="tabpanel" aria-labelledby="deliveries-completed-tab">
+                                        @if($deliveryStatusCounts['completed'] > 0 && isset($scheduleData['deliveriesByStatus']['completed']))
+                                            @foreach($scheduleData['deliveriesByStatus']['completed'] as $date => $dateData)
+                                                <h5 class="mt-3 mb-3 text-success">{{ $dateData['date_formatted'] ?? $date }}</h5>
+                                                @include('admin.deliveries.partials.delivery-table', ['items' => $dateData['deliveries'], 'type' => 'delivery'])
+                                            @endforeach
+                                        @else
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle"></i> No completed deliveries found.
+                                            </div>
+                                        @endif
+                                    </div>
 
                                     {{-- Refunded Deliveries --}}
-                                    @if($deliveryStatusCounts['refunded'] > 0)
                                     <div class="tab-pane fade" id="deliveries-refunded" role="tabpanel" aria-labelledby="deliveries-refunded-tab">
-                                        @if(isset($scheduleData['deliveriesByStatus']['refunded']))
+                                        @if($deliveryStatusCounts['refunded'] > 0 && isset($scheduleData['deliveriesByStatus']['refunded']))
                                             @foreach($scheduleData['deliveriesByStatus']['refunded'] as $date => $dateData)
                                                 <h5 class="mt-3 mb-3 text-secondary">{{ $dateData['date_formatted'] ?? $date }}</h5>
                                                 @include('admin.deliveries.partials.delivery-table', ['items' => $dateData['deliveries'], 'type' => 'delivery'])
                                             @endforeach
+                                        @else
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle"></i> No refunded deliveries found.
+                                            </div>
                                         @endif
                                     </div>
-                                    @endif
 
                                     {{-- Other Status Deliveries --}}
-                                    @if($deliveryStatusCounts['other'] > 0)
                                     <div class="tab-pane fade" id="deliveries-other" role="tabpanel" aria-labelledby="deliveries-other-tab">
-                                        @if(isset($scheduleData['deliveriesByStatus']['other']))
+                                        @if($deliveryStatusCounts['other'] > 0 && isset($scheduleData['deliveriesByStatus']['other']))
                                             @foreach($scheduleData['deliveriesByStatus']['other'] as $date => $dateData)
                                                 <h5 class="mt-3 mb-3 text-secondary">{{ $dateData['date_formatted'] ?? $date }}</h5>
                                                 @include('admin.deliveries.partials.delivery-table', ['items' => $dateData['deliveries'], 'type' => 'delivery'])
                                             @endforeach
+                                        @else
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle"></i> No other status deliveries found.
+                                            </div>
                                         @endif
                                     </div>
-                                    @endif
                                 </div>
                             @else
                                 <div class="alert alert-info">
@@ -547,51 +547,56 @@
                         {{-- Collections Only Tab with Status Subtabs --}}
                         <div class="tab-pane fade" id="collections" role="tabpanel" aria-labelledby="collections-tab">
                             @if($totalCollections > 0)
-                                {{-- Collections Status Subtabs --}}
+                                {{-- Collections Status Subtabs (Same order as All tab) --}}
                                 <ul class="nav nav-pills mt-3 mb-4" id="collectionsStatusTab" role="tablist">
                                     <li class="nav-item" role="presentation">
                                         <button class="nav-link" id="collections-all-tab" data-bs-toggle="pill" data-bs-target="#collections-all" type="button" role="tab" aria-controls="collections-all" aria-selected="false">
                                             📦 All ({{ $totalCollections }})
                                         </button>
                                     </li>
-                                    @if($statusCounts['active'] > 0)
                                     <li class="nav-item" role="presentation">
-                                        <button class="nav-link active" id="collections-active-tab" data-bs-toggle="pill" data-bs-target="#collections-active" type="button" role="tab" aria-controls="collections-active" aria-selected="true">
+                                        <button class="nav-link {{ $statusCounts['active'] == 0 ? 'text-muted' : 'active' }}" id="collections-active-tab" data-bs-toggle="pill" data-bs-target="#collections-active" type="button" role="tab" aria-controls="collections-active" aria-selected="true" {{ $statusCounts['active'] == 0 ? 'title="No active collections"' : '' }}>
                                             ✅ Active ({{ $statusCounts['active'] }})
                                         </button>
                                     </li>
-                                    @endif
-                                    @if($statusCounts['on-hold'] > 0)
                                     <li class="nav-item" role="presentation">
-                                        <button class="nav-link" id="collections-on-hold-tab" data-bs-toggle="pill" data-bs-target="#collections-on-hold" type="button" role="tab" aria-controls="collections-on-hold" aria-selected="false">
+                                        <button class="nav-link {{ $statusCounts['on-hold'] == 0 ? 'text-muted' : '' }}" id="collections-on-hold-tab" data-bs-toggle="pill" data-bs-target="#collections-on-hold" type="button" role="tab" aria-controls="collections-on-hold" aria-selected="false" {{ $statusCounts['on-hold'] == 0 ? 'title="No on-hold collections"' : '' }}>
                                             ⏸️ On Hold ({{ $statusCounts['on-hold'] }})
                                         </button>
                                     </li>
-                                    @endif
-                                    @if($statusCounts['cancelled'] > 0)
                                     <li class="nav-item" role="presentation">
-                                        <button class="nav-link" id="collections-cancelled-tab" data-bs-toggle="pill" data-bs-target="#collections-cancelled" type="button" role="tab" aria-controls="collections-cancelled" aria-selected="false">
+                                        <button class="nav-link {{ $statusCounts['cancelled'] == 0 ? 'text-muted' : '' }}" id="collections-cancelled-tab" data-bs-toggle="pill" data-bs-target="#collections-cancelled" type="button" role="tab" aria-controls="collections-cancelled" aria-selected="false" {{ $statusCounts['cancelled'] == 0 ? 'title="No cancelled collections"' : '' }}>
                                             ❌ Cancelled ({{ $statusCounts['cancelled'] }})
                                         </button>
                                     </li>
-                                    @endif
-                                    @if($statusCounts['pending'] > 0)
                                     <li class="nav-item" role="presentation">
-                                        <button class="nav-link" id="collections-pending-tab" data-bs-toggle="pill" data-bs-target="#collections-pending" type="button" role="tab" aria-controls="collections-pending" aria-selected="false">
+                                        <button class="nav-link {{ $statusCounts['pending'] == 0 ? 'text-muted' : '' }}" id="collections-pending-tab" data-bs-toggle="pill" data-bs-target="#collections-pending" type="button" role="tab" aria-controls="collections-pending" aria-selected="false" {{ $statusCounts['pending'] == 0 ? 'title="No pending collections"' : '' }}>
                                             ⏳ Pending ({{ $statusCounts['pending'] }})
                                         </button>
                                     </li>
-                                    @endif
-                                    @if($statusCounts['other'] > 0)
                                     <li class="nav-item" role="presentation">
-                                        <button class="nav-link" id="collections-other-tab" data-bs-toggle="pill" data-bs-target="#collections-other" type="button" role="tab" aria-controls="collections-other" aria-selected="false">
+                                        <button class="nav-link {{ $statusCounts['processing'] == 0 ? 'text-muted' : '' }}" id="collections-processing-tab" data-bs-toggle="pill" data-bs-target="#collections-processing" type="button" role="tab" aria-controls="collections-processing" aria-selected="false" {{ $statusCounts['processing'] == 0 ? 'title="No processing collections"' : '' }}>
+                                            ⚡ Processing ({{ $statusCounts['processing'] }})
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link {{ $statusCounts['completed'] == 0 ? 'text-muted' : '' }}" id="collections-completed-tab" data-bs-toggle="pill" data-bs-target="#collections-completed" type="button" role="tab" aria-controls="collections-completed" aria-selected="false" {{ $statusCounts['completed'] == 0 ? 'title="No completed collections"' : '' }}>
+                                            ✅ Completed ({{ $statusCounts['completed'] }})
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link {{ $statusCounts['refunded'] == 0 ? 'text-muted' : '' }}" id="collections-refunded-tab" data-bs-toggle="pill" data-bs-target="#collections-refunded" type="button" role="tab" aria-controls="collections-refunded" aria-selected="false" {{ $statusCounts['refunded'] == 0 ? 'title="No refunded collections"' : '' }}>
+                                            💰 Refunded ({{ $statusCounts['refunded'] }})
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link {{ $statusCounts['other'] == 0 ? 'text-muted' : '' }}" id="collections-other-tab" data-bs-toggle="pill" data-bs-target="#collections-other" type="button" role="tab" aria-controls="collections-other" aria-selected="false" {{ $statusCounts['other'] == 0 ? 'title="No other status collections"' : '' }}>
                                             📋 Other ({{ $statusCounts['other'] }})
                                         </button>
                                     </li>
-                                    @endif
                                 </ul>
 
-                                {{-- Collections Status Tab Content --}}
+                                {{-- Collections Status Tab Content (Same order as All tab) --}}
                                 <div class="tab-content" id="collectionsStatusTabContent">
                                     {{-- All Collections --}}
                                     <div class="tab-pane fade" id="collections-all" role="tabpanel" aria-labelledby="collections-all-tab">
@@ -603,65 +608,117 @@
                                         @endforeach
                                     </div>
 
-                                    {{-- Active Collections --}}
-                                    @if($statusCounts['active'] > 0)
+                                    {{-- Active Collections (DEFAULT) --}}
                                     <div class="tab-pane fade show active" id="collections-active" role="tabpanel" aria-labelledby="collections-active-tab">
-                                        @if(isset($scheduleData['collectionsByStatus']['active']))
+                                        @if($statusCounts['active'] > 0 && isset($scheduleData['collectionsByStatus']['active']))
                                             @foreach($scheduleData['collectionsByStatus']['active'] as $date => $dateData)
                                                 <h5 class="mt-3 mb-3 text-success">{{ $dateData['date_formatted'] ?? $date }}</h5>
                                                 @include('admin.deliveries.partials.collection-table', ['items' => $dateData['collections'], 'type' => 'collection'])
                                             @endforeach
+                                        @else
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle"></i> No active collections found.
+                                            </div>
                                         @endif
                                     </div>
-                                    @endif
 
                                     {{-- On Hold Collections --}}
-                                    @if($statusCounts['on-hold'] > 0)
                                     <div class="tab-pane fade" id="collections-on-hold" role="tabpanel" aria-labelledby="collections-on-hold-tab">
-                                        @if(isset($scheduleData['collectionsByStatus']['on-hold']))
+                                        @if($statusCounts['on-hold'] > 0 && isset($scheduleData['collectionsByStatus']['on-hold']))
                                             @foreach($scheduleData['collectionsByStatus']['on-hold'] as $date => $dateData)
                                                 <h5 class="mt-3 mb-3 text-warning">{{ $dateData['date_formatted'] ?? $date }}</h5>
                                                 @include('admin.deliveries.partials.collection-table', ['items' => $dateData['collections'], 'type' => 'collection'])
                                             @endforeach
+                                        @else
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle"></i> No on-hold collections found.
+                                            </div>
                                         @endif
                                     </div>
-                                    @endif
 
                                     {{-- Cancelled Collections --}}
-                                    @if($statusCounts['cancelled'] > 0)
                                     <div class="tab-pane fade" id="collections-cancelled" role="tabpanel" aria-labelledby="collections-cancelled-tab">
-                                        @if(isset($scheduleData['collectionsByStatus']['cancelled']))
+                                        @if($statusCounts['cancelled'] > 0 && isset($scheduleData['collectionsByStatus']['cancelled']))
                                             @foreach($scheduleData['collectionsByStatus']['cancelled'] as $date => $dateData)
                                                 <h5 class="mt-3 mb-3 text-danger">{{ $dateData['date_formatted'] ?? $date }}</h5>
                                                 @include('admin.deliveries.partials.collection-table', ['items' => $dateData['collections'], 'type' => 'collection'])
                                             @endforeach
+                                        @else
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle"></i> No cancelled collections found.
+                                            </div>
                                         @endif
                                     </div>
-                                    @endif
 
                                     {{-- Pending Collections --}}
-                                    @if($statusCounts['pending'] > 0)
                                     <div class="tab-pane fade" id="collections-pending" role="tabpanel" aria-labelledby="collections-pending-tab">
-                                        @if(isset($scheduleData['collectionsByStatus']['pending']))
+                                        @if($statusCounts['pending'] > 0 && isset($scheduleData['collectionsByStatus']['pending']))
                                             @foreach($scheduleData['collectionsByStatus']['pending'] as $date => $dateData)
                                                 <h5 class="mt-3 mb-3 text-info">{{ $dateData['date_formatted'] ?? $date }}</h5>
                                                 @include('admin.deliveries.partials.collection-table', ['items' => $dateData['collections'], 'type' => 'collection'])
                                             @endforeach
+                                        @else
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle"></i> No pending collections found.
+                                            </div>
                                         @endif
                                     </div>
-                                    @endif
+
+                                    {{-- Processing Collections --}}
+                                    <div class="tab-pane fade" id="collections-processing" role="tabpanel" aria-labelledby="collections-processing-tab">
+                                        @if($statusCounts['processing'] > 0 && isset($scheduleData['collectionsByStatus']['processing']))
+                                            @foreach($scheduleData['collectionsByStatus']['processing'] as $date => $dateData)
+                                                <h5 class="mt-3 mb-3 text-primary">{{ $dateData['date_formatted'] ?? $date }}</h5>
+                                                @include('admin.deliveries.partials.collection-table', ['items' => $dateData['collections'], 'type' => 'collection'])
+                                            @endforeach
+                                        @else
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle"></i> No processing collections found.
+                                            </div>
+                                        @endif
+                                    </div>
+
+                                    {{-- Completed Collections --}}
+                                    <div class="tab-pane fade" id="collections-completed" role="tabpanel" aria-labelledby="collections-completed-tab">
+                                        @if($statusCounts['completed'] > 0 && isset($scheduleData['collectionsByStatus']['completed']))
+                                            @foreach($scheduleData['collectionsByStatus']['completed'] as $date => $dateData)
+                                                <h5 class="mt-3 mb-3 text-success">{{ $dateData['date_formatted'] ?? $date }}</h5>
+                                                @include('admin.deliveries.partials.collection-table', ['items' => $dateData['collections'], 'type' => 'collection'])
+                                            @endforeach
+                                        @else
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle"></i> No completed collections found.
+                                            </div>
+                                        @endif
+                                    </div>
+
+                                    {{-- Refunded Collections --}}
+                                    <div class="tab-pane fade" id="collections-refunded" role="tabpanel" aria-labelledby="collections-refunded-tab">
+                                        @if($statusCounts['refunded'] > 0 && isset($scheduleData['collectionsByStatus']['refunded']))
+                                            @foreach($scheduleData['collectionsByStatus']['refunded'] as $date => $dateData)
+                                                <h5 class="mt-3 mb-3 text-secondary">{{ $dateData['date_formatted'] ?? $date }}</h5>
+                                                @include('admin.deliveries.partials.collection-table', ['items' => $dateData['collections'], 'type' => 'collection'])
+                                            @endforeach
+                                        @else
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle"></i> No refunded collections found.
+                                            </div>
+                                        @endif
+                                    </div>
 
                                     {{-- Other Status Collections --}}
-                                    @if($statusCounts['other'] > 0)
                                     <div class="tab-pane fade" id="collections-other" role="tabpanel" aria-labelledby="collections-other-tab">
-                                        @if(isset($scheduleData['collectionsByStatus']['other']))
+                                        @if($statusCounts['other'] > 0 && isset($scheduleData['collectionsByStatus']['other']))
                                             @foreach($scheduleData['collectionsByStatus']['other'] as $date => $dateData)
                                                 <h5 class="mt-3 mb-3 text-secondary">{{ $dateData['date_formatted'] ?? $date }}</h5>
                                                 @include('admin.deliveries.partials.collection-table', ['items' => $dateData['collections'], 'type' => 'collection'])
                                             @endforeach
+                                        @else
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle"></i> No other status collections found.
+                                            </div>
                                         @endif
                                     </div>
-                                    @endif
                                 </div>
                             @else
                                 <div class="alert alert-info">
