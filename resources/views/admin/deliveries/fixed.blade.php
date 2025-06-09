@@ -1,26 +1,25 @@
 @extends('layouts.app')
 
 @section('title', 'Delivery Schedule Management')
+@section('page-title', 'Delivery Schedule Management')
 
 @section('content')
-<div class="container">
-    <h1>Delivery Schedule Management</h1>
-    <p>Real-time delivery data from WooCommerce</p>
+<div class="mb-4">
+    <p class="text-muted">Real-time delivery data from WooCommerce database</p>
     
-    {{-- Data Source Status --}}
+    {{-- Database Connection Status --}}
     <div class="alert alert-success mb-4">
         <div class="row align-items-center">
             <div class="col-md-8">
-                <h5 class="mb-1"><i class="fas fa-database"></i> Direct Database Connection</h5>
-                <p class="mb-0">
-                    <strong>Data Source:</strong> WooCommerce MySQL Database (Direct Connection)
-                    <br><small class="text-muted">Real-time data retrieval from WordPress/WooCommerce tables - No API dependencies</small>
-                </p>
+                <h6 class="mb-1"><i class="fas fa-database me-2"></i>Direct Database Connection Active</h6>
+                <p class="mb-0"><strong>Data Source:</strong> WooCommerce Database | <strong>Status:</strong> Connected</p>
+                @if($totalDeliveries > 0 || $totalCollections > 0)
+                    <small class="text-muted">Live data: {{ $totalDeliveries }} deliveries, {{ $totalCollections }} collections</small>
+                @endif
             </div>
             <div class="col-md-4 text-end">
-                <span class="badge bg-success fs-6">
-                    <i class="fas fa-check-circle"></i> Live Data Active
-                </span>
+                <span class="badge bg-success">{{ $totalDeliveries }} deliveries</span>
+                <span class="badge bg-primary ms-1">{{ $totalCollections }} collections</span>
             </div>
         </div>
     </div>
@@ -732,7 +731,7 @@
             <i class="fas fa-info-circle"></i> No schedule data available.
         </div>
     @endif
-</div>
+@endsection
 
 @section('scripts')
 <script>
@@ -795,5 +794,4 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
-@endsection
 @endsection
