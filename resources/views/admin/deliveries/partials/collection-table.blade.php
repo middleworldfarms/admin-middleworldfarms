@@ -5,7 +5,7 @@
             <tr>
                 <th>Customer</th>
                 <th>Address</th>
-                <th>Products</th>
+                <th>Products/Notes</th>
                 <th>Contact</th>
                 <th>Frequency</th>
                 <th>Week</th>
@@ -18,60 +18,66 @@
             @foreach($items as $collection)
                 <tr>
                     <td>
-                        <strong>{{ $collection['name'] ?? 'N/A' }}</strong>
-                        @if(isset($collection['id']))
-                            <br><small class="text-muted">ID: {{ $collection['id'] }}</small>
+                        <strong>{{ $collection['customer_name'] ?? 'N/A' }}</strong>
+                        @if(isset($collection['order_number']))
+                            <br><small class="text-muted">ID: {{ $collection['order_number'] }}</small>
                         @endif
                     </td>
                     <td>
-                        @if(isset($collection['address']) && is_array($collection['address']))
-                            @foreach($collection['address'] as $line)
-                                @if(!empty($line))
-                                    {{ $line }}<br>
-                                @endif
-                            @endforeach
+                        @if(isset($collection['shipping_address']) && is_array($collection['shipping_address']))
+                            {{ $collection['shipping_address']['first_name'] ?? '' }} {{ $collection['shipping_address']['last_name'] ?? '' }}<br>
+                            @if(!empty($collection['shipping_address']['address_1']))
+                                {{ $collection['shipping_address']['address_1'] }}<br>
+                            @endif
+                            @if(!empty($collection['shipping_address']['address_2']))
+                                {{ $collection['shipping_address']['address_2'] }}<br>
+                            @endif
+                            @if(!empty($collection['shipping_address']['city']))
+                                {{ $collection['shipping_address']['city'] }}<br>
+                            @endif
+                            @if(!empty($collection['shipping_address']['postcode']))
+                                {{ $collection['shipping_address']['postcode'] }}
+                            @endif
+                        @elseif(isset($collection['billing_address']) && is_array($collection['billing_address']))
+                            {{ $collection['billing_address']['first_name'] ?? '' }} {{ $collection['billing_address']['last_name'] ?? '' }}<br>
+                            @if(!empty($collection['billing_address']['address_1']))
+                                {{ $collection['billing_address']['address_1'] }}<br>
+                            @endif
+                            @if(!empty($collection['billing_address']['address_2']))
+                                {{ $collection['billing_address']['address_2'] }}<br>
+                            @endif
+                            @if(!empty($collection['billing_address']['city']))
+                                {{ $collection['billing_address']['city'] }}<br>
+                            @endif
+                            @if(!empty($collection['billing_address']['postcode']))
+                                {{ $collection['billing_address']['postcode'] }}
+                            @endif
                         @else
                             N/A
                         @endif
                     </td>
                     <td>
-                        @if(isset($collection['products']) && is_array($collection['products']))
-                            @foreach($collection['products'] as $product)
-                                <div class="mb-1">
-                                    <strong>{{ $product['name'] ?? 'Product' }}</strong>
-                                    @if(isset($product['quantity']))
-                                        <span class="badge bg-secondary">{{ $product['quantity'] }}</span>
-                                    @endif
-                                </div>
-                            @endforeach
+                        @if(!empty($collection['special_instructions']) || !empty($collection['delivery_notes']))
+                            {{ $collection['special_instructions'] ?? $collection['delivery_notes'] ?? 'N/A' }}
                         @else
-                            N/A
+                            <small class="text-muted">£{{ number_format($collection['total'] ?? 0, 2) }}</small>
                         @endif
                     </td>
                     <td>
-                        @if(isset($collection['phone']) && !empty($collection['phone']))
-                            <i class="fas fa-phone"></i> {{ $collection['phone'] }}<br>
+                        @if(!empty($collection['billing_address']['phone']))
+                            <i class="fas fa-phone"></i> {{ $collection['billing_address']['phone'] }}<br>
                         @endif
-                        @if(isset($collection['email']) && !empty($collection['email']))
-                            <i class="fas fa-envelope"></i> {{ $collection['email'] }}
+                        @if(!empty($collection['customer_email']))
+                            <i class="fas fa-envelope"></i> {{ $collection['customer_email'] }}
                         @endif
                     </td>
                     <td>
-                        <span class="badge bg-{{ $collection['frequency_badge'] ?? 'secondary' }}">
-                            {{ $collection['frequency'] ?? 'Weekly' }}
+                        <span class="badge bg-{{ $collection['type'] === 'subscription' ? 'success' : 'info' }}">
+                            {{ $collection['type'] === 'subscription' ? 'Weekly Collection' : 'One-time' }}
                         </span>
                     </td>
                     <td>
-                        @if(isset($collection['frequency']) && strtolower($collection['frequency']) === 'fortnightly')
-                            <span class="badge bg-{{ $collection['week_badge'] ?? 'secondary' }}">
-                                Week {{ $collection['week_type'] ?? 'A' }}
-                            </span>
-                            @if(isset($collection['should_deliver']) && !$collection['should_deliver'])
-                                <br><small class="text-muted">Skip week</small>
-                            @endif
-                        @else
-                            <span class="text-muted">-</span>
-                        @endif
+                        <span class="text-muted">-</span>
                     </td>
                     <td>
                         <span class="badge bg-{{ isset($collection['status']) && $collection['status'] === 'active' ? 'success' : 'warning' }}">
@@ -90,13 +96,13 @@
                         @endif
                     </td>
                     <td>
-                        @if(isset($collection['id']) && !empty($collection['id']))
-                            <a href="{{ route('admin.users.switch', ['userId' => $collection['id']]) }}" 
-                               class="btn btn-sm btn-outline-primary" 
-                               title="Switch to this user's account"
-                               target="_blank">
-                                <i class="fas fa-user-circle"></i> Switch
-                            </a>
+                        @if(!empty($collection['customer_email']))
+                            <button class="btn btn-sm btn-outline-primary user-switch-btn" 
+                                    data-email="{{ $collection['customer_email'] }}" 
+                                    data-name="{{ $collection['customer_name'] ?? 'Customer' }}"
+                                    title="Switch to this user's account">
+                                <i class="fas fa-user-circle"></i> Switch to User
+                            </button>
                         @else
                             <span class="text-muted">-</span>
                         @endif

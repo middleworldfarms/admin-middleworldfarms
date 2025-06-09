@@ -5,7 +5,7 @@
             <tr>
                 <th>Customer</th>
                 <th>Address</th>
-                <th>Products</th>
+                <th>Products/Notes</th>
                 <th>Contact</th>
                 <th>Frequency</th>
                 <th>Week</th>
@@ -17,74 +17,80 @@
             @foreach($items as $delivery)
                 <tr>
                     <td>
-                        <strong>{{ $delivery['name'] ?? 'N/A' }}</strong>
-                        @if(isset($delivery['id']))
-                            <br><small class="text-muted">ID: {{ $delivery['id'] }}</small>
+                        <strong>{{ $delivery['customer_name'] ?? 'N/A' }}</strong>
+                        @if(isset($delivery['order_number']))
+                            <br><small class="text-muted">ID: {{ $delivery['order_number'] }}</small>
                         @endif
                     </td>
                     <td>
-                        @if(isset($delivery['address']) && is_array($delivery['address']))
-                            @foreach($delivery['address'] as $line)
-                                @if(!empty($line))
-                                    {{ $line }}<br>
-                                @endif
-                            @endforeach
+                        @if(isset($delivery['shipping_address']) && is_array($delivery['shipping_address']))
+                            {{ $delivery['shipping_address']['first_name'] ?? '' }} {{ $delivery['shipping_address']['last_name'] ?? '' }}<br>
+                            @if(!empty($delivery['shipping_address']['address_1']))
+                                {{ $delivery['shipping_address']['address_1'] }}<br>
+                            @endif
+                            @if(!empty($delivery['shipping_address']['address_2']))
+                                {{ $delivery['shipping_address']['address_2'] }}<br>
+                            @endif
+                            @if(!empty($delivery['shipping_address']['city']))
+                                {{ $delivery['shipping_address']['city'] }}<br>
+                            @endif
+                            @if(!empty($delivery['shipping_address']['postcode']))
+                                {{ $delivery['shipping_address']['postcode'] }}
+                            @endif
+                        @elseif(isset($delivery['billing_address']) && is_array($delivery['billing_address']))
+                            {{ $delivery['billing_address']['first_name'] ?? '' }} {{ $delivery['billing_address']['last_name'] ?? '' }}<br>
+                            @if(!empty($delivery['billing_address']['address_1']))
+                                {{ $delivery['billing_address']['address_1'] }}<br>
+                            @endif
+                            @if(!empty($delivery['billing_address']['address_2']))
+                                {{ $delivery['billing_address']['address_2'] }}<br>
+                            @endif
+                            @if(!empty($delivery['billing_address']['city']))
+                                {{ $delivery['billing_address']['city'] }}<br>
+                            @endif
+                            @if(!empty($delivery['billing_address']['postcode']))
+                                {{ $delivery['billing_address']['postcode'] }}
+                            @endif
                         @else
                             N/A
                         @endif
                     </td>
                     <td>
-                        @if(isset($delivery['products']) && is_array($delivery['products']))
-                            @foreach($delivery['products'] as $product)
-                                <div class="mb-1">
-                                    <strong>{{ $product['name'] ?? 'Product' }}</strong>
-                                    @if(isset($product['quantity']))
-                                        <span class="badge bg-secondary">{{ $product['quantity'] }}</span>
-                                    @endif
-                                </div>
-                            @endforeach
+                        @if(!empty($delivery['special_instructions']) || !empty($delivery['delivery_notes']))
+                            {{ $delivery['special_instructions'] ?? $delivery['delivery_notes'] ?? 'N/A' }}
                         @else
-                            N/A
+                            <small class="text-muted">£{{ number_format($delivery['total'] ?? 0, 2) }}</small>
                         @endif
                     </td>
                     <td>
-                        @if(isset($delivery['phone']) && !empty($delivery['phone']))
-                            <i class="fas fa-phone"></i> {{ $delivery['phone'] }}<br>
+                        @if(!empty($delivery['billing_address']['phone']))
+                            <i class="fas fa-phone"></i> {{ $delivery['billing_address']['phone'] }}<br>
                         @endif
-                        @if(isset($delivery['email']) && !empty($delivery['email']))
-                            <i class="fas fa-envelope"></i> {{ $delivery['email'] }}
+                        @if(!empty($delivery['customer_email']))
+                            <i class="fas fa-envelope"></i> {{ $delivery['customer_email'] }}
                         @endif
                     </td>
                     <td>
-                        <span class="badge bg-{{ $delivery['frequency_badge'] ?? 'secondary' }}">
-                            {{ $delivery['frequency'] ?? 'Weekly' }}
+                        <span class="badge bg-{{ $delivery['type'] === 'order' ? 'warning' : 'primary' }}">
+                            {{ $delivery['type'] === 'order' ? 'One-time Delivery' : 'Weekly' }}
                         </span>
                     </td>
                     <td>
-                        @if(isset($delivery['frequency']) && strtolower($delivery['frequency']) === 'fortnightly')
-                            <span class="badge bg-{{ $delivery['week_badge'] ?? 'secondary' }}">
-                                Week {{ $delivery['week_type'] ?? 'A' }}
-                            </span>
-                            @if(isset($delivery['should_deliver']) && !$delivery['should_deliver'])
-                                <br><small class="text-muted">Skip week</small>
-                            @endif
-                        @else
-                            <span class="text-muted">-</span>
-                        @endif
+                        <span class="text-muted">-</span>
                     </td>
                     <td>
-                        <span class="badge bg-{{ isset($delivery['status']) && $delivery['status'] === 'active' ? 'success' : 'warning' }}">
+                        <span class="badge bg-{{ $delivery['status'] === 'processing' ? 'warning' : ($delivery['status'] === 'completed' ? 'success' : 'secondary') }}">
                             {{ ucfirst($delivery['status'] ?? 'pending') }}
                         </span>
                     </td>
                     <td>
-                        @if(isset($delivery['id']) && !empty($delivery['id']))
-                            <a href="{{ route('admin.users.switch', ['userId' => $delivery['id']]) }}" 
-                               class="btn btn-sm btn-outline-primary" 
-                               title="Switch to this user's account"
-                               target="_blank">
-                                <i class="fas fa-user-circle"></i> Switch
-                            </a>
+                        @if(!empty($delivery['customer_email']))
+                            <button class="btn btn-sm btn-outline-primary user-switch-btn" 
+                                    data-email="{{ $delivery['customer_email'] }}" 
+                                    data-name="{{ $delivery['customer_name'] ?? 'Customer' }}"
+                                    title="Switch to this user's account">
+                                <i class="fas fa-user-circle"></i> Switch to User
+                            </button>
                         @else
                             <span class="text-muted">-</span>
                         @endif

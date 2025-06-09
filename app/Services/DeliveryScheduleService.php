@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Services\DirectDatabaseService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -9,17 +10,53 @@ class DeliveryScheduleService
 {
     private $baseUrl;
     private $apiKey;
+    private $directDb;
 
-    public function __construct()
+    public function __construct(DirectDatabaseService $directDb)
     {
         $this->baseUrl = config('services.woocommerce.api_url', 'https://middleworldfarms.org');
         $this->apiKey = config('services.wordpress.api_key');
+        $this->directDb = $directDb;
     }
 
     public function getSchedule($startDate = null, $endDate = null, $status = 'active')
     {
         try {
-            // First try to get WooCommerce subscription data
+            Log::info('Getting delivery schedule data via direct database connection');
+            
+            // Use direct database connection instead of API
+            $scheduleData = $this->directDb->getDeliveryScheduleData(100);
+            
+            if (isset($scheduleData['error'])) {
+                throw new \Exception($scheduleData['error']);
+            }
+
+            return [
+                'success' => true,
+                'deliveries' => $scheduleData['deliveries']->toArray(),
+                'collections' => $scheduleData['collections']->toArray(),
+                'total_deliveries' => $scheduleData['total_deliveries'],
+                'total_collections' => $scheduleData['total_collections'],
+                'data_source' => 'direct_database_connection',
+                'message' => 'Data retrieved directly from WordPress/WooCommerce database'
+            ];
+            
+        } catch (\Exception $e) {
+            Log::warning('Direct database failed, falling back to API', [
+                'error' => $e->getMessage()
+            ]);
+            
+            // Fallback to API method if direct database fails
+            return $this->getScheduleViaAPI($startDate, $endDate, $status);
+        }
+    }
+
+    /**
+     * Fallback method using WooCommerce API
+     */
+    private function getScheduleViaAPI($startDate = null, $endDate = null, $status = 'active')
+    {
+        try {
             $consumerKey = config('services.woocommerce.consumer_key');
             $consumerSecret = config('services.woocommerce.consumer_secret');
             
@@ -29,18 +66,6 @@ class DeliveryScheduleService
                 'orderby' => 'date',
                 'order' => 'desc'
             ];
-
-            if ($startDate) {
-                $params['after'] = $startDate . 'T00:00:00';
-            }
-            if ($endDate) {
-                $params['before'] = $endDate . 'T23:59:59';
-            }
-
-            // Try WooCommerce subscriptions first
-            $response = Http::timeout(30)
-                ->withBasicAuth($consumerKey, $consumerSecret)
-                ->get($this->baseUrl . '/wp-json/wc/v3/subscriptions', $params);
 
             if ($response->successful()) {
                 $subscriptions = $response->json();

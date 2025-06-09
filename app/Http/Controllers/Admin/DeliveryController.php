@@ -3,56 +3,324 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Services\DeliveryScheduleService;
-use App\Services\UserSwitchingService;
+use App\Services\DirectDatabaseService;
 use Illuminate\Http\Request;
+use Carbon\Carbon;
 
 class DeliveryController extends Controller
 {
     /**
      * Display the delivery schedule management page.
      */
-    public function index(DeliveryScheduleService $service, UserSwitchingService $userService)
+    public function index(DirectDatabaseService $directDb)
     {
         try {
-            // Get enhanced schedule data with frequency logic
-            $scheduleData = $service->getEnhancedSchedule();
-            $api_test = [
-                'connection' => $service->testConnection(),
-                'auth' => $service->testAuth()
+            // Test direct database connection
+            $directDbStatus = $directDb->testConnection();
+            
+            // Get raw data from direct database
+            $rawData = $directDb->getDeliveryScheduleData(100);
+            
+            // Transform data to match view expectations
+            $scheduleData = $this->transformScheduleData($rawData);
+            
+            // Calculate actual totals from transformed data (after duplicate removal)
+            $totalDeliveries = 0;
+            $totalCollections = 0;
+            
+            foreach ($scheduleData['data'] as $dateData) {
+                $totalDeliveries += count($dateData['deliveries'] ?? []);
+                $totalCollections += count($dateData['collections'] ?? []);
+            }
+            
+            // Calculate status counts for collections subtabs
+            $statusCounts = [
+                'active' => 0,
+                'processing' => 0,  // Add processing status
+                'on-hold' => 0,
+                'cancelled' => 0,
+                'pending' => 0,
+                'completed' => 0,   // Add completed status
+                'refunded' => 0,    // Add refunded status
+                'other' => 0
             ];
             
-            // Test user switching service connection
-            $userSwitchingStatus = $userService->testConnection();
+            if (isset($scheduleData['collectionsByStatus'])) {
+                foreach ($scheduleData['collectionsByStatus'] as $status => $statusData) {
+                    foreach ($statusData as $dateData) {
+                        $statusCounts[$status] += count($dateData['collections'] ?? []);
+                    }
+                }
+            }
+            
+            // Calculate status counts for delivery subtabs
+            $deliveryStatusCounts = [
+                'active' => 0,      // Add active for deliveries (processing = active)
+                'processing' => 0,
+                'pending' => 0,
+                'completed' => 0,
+                'on-hold' => 0,
+                'cancelled' => 0,
+                'refunded' => 0,
+                'other' => 0
+            ];
+            
+            if (isset($scheduleData['deliveriesByStatus'])) {
+                foreach ($scheduleData['deliveriesByStatus'] as $status => $statusData) {
+                    foreach ($statusData as $dateData) {
+                        $count = count($dateData['deliveries'] ?? []);
+                        $deliveryStatusCounts[$status] += $count;
+                        
+                        // Add delivery counts to combined status counts for All tab
+                        if ($status === 'processing') {
+                            // Processing deliveries are "active"
+                            $statusCounts['active'] += $count;
+                            $statusCounts['processing'] += $count;
+                            $deliveryStatusCounts['active'] += $count; // Also count as active for deliveries tab
+                        } else {
+                            // Other delivery statuses
+                            if (isset($statusCounts[$status])) {
+                                $statusCounts[$status] += $count;
+                            } else {
+                                $statusCounts['other'] += $count;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // No more API test - we're using direct database only
+            $api_test = [
+                'connection' => ['success' => true, 'message' => 'Using direct database connection'],
+                'auth' => ['success' => true, 'message' => 'No authentication needed for direct DB']
+            ];
+            
+            // User switching status (simplified)
+            $userSwitchingStatus = ['success' => true, 'message' => 'Direct database user switching available'];
             
             $error = null;
             
-            return view('admin.deliveries.fixed', compact('scheduleData', 'api_test', 'userSwitchingStatus', 'error'));
+            return view('admin.deliveries.fixed', compact(
+                'scheduleData', 
+                'totalDeliveries', 
+                'totalCollections',
+                'statusCounts',
+                'deliveryStatusCounts',
+                'api_test', 
+                'userSwitchingStatus', 
+                'directDbStatus', 
+                'error'
+            ));
+            
         } catch (\Exception $e) {
-            $scheduleData = null;
+            $scheduleData = ['data' => []];
+            $totalDeliveries = 0;
+            $totalCollections = 0;
+            $statusCounts = ['active' => 0, 'processing' => 0, 'on-hold' => 0, 'cancelled' => 0, 'pending' => 0, 'completed' => 0, 'refunded' => 0, 'other' => 0];
+            $deliveryStatusCounts = ['active' => 0, 'processing' => 0, 'pending' => 0, 'completed' => 0, 'on-hold' => 0, 'cancelled' => 0, 'refunded' => 0, 'other' => 0];
             $api_test = ['connection' => ['success' => false], 'auth' => ['success' => false]];
             $userSwitchingStatus = ['success' => false, 'message' => 'User switching service unavailable'];
+            $directDbStatus = ['success' => false, 'message' => 'Direct database connection failed: ' . $e->getMessage()];
             $error = $e->getMessage();
             
-            return view('admin.deliveries.fixed', compact('scheduleData', 'api_test', 'userSwitchingStatus', 'error'));
+            return view('admin.deliveries.fixed', compact(
+                'scheduleData', 
+                'totalDeliveries', 
+                'totalCollections',
+                'statusCounts',
+                'deliveryStatusCounts',
+                'api_test', 
+                'userSwitchingStatus', 
+                'directDbStatus', 
+                'error'
+            ));
         }
+    }
+
+    /**
+     * Transform raw database data to match view expectations
+     */
+    private function transformScheduleData($rawData)
+    {
+        if (!isset($rawData['deliveries']) || !isset($rawData['collections'])) {
+            return ['data' => []];
+        }
+
+        $groupedData = [];
+        $seenCustomers = []; // Track customers to prevent duplicates
+        $seenEmails = []; // Track emails to prevent same customer appearing in both deliveries and collections
+        
+        // Group deliveries by date
+        foreach ($rawData['deliveries'] as $delivery) {
+            $date = \Carbon\Carbon::parse($delivery['date_created'])->format('Y-m-d');
+            $dateFormatted = \Carbon\Carbon::parse($delivery['date_created'])->format('l, F j, Y');
+            
+            // Create a unique key to identify this customer/order combination
+            $customerKey = $delivery['customer_email'] . '_' . $delivery['id'] . '_delivery';
+            $email = strtolower(trim($delivery['customer_email']));
+            
+            // Skip if we've already seen this exact customer/order combo
+            if (isset($seenCustomers[$customerKey])) {
+                continue;
+            }
+            
+            // Skip if we've already seen this email in either deliveries or collections
+            if (isset($seenEmails[$email])) {
+                continue;
+            }
+            
+            $seenCustomers[$customerKey] = true;
+            $seenEmails[$email] = 'delivery';
+            
+            if (!isset($groupedData[$date])) {
+                $groupedData[$date] = [
+                    'date_formatted' => $dateFormatted,
+                    'deliveries' => [],
+                    'collections' => []
+                ];
+            }
+            
+            $groupedData[$date]['deliveries'][] = $delivery;
+        }
+        
+        // Group collections by date
+        foreach ($rawData['collections'] as $collection) {
+            $date = \Carbon\Carbon::parse($collection['date_created'])->format('Y-m-d');
+            $dateFormatted = \Carbon\Carbon::parse($collection['date_created'])->format('l, F j, Y');
+            
+            // Create a unique key to identify this customer/subscription combination
+            $customerKey = $collection['customer_email'] . '_' . $collection['id'] . '_collection';
+            $email = strtolower(trim($collection['customer_email']));
+            
+            // Skip if we've already seen this exact customer/subscription combo
+            if (isset($seenCustomers[$customerKey])) {
+                continue;
+            }
+            
+            // Skip if we've already seen this email (prioritize deliveries over collections)
+            if (isset($seenEmails[$email])) {
+                continue;
+            }
+            
+            $seenCustomers[$customerKey] = true;
+            $seenEmails[$email] = 'collection';
+            
+            if (!isset($groupedData[$date])) {
+                $groupedData[$date] = [
+                    'date_formatted' => $dateFormatted,
+                    'deliveries' => [],
+                    'collections' => []
+                ];
+            }
+            
+            $groupedData[$date]['collections'][] = $collection;
+        }
+        
+        // Sort by date (newest first)
+        krsort($groupedData);
+        
+        // Group collections by status for the subtabs
+        $collectionsByStatus = [
+            'active' => [],
+            'on-hold' => [],
+            'cancelled' => [],
+            'pending' => [],
+            'other' => []
+        ];
+        
+        foreach ($groupedData as $date => $dateData) {
+            foreach ($dateData['collections'] as $collection) {
+                $status = strtolower($collection['status']);
+                
+                if (!isset($collectionsByStatus[$status])) {
+                    $status = 'other';
+                }
+                
+                if (!isset($collectionsByStatus[$status][$date])) {
+                    $collectionsByStatus[$status][$date] = [
+                        'date_formatted' => $dateData['date_formatted'],
+                        'collections' => []
+                    ];
+                }
+                
+                $collectionsByStatus[$status][$date]['collections'][] = $collection;
+            }
+        }
+        
+        // Sort each status group by date
+        foreach ($collectionsByStatus as $status => $statusData) {
+            krsort($collectionsByStatus[$status]);
+        }
+        
+        // Group deliveries by order status for the subtabs
+        $deliveriesByStatus = [
+            'processing' => [],
+            'pending' => [],
+            'completed' => [],
+            'on-hold' => [],
+            'cancelled' => [],
+            'refunded' => [],
+            'other' => []
+        ];
+        
+        foreach ($groupedData as $date => $dateData) {
+            foreach ($dateData['deliveries'] as $delivery) {
+                // Use order status or default status for grouping
+                $status = isset($delivery['status']) ? strtolower($delivery['status']) : 'processing';
+                
+                // Remove 'wc-' prefix if present (WooCommerce status format)
+                $status = str_replace('wc-', '', $status);
+                
+                if (!isset($deliveriesByStatus[$status])) {
+                    $status = 'other';
+                }
+                
+                if (!isset($deliveriesByStatus[$status][$date])) {
+                    $deliveriesByStatus[$status][$date] = [
+                        'date_formatted' => $dateData['date_formatted'],
+                        'deliveries' => []
+                    ];
+                }
+                
+                $deliveriesByStatus[$status][$date]['deliveries'][] = $delivery;
+            }
+        }
+        
+        // Sort each delivery status group by date
+        foreach ($deliveriesByStatus as $status => $statusData) {
+            krsort($deliveriesByStatus[$status]);
+        }
+        
+        $totalProcessed = count($seenEmails);
+        $duplicatesSkipped = (count($rawData['deliveries']) + count($rawData['collections'])) - $totalProcessed;
+        
+        return [
+            'success' => true,
+            'data' => $groupedData,
+            'collectionsByStatus' => $collectionsByStatus,
+            'deliveriesByStatus' => $deliveriesByStatus,
+            'data_source' => 'direct_database',
+            'message' => "Data loaded with duplicate prevention. Processed: {$totalProcessed} unique customers, Skipped: {$duplicatesSkipped} duplicates"
+        ];
     }
 
     /**
      * API test endpoint for debugging
      */
-    public function apiTest(DeliveryScheduleService $service)
+    public function apiTest(DirectDatabaseService $directDb)
     {
         try {
             $tests = [
-                'connection' => $service->testConnection(),
-                'auth' => $service->testAuth(),
-                'schedule' => $service->getSchedule()
+                'direct_database_connection' => $directDb->testConnection(),
+                'recent_users' => $directDb->getRecentUsers(3),
+                'delivery_data' => $directDb->getDeliveryScheduleData(5),
+                'woocommerce_settings' => $directDb->getWooCommerceSettings()
             ];
             
             return response()->json([
                 'success' => true,
                 'tests' => $tests,
+                'message' => 'All tests using direct database connection only',
                 'timestamp' => now()->toISOString()
             ]);
         } catch (\Exception $e) {

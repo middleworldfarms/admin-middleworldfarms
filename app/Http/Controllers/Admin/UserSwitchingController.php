@@ -3,37 +3,39 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Services\UserSwitchingService;
+use App\Services\DirectDatabaseService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class UserSwitchingController extends Controller
 {
-    protected UserSwitchingService $userSwitchingService;
+    protected DirectDatabaseService $directDb;
 
-    public function __construct(UserSwitchingService $userSwitchingService)
+    public function __construct(DirectDatabaseService $directDb)
     {
-        $this->userSwitchingService = $userSwitchingService;
+        $this->directDb = $directDb;
     }
 
     /**
-     * Test the user switching API connection
+     * Test the direct database connection
      */
     public function test()
     {
-        $result = $this->userSwitchingService->testConnection();
-        
-        if ($result['success']) {
-            $recentUsers = $this->userSwitchingService->getRecentUsers(5);
+        try {
+            $connectionTest = $this->directDb->testConnection();
+            $recentUsers = $this->directDb->getRecentUsers(5);
             
             return response()->json([
-                'success' => true,
-                'message' => $result['message'],
-                'recent_users_count' => count($recentUsers),
-                'sample_users' => $recentUsers
+                'connection' => $connectionTest,
+                'sample_users' => $recentUsers,
+                'method' => 'direct_database_access'
             ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+                'method' => 'direct_database_access'
+            ], 500);
         }
-
-        return response()->json($result, 500);
     }
 
     /**
@@ -41,14 +43,14 @@ class UserSwitchingController extends Controller
      */
     public function index(Request $request)
     {
-        $recentUsers = $this->userSwitchingService->getRecentUsers(20);
+        $recentUsers = $this->directDb->getRecentUsers(20);
         $searchResults = [];
         $searchQuery = '';
 
         // Handle search
         if ($request->has('search') && !empty($request->search)) {
             $searchQuery = $request->search;
-            $searchResults = $this->userSwitchingService->searchUsers($searchQuery, 50);
+            $searchResults = $this->directDb->searchUsers($searchQuery, 50);
         }
 
         return view('admin.user-switching.index', compact(
@@ -73,7 +75,7 @@ class UserSwitchingController extends Controller
             ]);
         }
 
-        $users = $this->userSwitchingService->searchUsers($query, $limit);
+        $users = $this->directDb->searchUsers($query, $limit);
 
         return response()->json([
             'success' => true,
@@ -87,7 +89,7 @@ class UserSwitchingController extends Controller
      */
     public function getUserDetails($userId)
     {
-        $user = $this->userSwitchingService->getUserById($userId);
+        $user = $this->directDb->getUserById($userId);
 
         if (!$user) {
             return response()->json([
@@ -99,7 +101,7 @@ class UserSwitchingController extends Controller
         // Get user funds balance
         $funds = 0;
         if (!empty($user['email'])) {
-            $funds = $this->userSwitchingService->getUserFunds($user['email']);
+            $funds = $this->directDb->getUserFunds($user['email']);
         }
 
         $user['account_funds'] = $funds;
@@ -117,7 +119,7 @@ class UserSwitchingController extends Controller
     {
         $redirectTo = $request->get('redirect_to', '/my-account/');
         
-        $switchUrl = $this->userSwitchingService->switchToUser(
+        $switchUrl = $this->directDb->switchToUser(
             $userId, 
             $redirectTo,
             'laravel_admin_panel'
@@ -144,7 +146,7 @@ class UserSwitchingController extends Controller
     {
         $redirectTo = $request->get('redirect_to', '/my-account/');
         
-        $switchUrl = $this->userSwitchingService->switchToUser(
+        $switchUrl = $this->directDb->switchToUser(
             $userId,
             $redirectTo,
             'laravel_admin_direct'
@@ -164,7 +166,7 @@ class UserSwitchingController extends Controller
     public function getRecentUsers(Request $request)
     {
         $limit = $request->get('limit', 10);
-        $users = $this->userSwitchingService->getRecentUsers($limit);
+        $users = $this->directDb->getRecentUsers($limit);
 
         return response()->json([
             'success' => true,
@@ -189,16 +191,16 @@ class UserSwitchingController extends Controller
 
         try {
             // First, search for the user by email to get their ID
-            $users = $this->userSwitchingService->searchUsers($email, 1);
+            $users = $this->directDb->searchUsers($email, 1);
             
-            if (empty($users)) {
+            if (empty($users) || $users->isEmpty()) {
                 return response()->json([
                     'success' => false,
                     'error' => "No user found with email: {$email}"
                 ]);
             }
 
-            $user = $users[0];
+            $user = $users->first();
             $userId = $user['id'] ?? null;
 
             if (!$userId) {
@@ -209,7 +211,7 @@ class UserSwitchingController extends Controller
             }
 
             // Generate switch URL using the user ID
-            $switchUrl = $this->userSwitchingService->switchToUser(
+            $switchUrl = $this->directDb->switchToUser(
                 $userId,
                 $redirectTo,
                 'delivery_schedule_admin'
@@ -247,7 +249,7 @@ class UserSwitchingController extends Controller
      */
     public function redirect(int $userId)
     {
-        $switchUrl = $this->userSwitchingService->switchToUser(
+        $switchUrl = $this->directDb->switchToUser(
             $userId,
             '/my-account/',
             'admin_panel'
