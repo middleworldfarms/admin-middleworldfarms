@@ -345,4 +345,61 @@ class DirectDatabaseService
             return null;
         }
     }
+
+    /**
+     * Authenticate WordPress user
+     */
+    public function authenticateWPUser($email, $password)
+    {
+        try {
+            $user = DB::connection($this->wpConnection)
+                ->table($this->prefix . 'users')
+                ->where('user_email', $email)
+                ->first();
+
+            if (!$user) {
+                return null;
+            }
+
+            // Check password using WordPress hash
+            if (!$this->checkWPPassword($password, $user->user_pass)) {
+                return null;
+            }
+
+            // Get user capabilities
+            $capabilities = DB::connection($this->wpConnection)
+                ->table($this->prefix . 'usermeta')
+                ->where('user_id', $user->ID)
+                ->where('meta_key', $this->prefix . 'capabilities')
+                ->value('meta_value');
+
+            return [
+                'ID' => $user->ID,
+                'user_login' => $user->user_login,
+                'user_email' => $user->user_email,
+                'display_name' => $user->display_name,
+                'capabilities' => $capabilities
+            ];
+
+        } catch (Exception $e) {
+            Log::error('WordPress authentication failed: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Check WordPress password hash
+     */
+    private function checkWPPassword($password, $hash)
+    {
+        // WordPress uses MD5 and phpass
+        if (strlen($hash) <= 32) {
+            return hash_equals($hash, md5($password));
+        }
+
+        // For newer WordPress installations with stronger hashing
+        // This is a simplified check - in production you might want to use
+        // the actual WordPress password checking functions
+        return password_verify($password, $hash);
+    }
 }

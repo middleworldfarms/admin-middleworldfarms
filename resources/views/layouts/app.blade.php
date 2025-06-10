@@ -191,6 +191,15 @@
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <h4><i class="fas fa-leaf me-2"></i>MWF Admin</h4>
+            @php
+                $adminUser = \App\Http\Controllers\Auth\LoginController::getAdminUser();
+            @endphp
+            @if($adminUser)
+                <div class="admin-info mt-2">
+                    <small class="text-muted d-block">Welcome back,</small>
+                    <small class="text-white fw-bold">{{ $adminUser['name'] ?? 'Admin' }}</small>
+                </div>
+            @endif
         </div>
         
         <nav class="nav flex-column">
@@ -246,6 +255,16 @@
                 <i class="fab fa-wordpress"></i>
                 <span>WordPress Admin</span>
             </a>
+            
+            <!-- Logout Section -->
+            <div class="nav-section mt-4">Account</div>
+            <form method="POST" action="{{ route('admin.logout') }}" class="d-inline">
+                @csrf
+                <button type="submit" class="nav-link text-start border-0 bg-transparent w-100" style="color: inherit;">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </button>
+            </form>
         </nav>
     </div>
     
