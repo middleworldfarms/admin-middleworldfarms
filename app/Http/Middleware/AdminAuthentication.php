@@ -30,26 +30,7 @@ class AdminAuthentication
             return redirect('/admin/login')->with('error', 'Please log in to access the admin panel.');
         }
 
-        // Check session timeout (optional - 2 hours default)
-        $adminUser = Session::get('admin_user');
-        if ($adminUser && isset($adminUser['login_time'])) {
-            $sessionTimeout = (int) env('ADMIN_SESSION_TIMEOUT', 120); // Cast to integer
-            $loginTime = \Carbon\Carbon::parse($adminUser['login_time']);
-            
-            if ($loginTime->addMinutes($sessionTimeout)->isPast()) {
-                \Log::info('Admin session expired', [
-                    'email' => $adminUser['email'],
-                    'login_time' => $loginTime,
-                    'duration' => $loginTime->diffInMinutes(now()) . ' minutes'
-                ]);
-
-                Session::forget('admin_authenticated');
-                Session::forget('admin_user');
-                
-                return redirect('/admin/login')->with('error', 'Your session has expired. Please log in again.');
-            }
-        }
-
+        // Simple session check without timeout for now
         // Update last activity timestamp
         Session::put('admin_last_activity', now());
 

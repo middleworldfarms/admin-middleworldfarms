@@ -146,7 +146,7 @@ class DeliveryController extends Controller
         $seenCustomers = []; // Track customers to prevent duplicates
         $seenEmails = []; // Track emails to prevent same customer appearing in both deliveries and collections
         
-        // Group deliveries by date
+        // Group deliveries by date and apply fortnightly logic
         foreach ($rawData['deliveries'] as $delivery) {
             $date = \Carbon\Carbon::parse($delivery['date_created'])->format('Y-m-d');
             $dateFormatted = \Carbon\Carbon::parse($delivery['date_created'])->format('l, F j, Y');
@@ -168,6 +168,9 @@ class DeliveryController extends Controller
             $seenCustomers[$customerKey] = true;
             $seenEmails[$email] = 'delivery';
             
+            // Apply fortnightly detection logic to the delivery (though most deliveries are one-time)
+            $delivery = $this->enhanceWithFortnightlyInfo($delivery, 'delivery');
+            
             if (!isset($groupedData[$date])) {
                 $groupedData[$date] = [
                     'date_formatted' => $dateFormatted,
@@ -179,7 +182,7 @@ class DeliveryController extends Controller
             $groupedData[$date]['deliveries'][] = $delivery;
         }
         
-        // Group collections by date
+        // Group collections by date and apply fortnightly logic
         foreach ($rawData['collections'] as $collection) {
             $date = \Carbon\Carbon::parse($collection['date_created'])->format('Y-m-d');
             $dateFormatted = \Carbon\Carbon::parse($collection['date_created'])->format('l, F j, Y');
@@ -200,6 +203,9 @@ class DeliveryController extends Controller
             
             $seenCustomers[$customerKey] = true;
             $seenEmails[$email] = 'collection';
+            
+            // Apply fortnightly detection logic to the collection
+            $collection = $this->enhanceWithFortnightlyInfo($collection);
             
             if (!isset($groupedData[$date])) {
                 $groupedData[$date] = [
@@ -298,6 +304,61 @@ class DeliveryController extends Controller
             'data_source' => 'direct_database',
             'message' => "Data loaded with duplicate prevention. Processed: {$totalProcessed} unique customers, Skipped: {$duplicatesSkipped} duplicates"
         ];
+    }
+
+    /**
+     * Enhance collection/delivery data with fortnightly information
+     */
+    private function enhanceWithFortnightlyInfo($item, $type = 'collection')
+    {
+        // Get current week information
+        $currentWeek = (int) date('W');
+        $currentWeekType = ($currentWeek % 2 === 1) ? 'A' : 'B';
+        
+        // Get frequency from the item data (stored in meta or default based on type)
+        $frequency = $item['frequency'] ?? ($type === 'delivery' ? 'One-time' : 'weekly');
+        
+        // If frequency is empty or not set, try to detect from subscription/order data
+        if (empty($frequency) || $frequency === 'weekly') {
+            // Check if this might be a fortnightly subscription by looking at meta data
+            if (isset($item['billing_interval']) && $item['billing_interval'] == 2) {
+                $frequency = 'Fortnightly';
+            } elseif (isset($item['billing_period']) && strpos(strtolower($item['billing_period']), 'fortnight') !== false) {
+                $frequency = 'Fortnightly';
+            } elseif ($type === 'delivery') {
+                $frequency = 'One-time';
+            }
+        }
+        
+        // Enhance the item with fortnightly data
+        $item['frequency'] = $frequency;
+        $item['current_week_type'] = $currentWeekType;
+        $item['current_iso_week'] = $currentWeek;
+        
+        if (strtolower($frequency) === 'fortnightly') {
+            // Use subscription/order ID to determine Week A/B assignment
+            $itemId = $item['id'] ?? 0;
+            $customerWeekType = ($itemId % 2 === 1) ? 'A' : 'B';
+            
+            $item['customer_week_type'] = $customerWeekType;
+            $item['should_deliver_this_week'] = ($customerWeekType === $currentWeekType);
+            $item['frequency_badge'] = $item['should_deliver_this_week'] ? 'warning' : 'secondary';
+            $item['week_badge'] = $customerWeekType === 'A' ? 'success' : 'info';
+        } elseif (strtolower($frequency) === 'weekly') {
+            // Weekly deliveries/collections
+            $item['customer_week_type'] = 'Weekly';
+            $item['should_deliver_this_week'] = true;
+            $item['frequency_badge'] = 'primary';
+            $item['week_badge'] = 'primary';
+        } else {
+            // One-time orders
+            $item['customer_week_type'] = 'One-time';
+            $item['should_deliver_this_week'] = true;
+            $item['frequency_badge'] = 'warning';
+            $item['week_badge'] = 'warning';
+        }
+        
+        return $item;
     }
 
     /**

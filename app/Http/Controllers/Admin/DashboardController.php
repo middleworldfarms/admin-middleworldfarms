@@ -24,7 +24,10 @@ class DashboardController extends Controller
             // Get customer statistics
             $customerStats = $this->getCustomerStats();
             
-            return view('admin.dashboard', compact('deliveryStats', 'customerStats'));
+            // Get fortnightly information
+            $fortnightlyInfo = $this->getFortnightlyInfo();
+            
+            return view('admin.dashboard', compact('deliveryStats', 'customerStats', 'fortnightlyInfo'));
             
         } catch (\Exception $e) {
             // Fallback stats if database connection fails
@@ -39,7 +42,14 @@ class DashboardController extends Controller
                 'active' => 0
             ];
             
-            return view('admin.dashboard', compact('deliveryStats', 'customerStats'));
+            $fortnightlyInfo = [
+                'current_week' => 'A',
+                'weekly_count' => 0,
+                'fortnightly_count' => 0,
+                'active_this_week' => 0
+            ];
+            
+            return view('admin.dashboard', compact('deliveryStats', 'customerStats', 'fortnightlyInfo'));
         }
     }
 
@@ -94,6 +104,47 @@ class DashboardController extends Controller
                 'active' => 0,
                 'new_this_week' => 0,
                 'orders_this_month' => 0
+            ];
+        }
+    }
+
+    private function getFortnightlyInfo()
+    {
+        try {
+            // Get current week information
+            $currentWeek = (int) date('W');
+            $currentWeekType = ($currentWeek % 2 === 1) ? 'A' : 'B';
+            
+            // Get fortnightly schedule data
+            $fortnightlyData = $this->directDbService->getFortnightlySchedule($currentWeekType);
+            
+            // Get weekly subscriptions count
+            $weeklyCount = $this->directDbService->getWeeklySubscriptionsCount();
+            
+            return [
+                'current_week' => $currentWeekType,
+                'current_iso_week' => $currentWeek,
+                'weekly_count' => $weeklyCount,
+                'fortnightly_count' => $fortnightlyData['count'] ?? 0,
+                'active_this_week' => $fortnightlyData['count'] ?? 0,
+                'next_week_type' => ($currentWeekType === 'A') ? 'B' : 'A',
+                'fortnightly_subscriptions' => $fortnightlyData['subscriptions'] ?? collect()
+            ];
+            
+        } catch (\Exception $e) {
+            // Fallback data if fortnightly detection fails
+            $currentWeek = (int) date('W');
+            $currentWeekType = ($currentWeek % 2 === 1) ? 'A' : 'B';
+            
+            return [
+                'current_week' => $currentWeekType,
+                'current_iso_week' => $currentWeek,
+                'weekly_count' => 0,
+                'fortnightly_count' => 0,
+                'active_this_week' => 0,
+                'next_week_type' => ($currentWeekType === 'A') ? 'B' : 'A',
+                'fortnightly_subscriptions' => collect(),
+                'error' => $e->getMessage()
             ];
         }
     }

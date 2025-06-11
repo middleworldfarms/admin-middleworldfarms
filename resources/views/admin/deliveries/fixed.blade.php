@@ -23,6 +23,56 @@
             </div>
         </div>
     </div>
+
+    {{-- Fortnightly Week Information --}}
+    <div class="card mb-4" style="border-left: 4px solid #27ae60;">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h6 class="mb-1">
+                        <i class="fas fa-calendar-week me-2" style="color: #27ae60;"></i>
+                        Fortnightly Delivery Schedule
+                    </h6>
+                    @php
+                        $currentWeek = (int) date('W');
+                        $weekType = ($currentWeek % 2 === 1) ? 'A' : 'B';
+                        $nextWeekType = ($weekType === 'A') ? 'B' : 'A';
+                    @endphp
+                    <p class="mb-0">
+                        <strong>Current Week:</strong> 
+                        <span class="badge {{ $weekType === 'A' ? 'bg-success' : 'bg-info' }} me-2">
+                            Week {{ $weekType }}
+                        </span>
+                        <small class="text-muted">
+                            (ISO Week {{ $currentWeek }} - {{ $currentWeek % 2 === 1 ? 'Odd' : 'Even' }} weeks = Week {{ $weekType }})
+                        </small>
+                    </p>
+                    <small class="text-muted">
+                        Next week will be <strong>Week {{ $nextWeekType }}</strong> fortnightly deliveries
+                    </small>
+                </div>
+                <div class="col-md-4 text-end">
+                    <button class="btn btn-outline-secondary btn-sm" onclick="toggleFortnightlyInfo()">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Week Logic
+                    </button>
+                </div>
+            </div>
+            
+            {{-- Fortnightly Logic Explanation (Initially Hidden) --}}
+            <div id="fortnightlyInfo" class="mt-3" style="display: none;">
+                <div class="alert alert-light border">
+                    <h6 class="fw-bold">📅 Fortnightly Delivery Logic:</h6>
+                    <ul class="mb-0 small">
+                        <li><strong>Week A:</strong> Odd ISO week numbers (1, 3, 5, 7, 9, 11, 13, etc.)</li>
+                        <li><strong>Week B:</strong> Even ISO week numbers (2, 4, 6, 8, 10, 12, 14, etc.)</li>
+                        <li><strong>Weekly subscribers:</strong> Deliver every week regardless of A/B</li>
+                        <li><strong>Fortnightly subscribers:</strong> Deliver only on their assigned week (A or B)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
     
     {{-- User Search and Switching --}}
     @if(isset($userSwitchingAvailable) && $userSwitchingAvailable)
@@ -793,5 +843,15 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+// Fortnightly week information toggle
+function toggleFortnightlyInfo() {
+    const infoDiv = document.getElementById('fortnightlyInfo');
+    if (infoDiv.style.display === 'none') {
+        infoDiv.style.display = 'block';
+    } else {
+        infoDiv.style.display = 'none';
+    }
+}
 </script>
 @endsection

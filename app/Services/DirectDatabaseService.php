@@ -114,7 +114,7 @@ class DirectDatabaseService
                     return $data;
                 });
 
-            // Get active subscriptions (collections) - these are recurring weekly collections
+            // Get active subscriptions (collections) - these are recurring weekly/fortnightly collections
             $subscriptions = WooCommerceOrder::subscriptions()
                 ->active()
                 ->with(['meta'])
@@ -124,12 +124,44 @@ class DirectDatabaseService
                 ->get()
                 ->map(function ($subscription) {
                     $data = $subscription->getFormattedData();
+
                     // Add subscription-specific data
                     $data['next_payment'] = $subscription->getMeta('_schedule_next_payment');
                     $data['billing_period'] = $subscription->getMeta('_billing_period');
                     $data['billing_interval'] = $subscription->getMeta('_billing_interval');
                     $data['subscription_status'] = str_replace('wc-', '', $subscription->post_status);
-                    $data['type'] = 'subscription'; // Mark as recurring subscription
+
+                    // Get parent order and its items
+                    $parentOrderId = $subscription->post_parent;
+                    $frequency = null;
+                    $paymentOption = null;
+                    if ($parentOrderId) {
+                        $parentOrder = \App\Models\WooCommerceOrder::find($parentOrderId);
+                        if ($parentOrder) {
+                            foreach ($parentOrder->items as $item) {
+                                $freqMeta = strtolower(trim($item->getMeta('frequency', '')));
+                                $payOptMeta = strtolower(trim($item->getMeta('payment-option', '')));
+                                if ($freqMeta) $frequency = $freqMeta;
+                                if ($payOptMeta) $paymentOption = $payOptMeta;
+                            }
+                        }
+                    }
+                    // Default to weekly if nothing found
+                    $freqValue = $frequency ?: $paymentOption ?: '';
+                    if (strpos($freqValue, 'fortnightly') !== false) {
+                        $data['frequency'] = 'Fortnightly';
+                        $data['frequency_badge'] = 'warning';
+                    } elseif (strpos($freqValue, 'weekly') !== false) {
+                        $data['frequency'] = 'Weekly';
+                        $data['frequency_badge'] = 'success';
+                    } else {
+                        $data['frequency'] = 'Weekly';
+                        $data['frequency_badge'] = 'success';
+                    }
+                    $data['assigned_week'] = null;
+                    $data['delivery_week'] = null;
+                    $data['is_delivery_week'] = true;
+                    $data['type'] = 'subscription';
                     return $data;
                 });
 
@@ -401,5 +433,156 @@ class DirectDatabaseService
         // This is a simplified check - in production you might want to use
         // the actual WordPress password checking functions
         return password_verify($password, $hash);
+    }
+
+    /**
+     * Calculate current fortnightly week (A or B)
+     * Odd ISO week numbers = Week A, Even ISO week numbers = Week B
+     */
+    private function calculateFortnightlyWeek()
+    {
+        $currentWeek = (int) date('W'); // ISO week number
+        return ($currentWeek % 2 === 1) ? 'A' : 'B';
+    }
+
+    /**
+     * Determine if a fortnightly subscription should have delivery this week
+     */
+    private function isFortnightlyDeliveryWeek($subscription)
+    {
+        try {
+            // First, check if there's an assigned week in the meta
+            $assignedWeek = $subscription->getMeta('_mwf_fortnightly_week');
+            
+            if ($assignedWeek) {
+                // If we have an assigned week (A or B), use that
+                $currentWeek = $this->calculateFortnightlyWeek();
+                return $assignedWeek === $currentWeek;
+            }
+            
+            // Fallback: Use subscription start date to determine its Week A/B cycle
+            $startDate = $subscription->post_date;
+            $startWeek = (int) date('W', strtotime($startDate));
+            
+            // Determine if subscription started on Week A or Week B
+            $subscriptionStartWeek = ($startWeek % 2 === 1) ? 'A' : 'B';
+            
+            // Current week
+            $currentWeek = $this->calculateFortnightlyWeek();
+            
+            // Check if current week matches subscription's cycle
+            return $subscriptionStartWeek === $currentWeek;
+            
+        } catch (Exception $e) {
+            Log::warning('Could not determine fortnightly delivery week', [
+                'subscription_id' => $subscription->ID ?? 'unknown',
+                'error' => $e->getMessage()
+            ]);
+            
+            // Default to true if we can't determine
+            return true;
+        }
+    }
+
+    /**
+     * Get fortnightly delivery schedule for a specific week
+     */
+    public function getFortnightlySchedule($weekType = null)
+    {
+        if (!$weekType) {
+            $weekType = $this->calculateFortnightlyWeek();
+        }
+        
+        try {
+            $fortnightlySubscriptions = WooCommerceOrder::subscriptions()
+                ->active()
+                ->with(['meta'])
+                ->whereIn('post_status', ['wc-active', 'wc-on-hold'])
+                ->get()
+                ->filter(function ($subscription) use ($weekType) {
+                    // Check MWF fortnightly meta field (correct field that exists)
+                    $mwfFortnightly = $subscription->getMeta('_mwf_fortnightly');
+                    
+                    if ($mwfFortnightly !== 'yes') {
+                        return false;
+                    }
+                    
+                    return $this->isFortnightlyDeliveryWeek($subscription);
+                })
+                ->map(function ($subscription) use ($weekType) {
+                    $data = $subscription->getFormattedData();
+                    $data['frequency'] = 'Fortnightly';
+                    $data['frequency_badge'] = 'warning'; // Orange badge
+                    $data['delivery_week'] = $weekType;
+                    $data['assigned_week'] = $subscription->getMeta('_mwf_fortnightly_week') ?: 'A';
+                    $data['type'] = 'fortnightly_subscription';
+                    return $data;
+                });
+
+            return [
+                'week_type' => $weekType,
+                'current_iso_week' => date('W'),
+                'subscriptions' => $fortnightlySubscriptions->values(),
+                'count' => $fortnightlySubscriptions->count()
+            ];
+            
+        } catch (Exception $e) {
+            Log::error('Failed to get fortnightly schedule', [
+                'week_type' => $weekType,
+                'error' => $e->getMessage()
+            ]);
+            
+            return [
+                'week_type' => $weekType,
+                'current_iso_week' => date('W'),
+                'subscriptions' => collect(),
+                'count' => 0,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Get count of weekly subscriptions
+     */
+    public function getWeeklySubscriptionsCount()
+    {
+        try {
+            $weeklyCount = WooCommerceOrder::subscriptions()
+                ->active()
+                ->with(['meta'])
+                ->whereIn('post_status', ['wc-active', 'wc-on-hold'])
+                ->get()
+                ->filter(function ($subscription) {
+                    // Check MWF fortnightly meta field - if not "yes", it's weekly
+                    $mwfFortnightly = $subscription->getMeta('_mwf_fortnightly');
+                    return $mwfFortnightly !== 'yes';
+                })
+                ->count();
+            
+            return $weeklyCount;
+            
+        } catch (Exception $e) {
+            Log::error('Failed to get weekly subscriptions count', [
+                'error' => $e->getMessage()
+            ]);
+            
+            return 0;
+        }
+    }
+
+    /**
+     * Get frequency badge color based on frequency type
+     */
+    private function getFrequencyBadge($frequency)
+    {
+        switch (strtolower($frequency)) {
+            case 'weekly':
+                return 'success';
+            case 'fortnightly':
+                return 'warning';
+            default:
+                return 'secondary';
+        }
     }
 }

@@ -226,6 +226,72 @@
     </div>
 </div>
 
+{{-- Fortnightly Delivery Information --}}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card" style="border-left: 4px solid #27ae60;">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-calendar-week me-2" style="color: #27ae60;"></i>
+                    Fortnightly Delivery Schedule
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="mb-3">
+                            <h6 class="mb-1">Current Week Information</h6>
+                            <p class="mb-1">
+                                <strong>ISO Week {{ $fortnightlyInfo['current_iso_week'] ?? date('W') }} of {{ date('Y') }}</strong> - 
+                                <span class="badge bg-{{ ($fortnightlyInfo['current_week'] ?? 'A') === 'A' ? 'success' : 'info' }} ms-1">
+                                    Week {{ $fortnightlyInfo['current_week'] ?? 'A' }}
+                                </span>
+                            </p>
+                            <small class="text-muted">
+                                {{ ($fortnightlyInfo['current_iso_week'] ?? date('W')) % 2 === 1 ? 'Odd' : 'Even' }} week numbers = Week {{ $fortnightlyInfo['current_week'] ?? 'A' }}
+                            </small>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="stat-item">
+                                    <h4 class="mb-0 text-primary">{{ $fortnightlyInfo['weekly_count'] ?? 0 }}</h4>
+                                    <small class="text-muted">Weekly Subscriptions</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="stat-item">
+                                    <h4 class="mb-0 text-success">{{ $fortnightlyInfo['fortnightly_count'] ?? 0 }}</h4>
+                                    <small class="text-muted">Fortnightly (Active This Week)</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4 text-end">
+                        <div class="bg-light p-3 rounded">
+                            <h6 class="mb-2">Next Week</h6>
+                            <span class="badge bg-{{ ($fortnightlyInfo['next_week_type'] ?? 'B') === 'A' ? 'success' : 'info' }} fs-6">
+                                Week {{ $fortnightlyInfo['next_week_type'] ?? 'B' }}
+                            </span>
+                            <div class="mt-2">
+                                <small class="text-muted">Fortnightly deliveries</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                @if(isset($fortnightlyInfo['error']))
+                <div class="alert alert-warning mt-3 mb-0">
+                    <small><i class="fas fa-exclamation-triangle me-1"></i>
+                    Unable to load fortnightly data: {{ $fortnightlyInfo['error'] }}</small>
+                </div>
+                @endif
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
     .activity-icon {
         width: 35px;

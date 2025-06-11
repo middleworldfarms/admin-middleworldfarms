@@ -72,12 +72,34 @@
                         @endif
                     </td>
                     <td>
-                        <span class="badge bg-{{ $collection['type'] === 'subscription' ? 'success' : 'info' }}">
-                            {{ $collection['type'] === 'subscription' ? 'Weekly Collection' : 'One-time' }}
-                        </span>
+                        @if(isset($collection['frequency']))
+                            <span class="badge bg-{{ $collection['frequency_badge'] ?? 'secondary' }}">
+                                {{ $collection['frequency'] }}
+                            </span>
+                            @if(strtolower($collection['frequency']) === 'fortnightly')
+                                <br><small class="text-muted">
+                                    @if(isset($collection['should_deliver_this_week']))
+                                        {{ $collection['should_deliver_this_week'] ? '✅ Active' : '⏸️ Skip' }} this week
+                                    @endif
+                                </small>
+                            @endif
+                        @else
+                            <span class="badge bg-{{ $collection['type'] === 'subscription' ? 'success' : 'info' }}">
+                                {{ $collection['type'] === 'subscription' ? 'Weekly Collection' : 'One-time' }}
+                            </span>
+                        @endif
                     </td>
                     <td>
-                        <span class="text-muted">-</span>
+                        @if(isset($collection['customer_week_type']) && $collection['customer_week_type'] !== 'Weekly')
+                            <span class="badge bg-{{ $collection['week_badge'] ?? 'secondary' }}">
+                                Week {{ $collection['customer_week_type'] }}
+                            </span>
+                            <br><small class="text-muted">
+                                (Current: Week {{ $collection['current_week_type'] ?? '?' }})
+                            </small>
+                        @else
+                            <span class="badge bg-primary">Every Week</span>
+                        @endif
                     </td>
                     <td>
                         <span class="badge bg-{{ isset($collection['status']) && $collection['status'] === 'active' ? 'success' : 'warning' }}">

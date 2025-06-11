@@ -1,5 +1,15 @@
 # MWF Admin Panel Project Status
-*Last Updated: June 7, 2025*
+*Last Updated: June 11, 2025*
+
+## ⚠️ CRITICAL CONFIGURATION - DO NOT CHANGE ⚠️
+- **PHP VERSION: 8.2.28** - Set in Plesk, DO NOT CHANGE
+- **FREQUENCY DETECTION: Use WooCommerce order item meta on the parent order**
+- **Frequency meta keys:**
+    - `frequency` (e.g. "Fortnightly box", "Weekly box")
+    - `payment-option` (e.g. "Fortnightly", "Weekly")
+- These fields are stored in the WooCommerce order item meta (not the main order meta or subscription meta) at the time of checkout.
+- ⚠️ **IMPORTANT:** Do NOT use `_mwf_fortnightly` or `_mwf_fortnightly_week` for frequency detection—they are not set by WooCommerce checkout and may be missing or incorrect. Previous logic using these fields (added by Cluade) caused confusion and should be removed.
+- If you need to determine a customer's delivery frequency, always check the order item meta of the parent order for these fields.
 
 ## CRITICAL ISSUES TO ADDRESS
 - **Git commits being lost** - Only 2 commits exist when multiple were made

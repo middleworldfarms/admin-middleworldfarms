@@ -71,12 +71,24 @@
                         @endif
                     </td>
                     <td>
-                        <span class="badge bg-{{ $delivery['type'] === 'order' ? 'warning' : 'primary' }}">
-                            {{ $delivery['type'] === 'order' ? 'One-time Delivery' : 'Weekly' }}
-                        </span>
+                        @if(isset($delivery['frequency']))
+                            <span class="badge bg-{{ $delivery['frequency_badge'] ?? 'warning' }}">
+                                {{ $delivery['frequency'] }}
+                            </span>
+                        @else
+                            <span class="badge bg-{{ $delivery['type'] === 'order' ? 'warning' : 'primary' }}">
+                                {{ $delivery['type'] === 'order' ? 'One-time Delivery' : 'Weekly' }}
+                            </span>
+                        @endif
                     </td>
                     <td>
-                        <span class="text-muted">-</span>
+                        @if(isset($delivery['customer_week_type']) && $delivery['customer_week_type'] !== 'Weekly')
+                            <span class="badge bg-{{ $delivery['week_badge'] ?? 'secondary' }}">
+                                Week {{ $delivery['customer_week_type'] }}
+                            </span>
+                        @else
+                            <span class="badge bg-primary">One-time</span>
+                        @endif
                     </td>
                     <td>
                         <span class="badge bg-{{ $delivery['status'] === 'processing' ? 'warning' : ($delivery['status'] === 'completed' ? 'success' : 'secondary') }}">
