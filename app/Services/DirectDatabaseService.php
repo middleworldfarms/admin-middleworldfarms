@@ -428,40 +428,39 @@ class DirectDatabaseService
                 ->first();
 
             if (!$user) {
-                Log::error('User not found for switching', ['user_id' => $userId]);
+                Log::warning('User not found for switching', ['user_id' => $userId]);
                 return null;
             }
 
-            // Generate a WordPress-compatible switch URL using the User Switching plugin format
-            // The User Switching plugin creates URLs like: /wp-admin/?action=switch_to_user&user_id=123&_wpnonce=xyz
-            
-            $baseUrl = config('services.wordpress.base_url', 'https://middleworldfarms.org');
-            
-            // Try to generate a proper nonce by calling WordPress directly
-            $switchUrl = $this->generateWordPressSwitchUrl($userId, $redirectTo);
-            
-            if ($switchUrl) {
-                Log::info('Generated WordPress switch URL', [
-                    'user_id' => $userId,
-                    'user_login' => $user->user_login,
-                    'url' => $switchUrl,
-                    'context' => $context
-                ]);
-                return $switchUrl;
-            }
+            // Generate the admin switch key (same logic as WordPress)
+            $secret = 'mwf_admin_switch_2025_secret_key';
+            $adminKey = hash('sha256', $userId . $redirectTo . $secret);
 
-            // Fallback: Create a simple login URL (requires custom WordPress handler)
-            $fallbackUrl = $baseUrl . '/wp-admin/?action=mwf_admin_switch&user_id=' . $userId . '&redirect_to=' . urlencode($redirectTo);
-            
-            Log::warning('Using fallback switch URL - may require WordPress integration', [
+            // Create the switch URL using our custom WordPress endpoint
+            $baseUrl = rtrim(env('WOOCOMMERCE_URL', 'https://middleworldfarms.org'), '/');
+            $switchUrl = $baseUrl . '/wp-admin/admin-ajax.php?' . http_build_query([
+                'action' => 'mwf_admin_switch_user',
                 'user_id' => $userId,
-                'fallback_url' => $fallbackUrl
+                'redirect_to' => $redirectTo,
+                'admin_key' => $adminKey
             ]);
 
-            return $fallbackUrl;
+            Log::info('Generated user switch URL', [
+                'user_id' => $userId,
+                'user_login' => $user->user_login,
+                'redirect_to' => $redirectTo,
+                'switch_url' => $switchUrl
+            ]);
 
-        } catch (Exception $e) {
-            Log::error('Switch to user failed: ' . $e->getMessage());
+            return $switchUrl;
+
+        } catch (\Exception $e) {
+            Log::error('Error generating switch URL', [
+                'user_id' => $userId,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
             return null;
         }
     }
@@ -674,64 +673,6 @@ class DirectDatabaseService
         }
     }
 
-    /**
-     * Generate WordPress switch URL using a simpler approach
-     */
-    private function generateWordPressSwitchUrl($userId, $redirectTo = '/my-account/')
-    {
-        try {
-            // Get WordPress site URL from database
-            $wpSiteUrl = $this->getWordPressOption('home');
-            if (!$wpSiteUrl) {
-                $wpSiteUrl = 'https://middleworldfarms.org'; // fallback
-            }
-            
-            // Verify user exists
-            $user = DB::connection($this->wpConnection)->table('users')->where('ID', $userId)->first();
-            if (!$user) {
-                Log::warning('User not found for switching', ['user_id' => $userId]);
-                return null;
-            }
-            
-            // Generate a simple token (this is a basic implementation)
-            // In production, you'd want proper WordPress nonce generation
-            $time = time();
-            $action = 'switch_to_user_' . $userId;
-            $token = substr(md5($action . $time . $user->user_login), 0, 10);
-            
-            // Build the switch URL using WordPress User Switching plugin format
-            $baseUrl = rtrim($wpSiteUrl, '/');
-            $switchUrl = $baseUrl . '/wp-admin/user-new.php';
-            
-            $params = [
-                'action' => 'switch-to',
-                'user_id' => $userId,
-                '_wpnonce' => $token,
-            ];
-            
-            if ($redirectTo && $redirectTo !== '/my-account/') {
-                $params['redirect_to'] = urlencode($redirectTo);
-            }
-            
-            $switchUrl .= '?' . http_build_query($params);
-            
-            Log::info('Generated switch URL', [
-                'user_id' => $userId,
-                'user_login' => $user->user_login,
-                'url' => $switchUrl
-            ]);
-            
-            return $switchUrl;
-            
-        } catch (Exception $e) {
-            Log::error('Exception in generateWordPressSwitchUrl', [
-                'user_id' => $userId,
-                'error' => $e->getMessage()
-            ]);
-            return null;
-        }
-    }
-    
     /**
      * Get WordPress option from database
      */
