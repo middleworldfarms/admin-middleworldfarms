@@ -438,21 +438,48 @@ class DirectDatabaseService
 
             // Create the switch URL using our custom WordPress endpoint
             $baseUrl = rtrim(env('WOOCOMMERCE_URL', 'https://middleworldfarms.org'), '/');
-            $switchUrl = $baseUrl . '/wp-admin/admin-ajax.php?' . http_build_query([
+            $ajaxUrl = $baseUrl . '/wp-admin/admin-ajax.php?' . http_build_query([
                 'action' => 'mwf_generate_plugin_switch_url',
                 'user_id' => $userId,
                 'redirect_to' => $redirectTo,
                 'admin_key' => $adminKey
             ]);
 
-            Log::info('Generated user switch URL', [
+            // Make HTTP request to WordPress to get the actual auto-login URL
+            $response = file_get_contents($ajaxUrl);
+            
+            if ($response === false) {
+                Log::error('Failed to fetch switch URL from WordPress', ['ajax_url' => $ajaxUrl]);
+                return null;
+            }
+
+            // Parse JSON response
+            $responseData = json_decode($response, true);
+            
+            if (!$responseData || !isset($responseData['success']) || !$responseData['success']) {
+                Log::error('WordPress returned error response', [
+                    'response' => $response,
+                    'ajax_url' => $ajaxUrl
+                ]);
+                return null;
+            }
+
+            if (!isset($responseData['data']['switch_url'])) {
+                Log::error('No switch_url in WordPress response', ['response' => $responseData]);
+                return null;
+            }
+
+            $finalSwitchUrl = $responseData['data']['switch_url'];
+
+            Log::info('Generated user switch URL successfully', [
                 'user_id' => $userId,
                 'user_login' => $user->user_login,
                 'redirect_to' => $redirectTo,
-                'switch_url' => $switchUrl
+                'ajax_url' => $ajaxUrl,
+                'final_switch_url' => $finalSwitchUrl
             ]);
 
-            return $switchUrl;
+            return $finalSwitchUrl;
 
         } catch (\Exception $e) {
             Log::error('Error generating switch URL', [
