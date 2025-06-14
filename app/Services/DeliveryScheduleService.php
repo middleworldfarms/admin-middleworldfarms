@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Services\DirectDatabaseService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 

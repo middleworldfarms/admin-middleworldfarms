@@ -2,12 +2,12 @@
 
 namespace App\Services;
 
-use App\Models\WordPressUser;
 use App\Models\WooCommerceOrder;
+use App\Models\WordPressUser;
+use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Exception;
 
 class DirectDatabaseService
 {
@@ -92,46 +92,34 @@ class DirectDatabaseService
     /**
      * Get delivery schedule data - direct from WooCommerce tables
      */
-    public function getDeliveryScheduleData($limit = 50)
+    public function getDeliveryScheduleData($limit = 100)
     {
         try {
-            // Get recent one-time orders (deliveries) - these are actual orders that need delivery
-            $orders = WooCommerceOrder::orders()
-                ->active()
-                ->with(['meta'])
-                ->whereIn('post_status', ['wc-processing']) // Only processing orders for delivery
-                ->orderBy('post_date', 'desc')
-                ->limit($limit)
-                ->get()
-                ->map(function ($order) {
-                    $data = $order->getFormattedData();
-                    // Add delivery-specific data
-                    $data['delivery_date'] = $order->getMeta('_delivery_date');
-                    $data['delivery_slot'] = $order->getMeta('_delivery_slot');
-                    $data['delivery_notes'] = $order->getMeta('_delivery_notes');
-                    $data['special_instructions'] = $order->getMeta('_customer_notes') ?: $order->post_excerpt;
-                    $data['type'] = 'order'; // Mark as one-time order
-                    return $data;
-                });
-
-            // Get active subscriptions (collections) - these are recurring weekly/fortnightly collections
+            // Get only ACTIVE subscriptions - exclude trash, cancelled, on-hold
             $subscriptions = WooCommerceOrder::subscriptions()
-                ->active()
+                ->whereIn('post_status', ['wc-active', 'wc-pending']) // Only active and pending subscriptions
                 ->with(['meta'])
-                ->whereIn('post_status', ['wc-active', 'wc-on-hold']) // Active subscriptions for collection
                 ->orderBy('post_date', 'desc')
                 ->limit($limit)
                 ->get()
                 ->map(function ($subscription) {
                     $data = $subscription->getFormattedData();
-
+                    
                     // Add subscription-specific data
                     $data['next_payment'] = $subscription->getMeta('_schedule_next_payment');
                     $data['billing_period'] = $subscription->getMeta('_billing_period');
                     $data['billing_interval'] = $subscription->getMeta('_billing_interval');
                     $data['subscription_status'] = str_replace('wc-', '', $subscription->post_status);
-
-                    // Get parent order and its items
+                    
+                    // Check if this subscription has shipping (delivery) or not (collection)
+                    $shippingTotal = (float) $subscription->getMeta('_order_shipping');
+                    $shippingMethod = $subscription->getMeta('_shipping_method');
+                    $hasShipping = $shippingTotal > 0 || !empty($shippingMethod);
+                    
+                    // Determine type based on shipping
+                    $data['type'] = $hasShipping ? 'delivery' : 'collection';
+                    
+                    // Get frequency from parent order
                     $parentOrderId = $subscription->post_parent;
                     $frequency = null;
                     $paymentOption = null;
@@ -146,35 +134,128 @@ class DirectDatabaseService
                             }
                         }
                     }
-                    // Default to weekly if nothing found
+                    
+                    // Set frequency and week logic
                     $freqValue = $frequency ?: $paymentOption ?: '';
-                    if (strpos($freqValue, 'fortnightly') !== false) {
+                    $isFortnightly = strpos($freqValue, 'fortnightly') !== false;
+                    
+                    if ($isFortnightly) {
                         $data['frequency'] = 'Fortnightly';
                         $data['frequency_badge'] = 'warning';
+                        
+                        // Calculate current week type (A = odd, B = even)
+                        $currentWeek = (int) date('W');
+                        $currentWeekType = ($currentWeek % 2 === 1) ? 'A' : 'B';
+                        $data['current_week_type'] = $currentWeekType;
+                        
+                        // Determine customer's week type from subscription meta 
+                        $storedWeekType = $subscription->getMeta('customer_week_type');
+                        
+                        if ($storedWeekType && in_array($storedWeekType, ['A', 'B'])) {
+                            // Use stored preference if it exists
+                            $customerWeekType = $storedWeekType;
+                        } else {
+                            // If no preference stored, assign based on parent order date ISO week
+                            $parentOrderId = $subscription->post_parent;
+                            if ($parentOrderId) {
+                                $parentOrder = \App\Models\WooCommerceOrder::find($parentOrderId);
+                                if ($parentOrder) {
+                                    // Get ISO week number from parent order date
+                                    $orderDate = \Carbon\Carbon::parse($parentOrder->post_date);
+                                    $orderWeek = (int) $orderDate->format('W');
+                                    // Odd weeks = A, Even weeks = B
+                                    $customerWeekType = ($orderWeek % 2 === 1) ? 'A' : 'B';
+                                    
+                                    // Debug logging
+                                    \Log::info("Week calculation", [
+                                        'subscription_id' => $subscription->ID,
+                                        'parent_order_id' => $parentOrderId,
+                                        'parent_order_date' => $parentOrder->post_date,
+                                        'iso_week' => $orderWeek,
+                                        'week_is_odd' => ($orderWeek % 2 === 1),
+                                        'assigned_week' => $customerWeekType
+                                    ]);
+                                } else {
+                                    // Fallback to subscription date if parent not found
+                                    $subscriptionDate = \Carbon\Carbon::parse($subscription->post_date);
+                                    $subscriptionWeek = (int) $subscriptionDate->format('W');
+                                    $customerWeekType = ($subscriptionWeek % 2 === 1) ? 'A' : 'B';
+                                    
+                                    \Log::info("Week calculation fallback (no parent)", [
+                                        'subscription_id' => $subscription->ID,
+                                        'subscription_date' => $subscription->post_date,
+                                        'iso_week' => $subscriptionWeek,
+                                        'assigned_week' => $customerWeekType
+                                    ]);
+                                }
+                            } else {
+                                // Fallback to subscription date if no parent
+                                $subscriptionDate = \Carbon\Carbon::parse($subscription->post_date);
+                                $subscriptionWeek = (int) $subscriptionDate->format('W');
+                                $customerWeekType = ($subscriptionWeek % 2 === 1) ? 'A' : 'B';
+                                
+                                \Log::info("Week calculation fallback (no parent ID)", [
+                                    'subscription_id' => $subscription->ID,
+                                    'subscription_date' => $subscription->post_date,
+                                    'iso_week' => $subscriptionWeek,
+                                    'assigned_week' => $customerWeekType
+                                ]);
+                            }
+                        }
+                        
+                        $data['customer_week_type'] = $customerWeekType;
+                        
+                        // Debug logging for week assignment
+                        if ($isFortnightly) {
+                            \Log::info("Week assignment debug", [
+                                'subscription_id' => $subscription->ID,
+                                'customer_email' => $data['customer_email'] ?? 'unknown',
+                                'parent_order_id' => $parentOrderId,
+                                'assigned_week' => $customerWeekType,
+                                'stored_week' => $storedWeekType,
+                                'used_stored' => !empty($storedWeekType)
+                            ]);
+                        }
+                        
+                        // Determine if delivery should happen this week
+                        $data['should_deliver_this_week'] = ($customerWeekType === $currentWeekType);
+                        
+                        // Set week badge color
+                        $data['week_badge'] = ($customerWeekType === 'A') ? 'success' : 'info';
+                        
                     } elseif (strpos($freqValue, 'weekly') !== false) {
                         $data['frequency'] = 'Weekly';
                         $data['frequency_badge'] = 'success';
+                        $data['customer_week_type'] = 'Weekly';
+                        $data['should_deliver_this_week'] = true;
+                        $data['week_badge'] = 'primary';
                     } else {
+                        // Default to weekly
                         $data['frequency'] = 'Weekly';
                         $data['frequency_badge'] = 'success';
+                        $data['customer_week_type'] = 'Weekly';
+                        $data['should_deliver_this_week'] = true;
+                        $data['week_badge'] = 'primary';
                     }
-                    $data['assigned_week'] = null;
-                    $data['delivery_week'] = null;
-                    $data['is_delivery_week'] = true;
-                    $data['type'] = 'subscription';
+                    
                     return $data;
                 });
 
+            // Separate into deliveries and collections based on shipping
+            $deliveries = $subscriptions->where('type', 'delivery');
+            $collections = $subscriptions->where('type', 'collection');
+
             Log::info('Delivery schedule data retrieved', [
-                'orders_count' => $orders->count(),
-                'subscriptions_count' => $subscriptions->count()
+                'deliveries_count' => $deliveries->count(),
+                'collections_count' => $collections->count(),
+                'total_subscriptions' => $subscriptions->count()
             ]);
 
             return [
-                'deliveries' => $orders,
-                'collections' => $subscriptions,
-                'total_deliveries' => $orders->count(),
-                'total_collections' => $subscriptions->count(),
+                'deliveries' => $deliveries,
+                'collections' => $collections,
+                'total_deliveries' => $deliveries->count(),
+                'total_collections' => $collections->count(),
                 'data_source' => 'direct_database'
             ];
         } catch (Exception $e) {

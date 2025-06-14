@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Carbon\Carbon;
 
 class WooCommerceOrder extends Model
 {
@@ -82,11 +81,12 @@ class WooCommerceOrder extends Model
     }
 
     /**
-     * Scope for active orders/subscriptions
+     * Scope for active orders/subscriptions (deprecated, no longer used)
      */
     public function scopeActive($query)
     {
-        return $query->whereIn('post_status', ['wc-processing', 'wc-active', 'wc-on-hold']);
+        // Deprecated: No status filtering
+        return $query;
     }
 
     /**
@@ -137,12 +137,11 @@ class WooCommerceOrder extends Model
     }
 
     /**
-     * Get recent orders for delivery schedule
+     * Get recent orders for delivery schedule (no status filtering)
      */
     public static function getForDeliverySchedule($limit = 50)
     {
         return static::orders()
-            ->active()
             ->with(['meta'])
             ->orderBy('post_date', 'desc')
             ->limit($limit)
@@ -161,12 +160,11 @@ class WooCommerceOrder extends Model
     }
 
     /**
-     * Get active subscriptions for delivery schedule
+     * Get all subscriptions for delivery schedule (no status filtering)
      */
     public static function getActiveSubscriptions($limit = 50)
     {
         return static::subscriptions()
-            ->active()
             ->with(['meta'])
             ->orderBy('post_date', 'desc')
             ->limit($limit)

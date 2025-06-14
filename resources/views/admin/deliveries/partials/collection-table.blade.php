@@ -91,11 +91,36 @@
                     </td>
                     <td>
                         @if(isset($collection['customer_week_type']) && $collection['customer_week_type'] !== 'Weekly')
-                            <span class="badge bg-{{ $collection['week_badge'] ?? 'secondary' }}">
-                                Week {{ $collection['customer_week_type'] }}
-                            </span>
+                            <div class="dropdown">
+                                <button class="btn btn-sm badge bg-{{ $collection['week_badge'] ?? 'secondary' }} dropdown-toggle" 
+                                        type="button" 
+                                        data-bs-toggle="dropdown" 
+                                        aria-expanded="false"
+                                        style="border: none;">
+                                    Week {{ $collection['customer_week_type'] }}
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item week-change-btn" 
+                                           href="#" 
+                                           data-customer-id="{{ $collection['id'] }}"
+                                           data-current-week="{{ $collection['customer_week_type'] }}"
+                                           data-new-week="A">
+                                        <span class="badge bg-success me-2">A</span>Week A (Odd weeks)
+                                    </a></li>
+                                    <li><a class="dropdown-item week-change-btn" 
+                                           href="#" 
+                                           data-customer-id="{{ $collection['id'] }}"
+                                           data-current-week="{{ $collection['customer_week_type'] }}"
+                                           data-new-week="B">
+                                        <span class="badge bg-info me-2">B</span>Week B (Even weeks)
+                                    </a></li>
+                                </ul>
+                            </div>
                             <br><small class="text-muted">
-                                (Current: Week {{ $collection['current_week_type'] ?? '?' }})
+                                Current: Week {{ $collection['current_week_type'] ?? '?' }}
+                                @if(isset($collection['should_deliver_this_week']))
+                                    | {{ $collection['should_deliver_this_week'] ? '✅ Active' : '⏸️ Skip' }} this week
+                                @endif
                             </small>
                         @else
                             <span class="badge bg-primary">Every Week</span>

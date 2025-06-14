@@ -1,0 +1,31 @@
+{
+  "files.exclude": {
+    "**/vendor": true,
+    "**/node_modules": true,
+    "**/httpdocs.backup.*": true,
+    "**/storage": true,
+    "**/public": true,
+    "**/logs": true,
+    "**/database": true
+  },
+  "search.exclude": {
+    "**/vendor": true,
+    "**/node_modules": true,
+    "**/httpdocs.backup.*": true,
+    "**/storage": true,
+    "**/public": true,
+    "**/logs": true,
+    "**/database": true
+  },
+  "files.watcherExclude": {
+    "**/vendor/**": true,
+    "**/node_modules/**": true,
+    "**/httpdocs.backup.**": true,
+    "**/storage/**": true,
+    "**/public/**": true,
+    "**/logs/**": true,
+    "**/database/**": true
+  },
+  "editor.formatOnSave": false,
+  "editor.minimap.enabled": false
+}

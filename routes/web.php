@@ -1,10 +1,10 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Admin\DeliveryController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\DeliveryController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Services\DeliveryScheduleService;
+use Illuminate\Support\Facades\Route;
 
 // Public routes (no authentication required)
 Route::get('/', function () {
@@ -27,6 +27,15 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
     // Delivery management routes
     Route::get('/deliveries', [DeliveryController::class, 'index'])->name('admin.deliveries.index');
     Route::get('/api-test', [DeliveryController::class, 'apiTest'])->name('admin.api-test');
+    Route::get('/diagnostic-subscriptions', [DeliveryController::class, 'diagnosticSubscriptions'])->name('admin.diagnostic-subscriptions');
+    Route::get('/test-active-filter', [DeliveryController::class, 'testActiveFilter'])->name('admin.test-active-filter');
+    Route::get('/debug-week-assignment', [DeliveryController::class, 'debugWeekAssignment'])->name('admin.debug-week-assignment');
+    Route::get('/debug-delivery-schedule', [DeliveryController::class, 'debugDeliverySchedule'])->name('admin.debug-delivery-schedule');
+    Route::get('/debug-specific-customers', [DeliveryController::class, 'debugSpecificCustomers'])->name('admin.debug-specific-customers');
+    Route::get('/debug-page-display', [DeliveryController::class, 'debugPageDisplay'])->name('admin.debug-page-display');
+    Route::get('/debug-customer-statuses', [DeliveryController::class, 'debugCustomerStatuses'])->name('admin.debug-customer-statuses');
+    Route::get('/compare-week-logic', [DeliveryController::class, 'compareWeekLogic'])->name('admin.compare-week-logic');
+    Route::post('/customers/update-week', [DeliveryController::class, 'updateCustomerWeek'])->name('admin.customers.update-week');
 
     // Customer management routes
     Route::prefix('users')->name('admin.users.')->group(function () {
