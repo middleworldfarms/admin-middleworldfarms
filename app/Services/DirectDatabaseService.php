@@ -439,7 +439,7 @@ class DirectDatabaseService
             // Create the switch URL using our custom WordPress endpoint
             $baseUrl = rtrim(env('WOOCOMMERCE_URL', 'https://middleworldfarms.org'), '/');
             $switchUrl = $baseUrl . '/wp-admin/admin-ajax.php?' . http_build_query([
-                'action' => 'mwf_admin_switch_user',
+                'action' => 'mwf_generate_plugin_switch_url',
                 'user_id' => $userId,
                 'redirect_to' => $redirectTo,
                 'admin_key' => $adminKey
