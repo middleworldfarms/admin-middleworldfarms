@@ -239,7 +239,7 @@ document.getElementById('userSearchInput').addEventListener('input', function() 
     resultsDiv.style.display = 'block';
     
     // Perform search
-    fetch(`/admin/user-switching/search?q=${encodeURIComponent(query)}`)
+    fetch(`/admin/users/search?q=${encodeURIComponent(query)}`)
         .then(response => response.json())
         .then(data => {
             if (data.success && data.users.length > 0) {
@@ -298,7 +298,7 @@ function viewUserDetails(userId) {
     modal.show();
     
     // Fetch user details
-    fetch(`/admin/user-switching/user/${userId}`)
+    fetch(`/admin/users/details/${userId}`)
         .then(response => response.json())
         .then(data => {
             if (data.success && data.user) {
@@ -386,7 +386,7 @@ function switchToUser(userId, userName) {
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Switching...';
         btn.disabled = true;
         
-        fetch(`/admin/user-switching/switch/${userId}`, {
+        fetch(`/admin/users/switch/${userId}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

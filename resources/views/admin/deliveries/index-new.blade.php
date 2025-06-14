@@ -592,8 +592,11 @@ function switchToCustomer(customerId, customerName) {
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
         btn.disabled = true;
         
-        // Make API call to get switch URL
-        fetch(`/admin/user-switching/switch/${customerId}`, {
+        // Debug logging
+        console.log('Switching to customer:', customerId, customerName);
+        
+        // Make API call to get switch URL - using correct route
+        fetch(`/admin/users/switch/${customerId}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -603,8 +606,15 @@ function switchToCustomer(customerId, customerName) {
                 redirect_to: '/my-account/'
             })
         })
-        .then(response => response.json())
+        .then(response => {
+            console.log('Response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
+            console.log('Response data:', data);
             // Restore button state
             btn.innerHTML = originalHtml;
             btn.disabled = false;
@@ -616,7 +626,7 @@ function switchToCustomer(customerId, customerName) {
                 // Show success message
                 showSuccessMessage(`Successfully switched to customer "${customerName}". Check the new tab that opened.`);
             } else {
-                alert('Failed to switch to customer: ' + (data.error || 'Unknown error'));
+                alert('Failed to switch to customer: ' + (data.error || data.message || 'Unknown error'));
             }
         })
         .catch(error => {
@@ -624,7 +634,7 @@ function switchToCustomer(customerId, customerName) {
             // Restore button state
             btn.innerHTML = originalHtml;
             btn.disabled = false;
-            alert('Error switching to customer. Please try again.');
+            alert('Error switching to customer: ' + error.message + '\n\nPlease check the browser console for more details.');
         });
     }
 }

@@ -117,26 +117,53 @@ class UserSwitchingController extends Controller
      */
     public function switchToUser(Request $request, $userId)
     {
-        $redirectTo = $request->get('redirect_to', '/my-account/');
-        
-        $switchUrl = $this->directDb->switchToUser(
-            $userId, 
-            $redirectTo,
-            'laravel_admin_panel'
-        );
+        try {
+            // Validate user ID
+            if (!$userId || !is_numeric($userId)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Invalid user ID provided'
+                ], 400);
+            }
 
-        if (!$switchUrl) {
+            $redirectTo = $request->get('redirect_to', '/my-account/');
+            
+            $switchUrl = $this->directDb->switchToUser(
+                $userId, 
+                $redirectTo,
+                'laravel_admin_panel'
+            );
+
+            if (!$switchUrl) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Failed to generate switch URL - user may not exist or API connection failed'
+                ], 400);
+            }
+
+            \Log::info("User switch successful", [
+                'user_id' => $userId,
+                'redirect_to' => $redirectTo,
+                'switch_url' => substr($switchUrl, 0, 50) . '...'
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'switch_url' => $switchUrl,
+                'message' => 'Switch URL generated successfully'
+            ]);
+        } catch (\Exception $e) {
+            \Log::error("User switch failed", [
+                'user_id' => $userId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to generate switch URL'
-            ]);
+                'error' => 'Server error: ' . $e->getMessage()
+            ], 500);
         }
-
-        return response()->json([
-            'success' => true,
-            'switch_url' => $switchUrl,
-            'message' => 'Switch URL generated successfully'
-        ]);
     }
 
     /**
