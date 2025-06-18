@@ -9,22 +9,22 @@ class DeliveryScheduleService
 {
     private $baseUrl;
     private $apiKey;
-    private $directDb;
+    private $wpApiService;
 
-    public function __construct(DirectDatabaseService $directDb)
+    public function __construct(WpApiService $wpApiService)
     {
         $this->baseUrl = config('services.woocommerce.api_url', 'https://middleworldfarms.org');
         $this->apiKey = config('services.wordpress.api_key');
-        $this->directDb = $directDb;
+        $this->wpApiService = $wpApiService;
     }
 
     public function getSchedule($startDate = null, $endDate = null, $status = 'active')
     {
         try {
-            Log::info('Getting delivery schedule data via direct database connection');
+            Log::info('Getting delivery schedule data via WP API service');
             
-            // Use direct database connection instead of API
-            $scheduleData = $this->directDb->getDeliveryScheduleData(100);
+            // Use WP API service instead of direct database connection
+            $scheduleData = $this->wpApiService->getDeliveryScheduleData(100);
             
             if (isset($scheduleData['error'])) {
                 throw new \Exception($scheduleData['error']);

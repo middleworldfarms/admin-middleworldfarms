@@ -3,25 +3,27 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Services\DirectDatabaseService;
+use App\Services\WpApiService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 
 class DeliveryController extends Controller
 {
     /**
      * Display the delivery schedule management page.
      */
-    public function index(DirectDatabaseService $directDb)
+    public function index(Request $request, WpApiService $wpApi)
     {
         try {
             // Get selected week from request, default to current week
-            $selectedWeek = request('week', date('W'));
+            $selectedWeek = $request->get('week', date('W'));
             
-            // Test direct database connection
-            $directDbStatus = $directDb->testConnection();
+            // Test API connection
+            $apiStatus = $wpApi->testConnection();
             
-            // Get raw data from direct database - increased limit for scaling
-            $rawData = $directDb->getDeliveryScheduleData(500);
+            // Get raw data via API - implement getDeliveryScheduleData in WpApiService
+            $rawData = $wpApi->getDeliveryScheduleData(500);
             
             // Transform data to match view expectations
             $scheduleData = $this->transformScheduleData($rawData, $selectedWeek);
@@ -143,8 +145,96 @@ class DeliveryController extends Controller
      */
     private function transformScheduleData($rawData, $selectedWeek = null)
     {
-        if (!isset($rawData['deliveries']) && !isset($rawData['collections'])) {
-            return ['data' => []];
+        // If rawData is a flat API response (list of subscriptions), split into deliveries/collections
+        if (isset($rawData[0]) && is_array($rawData[0])) {
+            $subscriptions = $rawData;
+            $rawData = ['deliveries' => [], 'collections' => []];
+            foreach ($subscriptions as $sub) {
+                $shippingTotal = (float) ($sub['shipping_total'] ?? 0);
+                $type = $shippingTotal > 0 ? 'deliveries' : 'collections';
+                
+                // Extract frequency from line items meta_data
+                $frequency = 'Weekly'; // Default
+                if (isset($sub['line_items'][0]['meta_data'])) {
+                    foreach ($sub['line_items'][0]['meta_data'] as $meta) {
+                        if ($meta['key'] === 'frequency') {
+                            $frequency = $meta['value'];
+                            break;
+                        }
+                    }
+                }
+                
+                // Extract customer week type from meta_data if available
+                $customerWeekType = 'Weekly'; // Default
+                
+                // First check for session-based temporary override (from failed API updates)
+                // Check both subscription ID and customer ID for backwards compatibility
+                if (session()->has("customer_week_type_{$sub['id']}")) {
+                    $customerWeekType = session("customer_week_type_{$sub['id']}");
+                } 
+                elseif (session()->has("customer_week_type_{$sub['customer_id']}")) {
+                    $customerWeekType = session("customer_week_type_{$sub['customer_id']}");
+                } 
+                // Then check meta_data from API
+                elseif (isset($sub['meta_data'])) {
+                    foreach ($sub['meta_data'] as $meta) {
+                        if ($meta['key'] === 'customer_week_type') {
+                            $customerWeekType = $meta['value'];
+                            break;
+                        }
+                    }
+                }
+
+                // Calculate week logic for fortnightly customers
+                $currentWeek = (int) date('W');
+                $currentWeekType = ($currentWeek % 2 === 1) ? 'A' : 'B';
+                $shouldDeliverThisWeek = true;
+                $weekBadge = 'primary';
+
+                if (strtolower($frequency) === 'fortnightly') {
+                    // For fortnightly customers, check if their assigned week matches current week
+                    $shouldDeliverThisWeek = ($customerWeekType === $currentWeekType);
+                    
+                    // Set week badge color
+                    if ($customerWeekType === 'A') {
+                        $weekBadge = 'success'; // Green for Week A
+                    } elseif ($customerWeekType === 'B') {
+                        $weekBadge = 'info'; // Blue for Week B
+                    }
+                } else {
+                    // Weekly customers get primary badge
+                    $weekBadge = 'primary';
+                }
+
+                // Store both subscription ID and customer ID - use subscription ID for API operations
+                $rawData[$type][] = [
+                    'id'                    => $sub['id'], // This is the subscription ID
+                    'subscription_id'        => $sub['id'], // Keep a clear reference
+                    'customer_id'           => $sub['customer_id'], // This is the WP user ID
+                    'status'                => $sub['status'],
+                    'date_created'          => $sub['date_created'],
+                    'customer_email'        => $sub['billing']['email'] ?? '',
+                    'name'                  => trim(($sub['billing']['first_name'] ?? '') . ' ' . ($sub['billing']['last_name'] ?? '')),
+                    'address'               => array_filter([
+                        $sub['shipping']['address_1'] ?? '',
+                        $sub['shipping']['address_2'] ?? '',
+                        $sub['shipping']['city'] ?? '',
+                        $sub['shipping']['state'] ?? '',
+                        $sub['shipping']['postcode'] ?? ''
+                    ]),
+                    'products'              => array_map(fn($item) => ['quantity' => $item['quantity'], 'name' => $item['name']], $sub['line_items'] ?? []),
+                    'phone'                 => $sub['billing']['phone'] ?? '',
+                    'email'                 => $sub['billing']['email'] ?? '',
+                    'frequency'             => $frequency,
+                    'next_payment'          => $sub['next_payment_date_gmt'] ?? '',
+                    'total'                 => $sub['total'] ?? '0.00',
+                    'customer_week_type'    => $customerWeekType,
+                    'current_week_type'     => $currentWeekType,
+                    'should_deliver_this_week' => $shouldDeliverThisWeek,
+                    'week_badge'            => $weekBadge,
+                    'frequency_badge'       => strtolower($frequency) === 'fortnightly' ? 'warning' : 'success',
+                ];
+            }
         }
 
         $groupedData = [];
@@ -190,6 +280,38 @@ class DeliveryController extends Controller
                 // Ensure frequency is properly formatted
                 $frequency = isset($collection['frequency']) ? ucfirst(strtolower($collection['frequency'])) : '';
                 $collection['frequency'] = $frequency;
+
+                // Add week logic for collections if not already present
+                if (!isset($collection['customer_week_type'])) {
+                    $currentWeek = (int) date('W');
+                    $currentWeekType = ($currentWeek % 2 === 1) ? 'A' : 'B';
+
+                    if (strtolower($frequency) === 'fortnightly') {
+                        // For fortnightly collections, assign to current week type by default
+                        $collection['customer_week_type'] = $currentWeekType;
+                        $collection['current_week_type'] = $currentWeekType;
+                        $collection['should_deliver_this_week'] = true; // Default to true for collections
+                        $collection['week_badge'] = $currentWeekType === 'A' ? 'success' : 'info';
+                        $collection['frequency_badge'] = 'warning';
+                    } else {
+                        $collection['customer_week_type'] = 'Weekly';
+                        $collection['current_week_type'] = $currentWeekType;
+                        $collection['should_deliver_this_week'] = true;
+                        $collection['week_badge'] = 'primary';
+                        $collection['frequency_badge'] = 'success';
+                    }
+                }
+                
+                // Make sure week logic is properly set for fortnightly customers
+                if (strtolower($frequency) === 'fortnightly' && $collection['customer_week_type'] === 'Weekly') {
+                    $currentWeek = (int) date('W');
+                    $currentWeekType = ($currentWeek % 2 === 1) ? 'A' : 'B';
+                    $collection['customer_week_type'] = $currentWeekType;
+                    $collection['current_week_type'] = $currentWeekType;
+                    $collection['should_deliver_this_week'] = true;
+                    $collection['week_badge'] = $currentWeekType === 'A' ? 'success' : 'info';
+                    $collection['frequency_badge'] = 'warning';
+                }
                 
                 if (!isset($groupedData[$dateKey])) {
                     $groupedData[$dateKey] = [
@@ -290,14 +412,14 @@ class DeliveryController extends Controller
     /**
      * API test endpoint for debugging
      */
-    public function apiTest(DirectDatabaseService $directDb)
+    public function apiTest(WpApiService $wpApi)
     {
         try {
             $tests = [
-                'direct_database_connection' => $directDb->testConnection(),
-                'recent_users' => $directDb->getRecentUsers(3),
-                'delivery_data' => $directDb->getDeliveryScheduleData(5),
-                'woocommerce_settings' => $directDb->getWooCommerceSettings()
+                'direct_database_connection' => $wpApi->testConnection(),
+                'recent_users' => $wpApi->getRecentUsers(3),
+                'delivery_data' => $wpApi->getDeliveryScheduleData(5),
+                'woocommerce_settings' => $wpApi->getWooCommerceSettings()
             ];
             
             return response()->json([
@@ -318,11 +440,16 @@ class DeliveryController extends Controller
     /**
      * Update customer week type for fortnightly deliveries
      */
-    public function updateCustomerWeek(DirectDatabaseService $directDb)
+    public function updateCustomerWeek(WpApiService $wpApi)
     {
         try {
             $customerId = request('customer_id');
             $weekType = request('week_type');
+            
+            \Log::info("Updating customer week type", [
+                'customer_id' => $customerId,
+                'week_type' => $weekType
+            ]);
             
             if (!$customerId || !in_array($weekType, ['A', 'B'])) {
                 return response()->json([
@@ -331,36 +458,159 @@ class DeliveryController extends Controller
                 ], 400);
             }
             
-            // Update the subscription meta for customer week type
-            $subscription = \App\Models\WooCommerceOrder::find($customerId);
-            if (!$subscription) {
+            // Let's add more detailed debugging to track down the issue
+            $wcApiUrl = config('services.wc_api.url');
+            $wcConsumerKey = config('services.wc_api.consumer_key');
+            $wcConsumerSecret = config('services.wc_api.consumer_secret');
+            
+            // Check if we have valid WooCommerce API credentials
+            if (empty($wcConsumerKey) || empty($wcConsumerSecret)) {
+                \Log::error("Missing WooCommerce API credentials");
                 return response()->json([
                     'success' => false,
-                    'message' => 'Subscription not found'
-                ], 404);
+                    'message' => 'WooCommerce API credentials not configured',
+                    'debug' => [
+                        'customer_id' => $customerId,
+                        'week_type' => $weekType,
+                        'has_consumer_key' => !empty($wcConsumerKey),
+                        'has_consumer_secret' => !empty($wcConsumerSecret)
+                    ]
+                ], 500);
             }
             
-            // Update or create the customer_week_type meta
-            $metaUpdated = DB::connection('wordpress_direct')
-                ->table('wp_postmeta')
-                ->updateOrInsert(
-                    [
-                        'post_id' => $customerId,
-                        'meta_key' => 'customer_week_type'
-                    ],
-                    [
-                        'meta_value' => $weekType
-                    ]
-                );
-            
-            return response()->json([
-                'success' => true,
-                'message' => "Customer week type updated to Week {$weekType}",
-                'customer_id' => $customerId,
-                'week_type' => $weekType
+            // First, verify that we're using the correct endpoint structure
+            $subscriptionsEndpoint = "{$wcApiUrl}/wp-json/wc/v3/subscriptions/{$customerId}";
+            \Log::info("Checking if subscription exists", [
+                'subscription_id' => $customerId,
+                'endpoint' => $subscriptionsEndpoint
             ]);
             
+            // Check if the subscription exists by doing a GET request
+            $checkResponse = Http::withBasicAuth($wcConsumerKey, $wcConsumerSecret)
+                ->get($subscriptionsEndpoint);
+                
+            if (!$checkResponse->successful()) {
+                \Log::warning("Subscription not found", [
+                    'subscription_id' => $customerId, 
+                    'status_code' => $checkResponse->status(),
+                    'response' => $checkResponse->body()
+                ]);
+                
+                // Let's try a fallback to update using the temporary session storage
+                session()->put("customer_week_type_{$customerId}", $weekType);
+                
+                return response()->json([
+                    'success' => true,
+                    'warning' => true,
+                    'message' => "Subscription with ID {$customerId} not found in WooCommerce. Using temporary session storage instead.",
+                    'debug' => [
+                        'status_code' => $checkResponse->status(),
+                        'body' => $checkResponse->body()
+                    ],
+                    'customer_id' => $customerId,
+                    'week_type' => $weekType,
+                    'method' => 'session_based'
+                ]);
+            }
+            
+            // The subscription exists, now try to update its metadata
+            // We'll try several approaches in sequence until one works
+            try {
+                \Log::info("Updating subscription metadata", [
+                    'customer_id' => $customerId,
+                    'week_type' => $weekType
+                ]);
+                
+                // Approach 1: Standard WooCommerce Subscriptions REST API
+                \Log::info("Trying approach 1: WooCommerce Subscriptions REST API");
+                $response = Http::withBasicAuth($wcConsumerKey, $wcConsumerSecret)
+                    ->put("{$wcApiUrl}/wp-json/wc/v3/subscriptions/{$customerId}", [
+                        'meta_data' => [
+                            [
+                                'key' => 'customer_week_type',
+                                'value' => $weekType
+                            ]
+                        ]
+                    ]);
+
+                if ($response->successful()) {
+                    \Log::info("Successfully updated via WooCommerce API");
+                    return response()->json([
+                        'success' => true,
+                        'message' => "Customer week type updated to Week {$weekType}",
+                        'customer_id' => $customerId,
+                        'week_type' => $weekType,
+                        'method' => 'woocommerce_api'
+                    ]);
+                }
+                
+                \Log::warning("WooCommerce API update failed", [
+                    'status' => $response->status(),
+                    'response' => $response->body()
+                ]);
+                
+                // Approach 2: Try MWF Custom REST endpoint if available
+                \Log::info("Trying approach 2: MWF Custom API");
+                $apiKey = config('services.wp_api.key');
+                $apiSecret = config('services.wp_api.secret');
+                $apiUrl = config('services.wp_api.url');
+                
+                $mwfResponse = Http::withBasicAuth($apiKey, $apiSecret)
+                    ->post("{$apiUrl}/wp-json/mwf/v1/subscriptions/{$customerId}/meta", [
+                        'key' => 'customer_week_type',
+                        'value' => $weekType,
+                        'integration_key' => config('services.wc_api.integration_key')
+                    ]);
+                    
+                if ($mwfResponse->successful()) {
+                    \Log::info("Successfully updated via MWF plugin API");
+                    return response()->json([
+                        'success' => true,
+                        'message' => "Customer week type updated to Week {$weekType}",
+                        'customer_id' => $customerId,
+                        'week_type' => $weekType,
+                        'method' => 'mwf_plugin_api'
+                    ]);
+                }
+                
+                \Log::warning("MWF plugin API update failed", [
+                    'status' => $mwfResponse->status(),
+                    'response' => $mwfResponse->body()
+                ]);
+                
+                // Approach 3: Create a temporary flag in the session and apply it on next page load
+                \Log::info("Trying approach 3: Session-based temporary update");
+                session()->put("customer_week_type_{$customerId}", $weekType);
+                // Also save by customer ID as fallback
+                session()->put("customer_week_type_" . $checkResponse->json('customer_id'), $weekType);
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => "Customer week type updated to Week {$weekType} (temporary session-based update)",
+                    'customer_id' => $customerId,
+                    'week_type' => $weekType,
+                    'method' => 'session_based',
+                    'warning' => 'This change is temporary until metadata API is working'
+                ]);
+                
+            } catch (\Exception $apiException) {
+                \Log::error("API exception", [
+                    'message' => $apiException->getMessage(),
+                    'trace' => $apiException->getTraceAsString()
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'API Exception: ' . $apiException->getMessage()
+                ], 500);
+            }
+            
         } catch (\Exception $e) {
+            \Log::error("General exception in updateCustomerWeek", [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update customer week: ' . $e->getMessage()
@@ -371,7 +621,7 @@ class DeliveryController extends Controller
     /**
      * Diagnostic method to check subscription statuses and counts
      */
-    public function diagnosticSubscriptions(DirectDatabaseService $directDb)
+    public function diagnosticSubscriptions(WpApiService $wpApi)
     {
         try {
             // Get ALL subscriptions without limit to see the full picture
@@ -398,7 +648,7 @@ class DeliveryController extends Controller
             }
             
             // Also check what the current service returns
-            $serviceData = $directDb->getDeliveryScheduleData(200); // Increase limit for testing
+            $serviceData = $wpApi->getDeliveryScheduleData(200); // Increase limit for testing
             
             return response()->json([
                 'success' => true,
@@ -423,11 +673,11 @@ class DeliveryController extends Controller
     /**
      * Test the fixed filtering to see active subscriptions only
      */
-    public function testActiveFilter(DirectDatabaseService $directDb)
+    public function testActiveFilter(WpApiService $wpApi)
     {
         try {
             // Test the updated service
-            $rawData = $directDb->getDeliveryScheduleData(500);
+            $rawData = $wpApi->getDeliveryScheduleData(500);
             
             return response()->json([
                 'success' => true,
@@ -451,7 +701,7 @@ class DeliveryController extends Controller
     /**
      * Debug week assignment to see what's happening
      */
-    public function debugWeekAssignment(DirectDatabaseService $directDb)
+    public function debugWeekAssignment(WpApiService $wpApi)
     {
         try {
             // Get a few subscriptions to debug
@@ -515,11 +765,11 @@ class DeliveryController extends Controller
     /**
      * Debug what the actual delivery schedule is returning
      */
-    public function debugDeliverySchedule(DirectDatabaseService $directDb)
+    public function debugDeliverySchedule(WpApiService $wpApi)
     {
         try {
             // Get the same data that the main page uses
-            $rawData = $directDb->getDeliveryScheduleData(500);
+            $rawData = $wpApi->getDeliveryScheduleData(500);
             
             $weekACount = 0;
             $weekBCount = 0;
@@ -589,7 +839,7 @@ class DeliveryController extends Controller
     /**
      * Debug specific customers to see week assignment in detail
      */
-    public function debugSpecificCustomers(DirectDatabaseService $directDb)
+    public function debugSpecificCustomers(WpApiService $wpApi)
     {
         try {
             // Get ALL fortnightly subscriptions specifically
@@ -684,11 +934,11 @@ class DeliveryController extends Controller
     /**
      * Debug what should appear on the delivery schedule page
      */
-    public function debugPageDisplay(DirectDatabaseService $directDb)
+    public function debugPageDisplay(WpApiService $wpApi)
     {
         try {
             // Get the exact same data that the main delivery page uses
-            $rawData = $directDb->getDeliveryScheduleData(500);
+            $rawData = $wpApi->getDeliveryScheduleData(500);
             
             $weekACount = 0;
             $weekBCount = 0;
@@ -755,10 +1005,10 @@ class DeliveryController extends Controller
     /**
      * Simple accurate count - no complex logic, just count what we see
      */
-    public function simpleCount(DirectDatabaseService $directDb)
+    public function simpleCount(WpApiService $wpApi)
     {
         try {
-            $rawData = $directDb->getDeliveryScheduleData(500);
+            $rawData = $wpApi->getDeliveryScheduleData(500);
             
             $fortnightlyWeekA = 0;
             $fortnightlyWeekB = 0;
@@ -826,11 +1076,11 @@ class DeliveryController extends Controller
     /**
      * Debug customer statuses to see what "Other" means
      */
-    public function debugCustomerStatuses(DirectDatabaseService $directDb)
+    public function debugCustomerStatuses(WpApiService $wpApi)
     {
         try {
             // Get the raw data
-            $rawData = $directDb->getDeliveryScheduleData(500);
+            $rawData = $wpApi->getDeliveryScheduleData(500);
             
             $statusBreakdown = [];
             $statusExamples = [];
@@ -890,7 +1140,7 @@ class DeliveryController extends Controller
     /**
      * Compare service logic with manual calculation
      */
-    public function compareWeekLogic(DirectDatabaseService $directDb)
+    public function compareWeekLogic(WpApiService $wpApi)
     {
         try {
             // Test the exact same customers as in Tinker

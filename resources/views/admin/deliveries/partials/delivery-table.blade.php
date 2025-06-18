@@ -17,57 +17,37 @@
             @foreach($items as $delivery)
                 <tr>
                     <td>
-                        <strong>{{ $delivery['customer_name'] ?? 'N/A' }}</strong>
-                        @if(isset($delivery['order_number']))
-                            <br><small class="text-muted">ID: {{ $delivery['order_number'] }}</small>
+                        <strong>{{ $delivery['name'] ?? 'N/A' }}</strong>
+                        @if(isset($delivery['id']))
+                            <br><small class="text-muted">ID: {{ $delivery['id'] }}</small>
                         @endif
                     </td>
                     <td>
-                        @if(isset($delivery['shipping_address']) && is_array($delivery['shipping_address']))
-                            {{ $delivery['shipping_address']['first_name'] ?? '' }} {{ $delivery['shipping_address']['last_name'] ?? '' }}<br>
-                            @if(!empty($delivery['shipping_address']['address_1']))
-                                {{ $delivery['shipping_address']['address_1'] }}<br>
-                            @endif
-                            @if(!empty($delivery['shipping_address']['address_2']))
-                                {{ $delivery['shipping_address']['address_2'] }}<br>
-                            @endif
-                            @if(!empty($delivery['shipping_address']['city']))
-                                {{ $delivery['shipping_address']['city'] }}<br>
-                            @endif
-                            @if(!empty($delivery['shipping_address']['postcode']))
-                                {{ $delivery['shipping_address']['postcode'] }}
-                            @endif
-                        @elseif(isset($delivery['billing_address']) && is_array($delivery['billing_address']))
-                            {{ $delivery['billing_address']['first_name'] ?? '' }} {{ $delivery['billing_address']['last_name'] ?? '' }}<br>
-                            @if(!empty($delivery['billing_address']['address_1']))
-                                {{ $delivery['billing_address']['address_1'] }}<br>
-                            @endif
-                            @if(!empty($delivery['billing_address']['address_2']))
-                                {{ $delivery['billing_address']['address_2'] }}<br>
-                            @endif
-                            @if(!empty($delivery['billing_address']['city']))
-                                {{ $delivery['billing_address']['city'] }}<br>
-                            @endif
-                            @if(!empty($delivery['billing_address']['postcode']))
-                                {{ $delivery['billing_address']['postcode'] }}
-                            @endif
+                        @if(isset($delivery['address']) && is_array($delivery['address']) && !empty(array_filter($delivery['address'])))
+                            @foreach($delivery['address'] as $addressLine)
+                                @if(!empty($addressLine))
+                                    {{ $addressLine }}<br>
+                                @endif
+                            @endforeach
                         @else
                             N/A
                         @endif
                     </td>
                     <td>
-                        @if(!empty($delivery['special_instructions']) || !empty($delivery['delivery_notes']))
-                            {{ $delivery['special_instructions'] ?? $delivery['delivery_notes'] ?? 'N/A' }}
+                        @if(!empty($delivery['products']) && is_array($delivery['products']))
+                            @foreach($delivery['products'] as $product)
+                                {{ $product['name'] ?? 'Product' }} ({{ $product['quantity'] ?? 1 }})<br>
+                            @endforeach
                         @else
-                            <small class="text-muted">£{{ number_format($delivery['total'] ?? 0, 2) }}</small>
+                            <small class="text-muted">No product details</small>
                         @endif
                     </td>
                     <td>
-                        @if(!empty($delivery['billing_address']['phone']))
-                            <i class="fas fa-phone"></i> {{ $delivery['billing_address']['phone'] }}<br>
+                        @if(!empty($delivery['phone']))
+                            <i class="fas fa-phone"></i> {{ $delivery['phone'] }}<br>
                         @endif
-                        @if(!empty($delivery['customer_email']))
-                            <i class="fas fa-envelope"></i> {{ $delivery['customer_email'] }}
+                        @if(!empty($delivery['email']))
+                            <i class="fas fa-envelope"></i> {{ $delivery['email'] }}
                         @endif
                     </td>
                     <td>
@@ -76,13 +56,45 @@
                                 {{ $delivery['frequency'] }}
                             </span>
                         @else
-                            <span class="badge bg-{{ $delivery['type'] === 'order' ? 'warning' : 'primary' }}">
-                                {{ $delivery['type'] === 'order' ? 'One-time Delivery' : 'Weekly' }}
+                            <span class="badge bg-primary">
+                                Weekly
                             </span>
                         @endif
                     </td>
                     <td>
-                        @if(isset($delivery['customer_week_type']) && $delivery['customer_week_type'] !== 'Weekly')
+                        @if(isset($delivery['customer_week_type']) && strtolower($delivery['frequency'] ?? '') === 'fortnightly')
+                            <div class="dropdown">
+                                <button class="btn btn-sm badge bg-{{ $delivery['week_badge'] ?? 'secondary' }} dropdown-toggle" 
+                                        type="button" 
+                                        data-bs-toggle="dropdown" 
+                                        aria-expanded="false"
+                                        style="border: none;">
+                                    Week {{ $delivery['customer_week_type'] }}
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item week-change-btn" 
+                                           href="#" 
+                                           data-customer-id="{{ $delivery['id'] }}"
+                                           data-current-week="{{ $delivery['customer_week_type'] }}"
+                                           data-new-week="A">
+                                        <span class="badge bg-success me-2">A</span>Week A (Odd weeks)
+                                    </a></li>
+                                    <li><a class="dropdown-item week-change-btn" 
+                                           href="#" 
+                                           data-customer-id="{{ $delivery['id'] }}"
+                                           data-current-week="{{ $delivery['customer_week_type'] }}"
+                                           data-new-week="B">
+                                        <span class="badge bg-info me-2">B</span>Week B (Even weeks)
+                                    </a></li>
+                                </ul>
+                            </div>
+                            <br><small class="text-muted">
+                                Current: Week {{ $delivery['current_week_type'] ?? '?' }}
+                                @if(isset($delivery['should_deliver_this_week']))
+                                    | {{ $delivery['should_deliver_this_week'] ? '✅ Active' : '⏸️ Skip' }} this week
+                                @endif
+                            </small>
+                        @elseif(isset($delivery['customer_week_type']) && $delivery['customer_week_type'] !== 'Weekly')
                             <span class="badge bg-{{ $delivery['week_badge'] ?? 'secondary' }}">
                                 Week {{ $delivery['customer_week_type'] }}
                             </span>

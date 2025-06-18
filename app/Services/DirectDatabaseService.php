@@ -12,42 +12,41 @@ use Illuminate\Support\Facades\Log;
 class DirectDatabaseService
 {
     protected $wpConnection;
+    protected $apiUrl;
+    protected $apiKey;
+    protected $apiSecret;
 
     public function __construct()
     {
-        $this->wpConnection = 'wordpress';
+        // Use WordPress REST API
+        $this->apiUrl = config('services.wp_api.url');
+        $this->apiKey = config('services.wp_api.key');
+        $this->apiSecret = config('services.wp_api.secret');
     }
 
     /**
-     * Test database connection
+     * Test API connection
      */
     public function testConnection()
     {
         try {
-            $result = DB::connection($this->wpConnection)->select('SELECT COUNT(*) as count FROM users');
-            return [
-                'success' => true,
-                'message' => 'WordPress database connected successfully',
-                'user_count' => $result[0]->count ?? 0
-            ];
+            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
+                ->get("{$this->apiUrl}/wp-json");
+            return ['success' => $response->successful()];
         } catch (Exception $e) {
-            return [
-                'success' => false,
-                'message' => 'Failed to connect to WordPress database: ' . $e->getMessage()
-            ];
+            return ['success' => false, 'message' => $e->getMessage()];
         }
     }
 
     /**
-     * Search users - much faster than API
+     * Search users via API
      */
     public function searchUsers($query, $limit = 20)
     {
         try {
-            $users = WordPressUser::search($query, $limit);
-            return $users->map(function ($user) {
-                return $user->getFormattedData();
-            });
+            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
+                ->get("{$this->apiUrl}/wp-json/mwf/v1/users/search", ['query' => $query, 'limit' => $limit]);
+            return collect($response->json());
         } catch (Exception $e) {
             Log::error('User search failed: ' . $e->getMessage());
             return collect();
@@ -55,13 +54,14 @@ class DirectDatabaseService
     }
 
     /**
-     * Get user by ID - direct database access
+     * Get user by ID via API
      */
     public function getUserById($userId)
     {
         try {
-            $user = WordPressUser::find($userId);
-            return $user ? $user->getFormattedData() : null;
+            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
+                ->get("{$this->apiUrl}/wp-json/mwf/v1/users/{$userId}");
+            return $response->json();
         } catch (Exception $e) {
             Log::error('Get user failed: ' . $e->getMessage());
             return null;
@@ -69,17 +69,16 @@ class DirectDatabaseService
     }
 
     /**
-     * Get recent users - much faster than API
+     * Get recent users via API
      */
     public function getRecentUsers($limit = 10, $role = null)
     {
         try {
-            // If no role specified, get recent users from all roles
-            // Common roles in your system: 'delicious_recipes_subscriber', 'administrator'
-            $users = WordPressUser::getRecent($limit, $role);
-            return $users->map(function ($user) {
-                return $user->getFormattedData();
-            });
+            $params = ['limit' => $limit];
+            if ($role) $params['role'] = $role;
+            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
+                ->get("{$this->apiUrl}/wp-json/mwf/v1/users/recent", $params);
+            return collect($response->json());
         } catch (Exception $e) {
             Log::error('Get recent users failed: ' . $e->getMessage());
             return collect();
@@ -87,231 +86,19 @@ class DirectDatabaseService
     }
 
     /**
-     * Get delivery schedule data - direct from WooCommerce tables
-     */
-    public function getDeliveryScheduleData($limit = 100)
-    {
-        try {
-            // Get only ACTIVE subscriptions - exclude trash, cancelled, on-hold
-            $subscriptions = WooCommerceOrder::subscriptions()
-                ->whereIn('post_status', ['wc-active', 'wc-pending']) // Only active and pending subscriptions
-                ->with(['meta'])
-                ->orderBy('post_date', 'desc')
-                ->limit($limit)
-                ->get()
-                ->map(function ($subscription) {
-                    $data = $subscription->getFormattedData();
-                    
-                    // Add subscription-specific data
-                    $data['next_payment'] = $subscription->getMeta('_schedule_next_payment');
-                    $data['billing_period'] = $subscription->getMeta('_billing_period');
-                    $data['billing_interval'] = $subscription->getMeta('_billing_interval');
-                    $data['subscription_status'] = str_replace('wc-', '', $subscription->post_status);
-                    
-                    // Check if this subscription has shipping (delivery) or not (collection)
-                    $shippingTotal = (float) $subscription->getMeta('_order_shipping');
-                    $shippingMethod = $subscription->getMeta('_shipping_method');
-                    $hasShipping = $shippingTotal > 0 || !empty($shippingMethod);
-                    
-                    // Determine type based on shipping
-                    $data['type'] = $hasShipping ? 'delivery' : 'collection';
-                    
-                    // Get frequency from parent order
-                    $parentOrderId = $subscription->post_parent;
-                    $frequency = null;
-                    $paymentOption = null;
-                    if ($parentOrderId) {
-                        $parentOrder = \App\Models\WooCommerceOrder::find($parentOrderId);
-                        if ($parentOrder) {
-                            foreach ($parentOrder->items as $item) {
-                                $freqMeta = strtolower(trim($item->getMeta('frequency', '')));
-                                $payOptMeta = strtolower(trim($item->getMeta('payment-option', '')));
-                                if ($freqMeta) $frequency = $freqMeta;
-                                if ($payOptMeta) $paymentOption = $payOptMeta;
-                            }
-                        }
-                    }
-                    
-                    // Set frequency and week logic
-                    $freqValue = $frequency ?: $paymentOption ?: '';
-                    $isFortnightly = strpos($freqValue, 'fortnightly') !== false;
-                    
-                    if ($isFortnightly) {
-                        $data['frequency'] = 'Fortnightly';
-                        $data['frequency_badge'] = 'warning';
-                        
-                        // Calculate current week type (A = odd, B = even)
-                        $currentWeek = (int) date('W');
-                        $currentWeekType = ($currentWeek % 2 === 1) ? 'A' : 'B';
-                        $data['current_week_type'] = $currentWeekType;
-                        
-                        // Determine customer's week type from subscription meta 
-                        $storedWeekType = $subscription->getMeta('customer_week_type');
-                        
-                        if ($storedWeekType && in_array($storedWeekType, ['A', 'B'])) {
-                            // Use stored preference if it exists
-                            $customerWeekType = $storedWeekType;
-                        } else {
-                            // If no preference stored, assign based on parent order date ISO week
-                            $parentOrderId = $subscription->post_parent;
-                            if ($parentOrderId) {
-                                $parentOrder = \App\Models\WooCommerceOrder::find($parentOrderId);
-                                if ($parentOrder) {
-                                    // Get ISO week number from parent order date
-                                    $orderDate = \Carbon\Carbon::parse($parentOrder->post_date);
-                                    $orderWeek = (int) $orderDate->format('W');
-                                    // Odd weeks = A, Even weeks = B
-                                    $customerWeekType = ($orderWeek % 2 === 1) ? 'A' : 'B';
-                                    
-                                    // Debug logging
-                                    \Log::info("Week calculation", [
-                                        'subscription_id' => $subscription->ID,
-                                        'parent_order_id' => $parentOrderId,
-                                        'parent_order_date' => $parentOrder->post_date,
-                                        'iso_week' => $orderWeek,
-                                        'week_is_odd' => ($orderWeek % 2 === 1),
-                                        'assigned_week' => $customerWeekType
-                                    ]);
-                                } else {
-                                    // Fallback to subscription date if parent not found
-                                    $subscriptionDate = \Carbon\Carbon::parse($subscription->post_date);
-                                    $subscriptionWeek = (int) $subscriptionDate->format('W');
-                                    $customerWeekType = ($subscriptionWeek % 2 === 1) ? 'A' : 'B';
-                                    
-                                    \Log::info("Week calculation fallback (no parent)", [
-                                        'subscription_id' => $subscription->ID,
-                                        'subscription_date' => $subscription->post_date,
-                                        'iso_week' => $subscriptionWeek,
-                                        'assigned_week' => $customerWeekType
-                                    ]);
-                                }
-                            } else {
-                                // Fallback to subscription date if no parent
-                                $subscriptionDate = \Carbon\Carbon::parse($subscription->post_date);
-                                $subscriptionWeek = (int) $subscriptionDate->format('W');
-                                $customerWeekType = ($subscriptionWeek % 2 === 1) ? 'A' : 'B';
-                                
-                                \Log::info("Week calculation fallback (no parent ID)", [
-                                    'subscription_id' => $subscription->ID,
-                                    'subscription_date' => $subscription->post_date,
-                                    'iso_week' => $subscriptionWeek,
-                                    'assigned_week' => $customerWeekType
-                                ]);
-                            }
-                        }
-                        
-                        $data['customer_week_type'] = $customerWeekType;
-                        
-                        // Debug logging for week assignment
-                        if ($isFortnightly) {
-                            \Log::info("Week assignment debug", [
-                                'subscription_id' => $subscription->ID,
-                                'customer_email' => $data['customer_email'] ?? 'unknown',
-                                'parent_order_id' => $parentOrderId,
-                                'assigned_week' => $customerWeekType,
-                                'stored_week' => $storedWeekType,
-                                'used_stored' => !empty($storedWeekType)
-                            ]);
-                        }
-                        
-                        // Determine if delivery should happen this week
-                        $data['should_deliver_this_week'] = ($customerWeekType === $currentWeekType);
-                        
-                        // Set week badge color
-                        $data['week_badge'] = ($customerWeekType === 'A') ? 'success' : 'info';
-                        
-                    } elseif (strpos($freqValue, 'weekly') !== false) {
-                        $data['frequency'] = 'Weekly';
-                        $data['frequency_badge'] = 'success';
-                        $data['customer_week_type'] = 'Weekly';
-                        $data['should_deliver_this_week'] = true;
-                        $data['week_badge'] = 'primary';
-                    } else {
-                        // Default to weekly
-                        $data['frequency'] = 'Weekly';
-                        $data['frequency_badge'] = 'success';
-                        $data['customer_week_type'] = 'Weekly';
-                        $data['should_deliver_this_week'] = true;
-                        $data['week_badge'] = 'primary';
-                    }
-                    
-                    return $data;
-                });
-
-            // Separate into deliveries and collections based on shipping
-            $deliveries = $subscriptions->where('type', 'delivery');
-            $collections = $subscriptions->where('type', 'collection');
-
-            Log::info('Delivery schedule data retrieved', [
-                'deliveries_count' => $deliveries->count(),
-                'collections_count' => $collections->count(),
-                'total_subscriptions' => $subscriptions->count()
-            ]);
-
-            return [
-                'deliveries' => $deliveries,
-                'collections' => $collections,
-                'total_deliveries' => $deliveries->count(),
-                'total_collections' => $collections->count(),
-                'data_source' => 'direct_database'
-            ];
-        } catch (Exception $e) {
-            Log::error('Get delivery schedule failed: ' . $e->getMessage());
-            return [
-                'deliveries' => collect(),
-                'collections' => collect(),
-                'total_deliveries' => 0,
-                'total_collections' => 0,
-                'error' => $e->getMessage()
-            ];
-        }
-    }
-
-    /**
-     * Generate user switching URL - using WordPress User Switching plugin
+     * Generate user switch URL via API
      */
     public function generateUserSwitchUrl($userId, $redirectTo = '/my-account/')
     {
         try {
-            $user = WordPressUser::find($userId);
-            if (!$user) {
-                throw new Exception('User not found');
-            }
-
-            // Generate switch URL using WordPress User Switching plugin format
-            $homeUrl = rtrim(config('services.wordpress.url', 'https://middleworldfarms.org'), '/');
-            
-            // Create the switch URL that WordPress will handle
-            $switchUrl = $homeUrl . '/wp-admin/admin.php?action=switch_to_user&user_id=' . $userId;
-            $switchUrl .= '&redirect_to=' . urlencode($homeUrl . $redirectTo);
-            $switchUrl .= '&_wpnonce=' . $this->generateSwitchNonce($userId);
-
-            return [
-                'success' => true,
-                'switch_url' => $switchUrl,
-                'user' => $user->getFormattedData(),
-                'method' => 'direct_wordpress_switching'
-            ];
+            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
+                ->post("{$this->apiUrl}/wp-json/mwf/v1/users/switch", ['id' => $userId, 'redirect_to' => $redirectTo]);
+            $data = $response->json();
+            return $data['switch_url'] ?? null;
         } catch (Exception $e) {
             Log::error('Generate switch URL failed: ' . $e->getMessage());
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
+            return null;
         }
-    }
-
-    /**
-     * Generate a nonce for user switching (simplified version)
-     * In production, you'd want to properly implement WordPress nonce generation
-     */
-    protected function generateSwitchNonce($userId)
-    {
-        // This is a simplified nonce - in production you'd want to use WordPress's wp_create_nonce
-        // For now, we'll create a basic hash
-        $action = 'switch_to_user_' . $userId;
-        $salt = 'your_wordpress_salt_here'; // This should come from WordPress config
-        return substr(md5($action . $salt . time()), 0, 10);
     }
 
     /**
@@ -446,10 +233,20 @@ class DirectDatabaseService
             ]);
 
             // Make HTTP request to WordPress to get the actual auto-login URL
-            $response = file_get_contents($ajaxUrl);
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $ajaxUrl);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false); // Don't follow redirects
+            curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
             
-            if ($response === false) {
-                Log::error('Failed to fetch switch URL from WordPress', ['ajax_url' => $ajaxUrl]);
+            if ($response === false || $httpCode !== 200) {
+                Log::error('Failed to fetch switch URL from WordPress', [
+                    'ajax_url' => $ajaxUrl,
+                    'http_code' => $httpCode
+                ]);
                 return null;
             }
 

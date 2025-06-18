@@ -21,6 +21,10 @@ Route::prefix('admin')->group(function () {
 // Protected admin routes (require authentication)
 Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
     
+    // Debug routes
+    Route::get('/debug/api-test', [App\Http\Controllers\Admin\DebugController::class, 'apiTest'])->name('admin.debug.api-test');
+    Route::get('/debug/fortnightly-week-test', [App\Http\Controllers\Admin\DebugController::class, 'fortnightlyWeekTest'])->name('admin.debug.fortnightly-week-test');
+    
     // Admin dashboard route
     Route::get('/', [DashboardController::class, 'index'])->name('admin.dashboard');
 

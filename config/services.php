@@ -46,4 +46,16 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+
+    'wp_api' => [
+        'url'    => env('WP_API_URL', 'https://example.com'),
+        'key'    => env('WP_API_KEY'),
+        'secret' => env('WP_API_SECRET'),
+    ],
+    'wc_api' => [
+        'url'             => env('WC_API_URL', ''),
+        'consumer_key'    => env('WC_CONSUMER_KEY', ''),
+        'consumer_secret' => env('WC_CONSUMER_SECRET', ''),
+        'integration_key' => env('SELF_SERVE_SHOP_INTEGRATION_KEY', ''),
+    ],
 ];

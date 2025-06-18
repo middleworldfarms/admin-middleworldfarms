@@ -3,17 +3,17 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Services\DirectDatabaseService;
+use App\Services\WpApiService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
 
 class LoginController extends Controller
 {
-    protected $directDbService;
+    protected WpApiService $wpApiService;
 
-    public function __construct(DirectDatabaseService $directDbService)
+    public function __construct(WpApiService $wpApiService)
     {
-        $this->directDbService = $directDbService;
+        $this->wpApiService = $wpApiService;
     }
 
     /**
@@ -68,31 +68,6 @@ class LoginController extends Controller
 
                 return redirect()->intended('/admin')->with('success', $welcomeMessage);
             }
-        }
-
-        // Check against WordPress admin users as fallback
-        try {
-            $wpUser = $this->directDbService->authenticateWPUser($request->email, $request->password);
-            if ($wpUser && $this->isWPUserAdmin($wpUser)) {
-                Session::put('admin_authenticated', true);
-                Session::put('admin_user', [
-                    'name' => $wpUser['display_name'],
-                    'email' => $wpUser['user_email'],
-                    'role' => 'wp_admin',
-                    'wp_user_id' => $wpUser['ID'],
-                    'login_time' => now(),
-                    'ip_address' => $request->ip()
-                ]);
-
-                \Log::info('WordPress admin login successful', [
-                    'email' => $wpUser['user_email'],
-                    'wp_id' => $wpUser['ID']
-                ]);
-
-                return redirect()->intended('/admin')->with('success', 'Welcome ' . $wpUser['display_name']);
-            }
-        } catch (\Exception $e) {
-            \Log::warning('WordPress authentication failed', ['error' => $e->getMessage()]);
         }
 
         return back()->withErrors([

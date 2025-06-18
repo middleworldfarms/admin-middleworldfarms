@@ -1,0 +1,2 @@
+#!/bin/bash
+exec /opt/plesk/php/8.2/bin/php "$@"

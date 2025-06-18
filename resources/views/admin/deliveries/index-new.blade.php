@@ -32,6 +32,14 @@
             </div>
         </div>
         
+        {{-- DEBUG: Show raw data structure --}}
+        @if(env('APP_DEBUG'))
+            <div class="alert alert-info">
+                <h6>DEBUG: Schedule Data Structure</h6>
+                <pre>{{ json_encode($scheduleData, JSON_PRETTY_PRINT) }}</pre>
+            </div>
+        @endif
+        
         @if(isset($scheduleData['data']) && !empty($scheduleData['data']))
             @php
                 $totalDeliveries = collect($scheduleData['data'])->sum(function($day) {
@@ -41,6 +49,16 @@
                     return count($day['collections'] ?? []);
                 });
             @endphp
+            
+            {{-- DEBUG: Show calculated totals --}}
+            @if(env('APP_DEBUG'))
+                <div class="alert alert-warning">
+                    <h6>DEBUG: Calculated Totals</h6>
+                    <p>Total Deliveries: {{ $totalDeliveries }}</p>
+                    <p>Total Collections: {{ $totalCollections }}</p>
+                    <p>Data Keys: {{ implode(', ', array_keys($scheduleData['data'])) }}</p>
+                </div>
+            @endif
             
             <div class="row mb-4">
                 <div class="col-md-6">
@@ -102,7 +120,7 @@
                                                                 <br><small class="text-muted">ID: {{ $delivery['customer_id'] }}</small>
                                                                 <br>
                                                                 <button class="btn btn-sm btn-outline-primary mt-1" 
-                                                                        onclick="switchToCustomer({{ $delivery['customer_id'] }}, '{{ addslashes($delivery['name'] ?? 'Unknown') }}')" 
+                                                                        onclick="switchToCustomer(this, {{ $delivery['customer_id'] }}, '{{ addslashes($delivery['name'] ?? 'Unknown') }}')" 
                                                                         title="Switch to this customer">
                                                                     <i class="fas fa-sign-in-alt"></i> Switch
                                                                 </button>
@@ -110,7 +128,7 @@
                                                                 <br><small class="text-muted">ID: {{ $delivery['id'] }}</small>
                                                                 <br>
                                                                 <button class="btn btn-sm btn-outline-primary mt-1" 
-                                                                        onclick="switchToCustomer({{ $delivery['id'] }}, '{{ addslashes($delivery['name'] ?? 'Unknown') }}')" 
+                                                                        onclick="switchToCustomer(this, {{ $delivery['id'] }}, '{{ addslashes($delivery['name'] ?? 'Unknown') }}')" 
                                                                         title="Switch to this customer">
                                                                     <i class="fas fa-sign-in-alt"></i> Switch
                                                                 </button>
@@ -177,7 +195,7 @@
                                                                 <br><small class="text-muted">ID: {{ $collection['customer_id'] }}</small>
                                                                 <br>
                                                                 <button class="btn btn-sm btn-outline-primary mt-1" 
-                                                                        onclick="switchToCustomer({{ $collection['customer_id'] }}, '{{ addslashes($collection['name'] ?? 'Unknown') }}')" 
+                                                                        onclick="switchToCustomer(this, {{ $collection['customer_id'] }}, '{{ addslashes($collection['name'] ?? 'Unknown') }}')" 
                                                                         title="Switch to this customer">
                                                                     <i class="fas fa-sign-in-alt"></i> Switch
                                                                 </button>
@@ -185,7 +203,7 @@
                                                                 <br><small class="text-muted">ID: {{ $collection['id'] }}</small>
                                                                 <br>
                                                                 <button class="btn btn-sm btn-outline-primary mt-1" 
-                                                                        onclick="switchToCustomer({{ $collection['id'] }}, '{{ addslashes($collection['name'] ?? 'Unknown') }}')" 
+                                                                        onclick="switchToCustomer(this, {{ $collection['id'] }}, '{{ addslashes($collection['name'] ?? 'Unknown') }}')" 
                                                                         title="Switch to this customer">
                                                                     <i class="fas fa-sign-in-alt"></i> Switch
                                                                 </button>
@@ -578,65 +596,55 @@ function printCollections() {
     }, 500);
 }
 
-// Customer switching function
-function switchToCustomer(customerId, customerName) {
-    if (!customerId) {
-        alert('No customer ID available for switching.');
-        return;
-    }
-    
-    if (confirm(`Switch to customer "${customerName}"?\n\nThis will open a new tab with you logged in as this customer.`)) {
-        // Show loading state
-        const btn = event.target.closest('button');
-        const originalHtml = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        btn.disabled = true;
-        
-        // Debug logging
-        console.log('Switching to customer:', customerId, customerName);
-        
-        // Make API call to get switch URL - using correct route
-        fetch(`/admin/users/switch/${customerId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': getCSRFToken()
-            },
-            body: JSON.stringify({
-                redirect_to: '/my-account/'
-            })
-        })
-        .then(response => {
-            console.log('Response status:', response.status);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Response data:', data);
+// Customer switching function (updated to receive event)
+function switchToCustomer(btn, customerId, customerName) {
+     if (!customerId) {
+         alert('No customer ID available for switching.');
+         return;
+     }
+     
+     if (confirm(`Switch to customer "${customerName}"?\n\nThis will open a new tab with you logged in as this customer.`)) {
+         // Show loading state on provided button
+         const originalHtml = btn.innerHTML;
+         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+         btn.disabled = true;
+         
+         // Make API call to get switch URL
+         fetch(`/admin/users/switch/${customerId}`, {
+             method: 'POST',
+             headers: {
+                 'Content-Type': 'application/json',
+                 'X-CSRF-TOKEN': getCSRFToken()
+             },
+             body: JSON.stringify({
+                 redirect_to: '/my-account/'
+             })
+         })
+         .then(response => response.json())
+         .then(data => {
             // Restore button state
             btn.innerHTML = originalHtml;
             btn.disabled = false;
             
-            if (data.success && data.switch_url) {
-                // Open switch URL in new tab
-                window.open(data.switch_url, '_blank');
-                
-                // Show success message
-                showSuccessMessage(`Successfully switched to customer "${customerName}". Check the new tab that opened.`);
-            } else {
-                alert('Failed to switch to customer: ' + (data.error || data.message || 'Unknown error'));
-            }
-        })
-        .catch(error => {
-            console.error('Switch error:', error);
-            // Restore button state
-            btn.innerHTML = originalHtml;
-            btn.disabled = false;
-            alert('Error switching to customer: ' + error.message + '\n\nPlease check the browser console for more details.');
-        });
-    }
+             if (data.success && data.switch_url) {
+                console.log('Switch URL:', data.switch_url);
+                 // Open switch URL in new tab
+                 window.open(data.switch_url, '_blank');
+                 
+                 // Show success message
+                 showSuccessMessage(`Successfully switched to customer "${customerName}". Check the new tab that opened.`);
+             } else {
+                 alert('Failed to switch to customer: ' + (data.error || data.message || 'Unknown error'));
+             }
+         })
+         .catch(error => {
+             console.error('Switch error:', error);
+             // Restore button state
+             btn.innerHTML = originalHtml;
+             btn.disabled = false;
+             alert('Error switching to customer. Please try again.');
+         });
+     }
 }
 
 // Helper function to get CSRF token
@@ -677,7 +685,7 @@ function showSuccessMessage(message) {
     // Auto-dismiss after 5 seconds
     setTimeout(() => {
         if (alertDiv.parentNode) {
-            alertDiv.remove();
+            alertDiv.parentNode.removeChild(alertDiv);
         }
     }, 5000);
 }

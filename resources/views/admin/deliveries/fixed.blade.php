@@ -579,21 +579,59 @@ document.addEventListener('DOMContentLoaded', function() {
                         week_type: newWeek
                     })
                 })
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        console.error('Error response:', response);
+                        return response.text().then(text => {
+                            throw new Error(`Server error (${response.status}): ${text}`);
+                        });
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     if (data.success) {
-                        // Show success message
-                        alert(`Successfully changed customer to Week ${newWeek}. Refreshing page...`);
+                        // Show success message with method info if available
+                        let successMsg = `Successfully changed customer to Week ${newWeek}.`;
+                        
+                        if (data.method) {
+                            successMsg += ` (Method: ${data.method})`;
+                        }
+                        
+                        // Add warning if using session-based fallback
+                        if (data.method === 'session_based') {
+                            successMsg += `\n\nNOTE: This change is temporary (session-based) since the API update failed. The change will be visible on this browser session only.`;
+                        }
+                        
+                        if (data.warning) {
+                            successMsg += `\n\nWARNING: ${data.message}`;
+                        }
+                        
+                        successMsg += '\n\nRefreshing page...';
+                        
+                        alert(successMsg);
+                        
+                        // Update UI immediately before refresh for better UX
+                        dropdownBtn.innerHTML = `Week ${newWeek}`;
+                        dropdownBtn.classList.remove('bg-success', 'bg-info', 'bg-primary');
+                        dropdownBtn.classList.add(newWeek === 'A' ? 'bg-success' : 'bg-info');
                         
                         // Refresh the page to show updated data
-                        window.location.reload();
+                        setTimeout(() => window.location.reload(), 1000);
                     } else {
-                        alert('Failed to update customer week: ' + (data.message || 'Unknown error'));
+                        let errorMsg = 'Failed to update customer week: ' + (data.message || 'Unknown error');
+                        
+                        // Add debug info if available
+                        if (data.debug) {
+                            console.error('Debug info:', data.debug);
+                            errorMsg += '\n\nCheck console for debug information.';
+                        }
+                        
+                        alert(errorMsg);
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('An error occurred while updating customer week.');
+                    alert(`An error occurred while updating customer week:\n${error.message}`);
                 })
                 .finally(() => {
                     // Restore button state
@@ -612,6 +650,48 @@ function toggleFortnightlyInfo() {
         infoDiv.style.display = 'block';
     } else {
         infoDiv.style.display = 'none';
+    }
+}
+
+// Customer switching function
+function switchToCustomer(customerId, customerName) {
+    console.log('Attempting switchToCustomer:', customerId, customerName);
+    if (!customerId) {
+        alert('No customer ID available for switching.');
+        return;
+    }
+    if (confirm(`Switch to customer "${customerName}"?\n\nThis will open a new tab with you logged in as this customer.`)) {
+        const btn = event.target.closest('button');
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        btn.disabled = true;
+
+        fetch(`/admin/users/switch/${customerId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': getCSRFToken()
+            },
+            body: JSON.stringify({ redirect_to: '/my-account/' })
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Switch response data:', data);
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+            if (data.success && data.switch_url) {
+                window.open(data.switch_url, '_blank');
+                showSuccessMessage(`Successfully switched to customer "${customerName}". Check the new tab that opened.`);
+            } else {
+                alert('Failed to switch to customer: ' + (data.error || data.message || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Switch error:', error);
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+            alert('Error switching to customer. Please try again.');
+        });
     }
 }
 </script>

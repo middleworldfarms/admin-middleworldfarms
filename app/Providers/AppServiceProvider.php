@@ -11,7 +11,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // No longer binding DirectDatabaseService - it should be removed
+        // $this->app->singleton(\App\Services\DirectDatabaseService::class, \App\Services\WpApiService::class);
     }
 
     /**
