@@ -77,12 +77,16 @@ class DeliveryController extends Controller
                         
                         // Add delivery counts to combined status counts for All tab
                         if ($status === 'processing') {
-                            // Processing deliveries are "active"
+                            // Processing deliveries are "active" 
                             $statusCounts['active'] += $count;
                             $statusCounts['processing'] += $count;
-                            $deliveryStatusCounts['active'] += $count; // Also count as active for deliveries tab
+                            $deliveryStatusCounts['active'] += $count;
+                        } elseif ($status === 'active') {
+                            // Active deliveries
+                            $statusCounts['active'] += $count;
+                            $deliveryStatusCounts['active'] += $count;
                         } else {
-                            // Other delivery statuses
+                            // Other delivery statuses (including on-hold)
                             if (isset($statusCounts[$status])) {
                                 $statusCounts[$status] += $count;
                             } else {
@@ -216,24 +220,23 @@ class DeliveryController extends Controller
                     }
                 }
 
-                // **WEEK FILTERING LOGIC** - Skip subscriptions that shouldn't appear in the selected week
-                $shouldIncludeInSelectedWeek = false;
+                // **WEEK FILTERING LOGIC** - More lenient approach
+                $shouldIncludeInSelectedWeek = true; // Default to include (less aggressive filtering)
                 
-                if (strtolower($frequency) === 'weekly') {
-                    // Weekly subscriptions appear in every week
-                    $shouldIncludeInSelectedWeek = true;
-                } elseif (strtolower($frequency) === 'fortnightly') {
-                    // For fortnightly subscriptions, only show on their assigned week
-                    if ($customerWeekType === 'Weekly') {
-                        // If no specific week assigned, assign to current week type
-                        $customerWeekType = $selectedWeekType;
+                if (strtolower($frequency) === 'fortnightly') {
+                    // Only filter fortnightly subscriptions based on their week assignment
+                    if ($customerWeekType !== 'Weekly' && in_array($customerWeekType, ['A', 'B'])) {
+                        // Customer has a specific week assignment, check if it matches selected week
+                        $shouldIncludeInSelectedWeek = ($customerWeekType === $selectedWeekType);
+                    } else {
+                        // No specific week assignment or still marked as 'Weekly' 
+                        // Show them in all weeks (let them be assigned later)
+                        $shouldIncludeInSelectedWeek = true;
                     }
-                    
-                    // Check if the customer's assigned week matches the selected week
-                    $shouldIncludeInSelectedWeek = ($customerWeekType === $selectedWeekType);
                 }
+                // Weekly subscriptions and other frequencies always show (no filtering needed)
                 
-                // Skip this subscription if it shouldn't appear in the selected week
+                // Skip this subscription only if explicitly filtered out
                 if (!$shouldIncludeInSelectedWeek) {
                     continue;
                 }
@@ -310,9 +313,12 @@ class DeliveryController extends Controller
         // Process DELIVERIES - items from the service where type = 'delivery'
         if (isset($rawData['deliveries'])) {
             foreach ($rawData['deliveries'] as $delivery) {
-                $date = \Carbon\Carbon::parse($delivery['date_created']);
+                // Instead of using date_created, calculate the delivery date for the selected week
+                // For this week-based view, we'll group all items under the selected week dates
+                $selectedWeekStart = $this->getWeekStartDate($selectedWeek);
+                $date = \Carbon\Carbon::parse($selectedWeekStart);
                 $dateKey = $date->format('Y-m-d');
-                $dateFormatted = $date->format('l, F j, Y');
+                $dateFormatted = $date->format('l, F j, Y') . " (Week {$selectedWeek})";
                 $customerKey = $delivery['customer_email'] . '_' . $delivery['id'];
                 
                 if (isset($seenCustomers[$customerKey])) {
@@ -334,9 +340,11 @@ class DeliveryController extends Controller
         // Process COLLECTIONS - items from the service where type = 'collection'
         if (isset($rawData['collections'])) {
             foreach ($rawData['collections'] as $collection) {
-                $date = \Carbon\Carbon::parse($collection['date_created']);
+                // Group collections under the selected week as well
+                $selectedWeekStart = $this->getWeekStartDate($selectedWeek);
+                $date = \Carbon\Carbon::parse($selectedWeekStart);
                 $dateKey = $date->format('Y-m-d');
-                $dateFormatted = $date->format('l, F j, Y');
+                $dateFormatted = $date->format('l, F j, Y') . " (Week {$selectedWeek})";
                 $customerKey = $collection['customer_email'] . '_' . $collection['id'];
                 
                 if (isset($seenCustomers[$customerKey])) {
@@ -396,9 +404,12 @@ class DeliveryController extends Controller
         // Group collections by status for the subtabs
         $collectionsByStatus = [
             'active' => [],
+            'processing' => [],
             'on-hold' => [],
             'cancelled' => [],
             'pending' => [],
+            'completed' => [],
+            'refunded' => [],
             'other' => []
         ];
         
@@ -406,7 +417,18 @@ class DeliveryController extends Controller
             foreach ($dateData['collections'] ?? [] as $collection) {
                 $status = strtolower($collection['status']);
                 
-                if (!isset($collectionsByStatus[$status])) {
+                // Map WooCommerce subscription statuses to our categories
+                if ($status === 'wc-active' || $status === 'active') {
+                    $status = 'active';
+                } elseif ($status === 'wc-on-hold' || $status === 'on-hold') {
+                    $status = 'on-hold';
+                } elseif ($status === 'wc-cancelled' || $status === 'cancelled') {
+                    $status = 'cancelled';
+                } elseif ($status === 'wc-pending' || $status === 'pending') {
+                    $status = 'pending';
+                } elseif ($status === 'wc-processing' || $status === 'processing') {
+                    $status = 'processing';
+                } elseif (!isset($collectionsByStatus[$status])) {
                     $status = 'other';
                 }
                 
@@ -423,6 +445,7 @@ class DeliveryController extends Controller
         
         // Group deliveries by status for the subtabs
         $deliveriesByStatus = [
+            'active' => [],
             'processing' => [],
             'pending' => [],
             'completed' => [],
@@ -437,7 +460,10 @@ class DeliveryController extends Controller
                 $status = strtolower($delivery['status']);
                 $status = str_replace('wc-', '', $status);
                 
-                if (!isset($deliveriesByStatus[$status])) {
+                // Map statuses consistently
+                if ($status === 'active') {
+                    $status = 'active';
+                } elseif (!isset($deliveriesByStatus[$status])) {
                     $status = 'other';
                 }
                 
@@ -1597,5 +1623,29 @@ class DeliveryController extends Controller
                 'trace' => $e->getTraceAsString()
             ], 500);
         }
+    }
+    
+    /**
+     * Calculate the start date (Monday) of a given ISO week
+     */
+    private function getWeekStartDate($weekNumber, $year = null)
+    {
+        if ($year === null) {
+            $year = date('Y');
+        }
+        
+        // Create a date for January 4th (always in week 1 according to ISO standard)
+        $jan4 = new \DateTime("{$year}-01-04");
+        
+        // Find the Monday of week 1
+        $jan4WeekDay = $jan4->format('N'); // 1=Monday, 7=Sunday
+        $week1Monday = clone $jan4;
+        $week1Monday->modify('-' . ($jan4WeekDay - 1) . ' days');
+        
+        // Calculate the target week's Monday
+        $targetWeekMonday = clone $week1Monday;
+        $targetWeekMonday->modify('+' . ($weekNumber - 1) . ' weeks');
+        
+        return $targetWeekMonday->format('Y-m-d');
     }
 }
