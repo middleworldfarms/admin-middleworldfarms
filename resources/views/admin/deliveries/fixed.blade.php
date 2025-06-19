@@ -16,20 +16,28 @@
                     </h6>
                     @php
                         $currentWeek = (int) date('W');
-                        $weekType = ($currentWeek % 2 === 1) ? 'A' : 'B';
-                        $nextWeekType = ($weekType === 'A') ? 'B' : 'A';
+                        $selectedWeekType = ($selectedWeek % 2 === 1) ? 'A' : 'B';
+                        $nextWeekType = ($selectedWeekType === 'A') ? 'B' : 'A';
+                        $isCurrentWeek = ($selectedWeek == $currentWeek);
                     @endphp
                     <p class="mb-0">
-                        <strong>Current Week:</strong> 
-                        <span class="badge {{ $weekType === 'A' ? 'bg-success' : 'bg-info' }} me-2">
-                            Week {{ $weekType }}
+                        <strong>{{ $isCurrentWeek ? 'Current Week' : 'Viewing Week' }}:</strong> 
+                        <span class="badge {{ $selectedWeekType === 'A' ? 'bg-success' : 'bg-info' }} me-2">
+                            Week {{ $selectedWeekType }}
                         </span>
                         <small class="text-muted">
-                            (ISO Week {{ $currentWeek }} - {{ $currentWeek % 2 === 1 ? 'Odd' : 'Even' }} weeks = Week {{ $weekType }})
+                            (ISO Week {{ $selectedWeek }} - {{ $selectedWeek % 2 === 1 ? 'Odd' : 'Even' }} weeks = Week {{ $selectedWeekType }})
+                            @if(!$isCurrentWeek)
+                                <br><em>Current week is {{ $currentWeek }}</em>
+                            @endif
                         </small>
                     </p>
                     <small class="text-muted">
-                        Next week will be <strong>Week {{ $nextWeekType }}</strong> fortnightly deliveries
+                        @if($isCurrentWeek)
+                            Next week will be <strong>Week {{ $nextWeekType }}</strong> fortnightly deliveries
+                        @else
+                            Showing deliveries/collections for Week {{ $selectedWeekType }} customers only
+                        @endif
                     </small>
                 </div>
                 <div class="col-md-4 text-end">
@@ -107,28 +115,56 @@
     @if(isset($scheduleData) && $scheduleData)
         {{-- Week Navigation (moved here) --}}
         <div class="d-flex align-items-center mb-3">
-            <form method="GET" id="weekNavForm" class="d-flex align-items-center">
-                @php
-                    $selectedWeek = isset($selectedWeek) ? $selectedWeek : date('W');
-                    $currentWeek = date('W');
-                    $year = date('Y');
-                @endphp
-                <button type="submit" name="week" value="{{ $selectedWeek - 1 }}" class="btn btn-outline-secondary me-2" @if($selectedWeek <= 1) disabled @endif>
+            @php
+                $selectedWeek = isset($selectedWeek) ? (int)$selectedWeek : (int)date('W');
+                $currentWeek = (int)date('W');
+                $year = date('Y');
+                $prevWeek = max(1, $selectedWeek - 1);
+                $nextWeek = min(53, $selectedWeek + 1);
+            @endphp
+            
+            {{-- Previous Week Button --}}
+            <form method="GET" action="{{ route('admin.deliveries.index') }}" class="d-inline me-2">
+                <input type="hidden" name="week" value="{{ $prevWeek }}">
+                <button type="submit" class="btn btn-outline-secondary" @if($selectedWeek <= 1) disabled @endif>
                     &laquo; Previous Week
                 </button>
-                <button type="submit" name="week" value="{{ $currentWeek }}" class="btn btn-outline-primary me-2 @if($selectedWeek == $currentWeek) active fw-bold @endif">
+            </form>
+            
+            {{-- Current Week Button --}}
+            <form method="GET" action="{{ route('admin.deliveries.index') }}" class="d-inline me-2">
+                <input type="hidden" name="week" value="{{ $currentWeek }}">
+                <button type="submit" class="btn btn-outline-primary @if($selectedWeek == $currentWeek) active fw-bold @endif">
                     Current Week ({{ $currentWeek }})
                 </button>
-                <button type="submit" name="week" value="{{ $selectedWeek + 1 }}" class="btn btn-outline-secondary me-2">
+            </form>
+            
+            {{-- Next Week Button --}}
+            <form method="GET" action="{{ route('admin.deliveries.index') }}" class="d-inline me-2">
+                <input type="hidden" name="week" value="{{ $nextWeek }}">
+                <button type="submit" class="btn btn-outline-secondary" @if($selectedWeek >= 53) disabled @endif>
                     Next Week &raquo;
                 </button>
+            </form>
+            
+            {{-- Week Dropdown --}}
+            <form method="GET" id="weekNavForm" class="d-inline" action="{{ route('admin.deliveries.index') }}">
                 <label for="weekSelect" class="ms-2 me-1 mb-0">Go to week:</label>
-                <select id="weekSelect" name="week" class="form-select w-auto" onchange="document.getElementById('weekNavForm').submit();">
+                <select id="weekSelect" name="week" class="form-select w-auto d-inline" style="width: auto !important;" onchange="console.log('Week changed to:', this.value); this.form.submit();">
                     @for($w = 1; $w <= 53; $w++)
                         <option value="{{ $w }}" @if($selectedWeek == $w) selected @endif>Week {{ $w }}</option>
                     @endfor
                 </select>
             </form>
+            
+            {{-- Debug buttons for direct testing --}}
+            @if(config('app.debug'))
+            <div class="ms-3">
+                <a href="{{ route('admin.deliveries.index', ['week' => 24]) }}" class="btn btn-sm btn-outline-info">Test Week 24</a>
+                <a href="{{ route('admin.deliveries.index', ['week' => 26]) }}" class="btn btn-sm btn-outline-info">Test Week 26</a>
+            </div>
+            @endif
+        </div>
         </div>
         {{-- End Week Navigation --}}
         
@@ -140,9 +176,22 @@
             
             <div class="card">
                 <div class="card-header">
-                    <h3>Schedule Management 
+                    <h3>Schedule Management - Week {{ $selectedWeek }}
                         <small class="text-muted">({{ $totalDeliveries }} deliveries, {{ $totalCollections }} collections)</small>
                     </h3>
+                    
+                    {{-- Debug Info (remove this later) --}}
+                    @if(config('app.debug'))
+                    <div class="alert alert-info mt-2">
+                        <small>
+                            <strong>Debug:</strong> 
+                            Selected Week: {{ $selectedWeek }} | 
+                            Current Week: {{ date('W') }} | 
+                            Week Type: {{ ($selectedWeek % 2 === 1) ? 'A (Odd)' : 'B (Even)' }} |
+                            URL: {{ request()->fullUrl() }}
+                        </small>
+                    </div>
+                    @endif
                     
                     {{-- Navigation Tabs --}}
                     <ul class="nav nav-tabs mt-3" id="scheduleTab" role="tablist">

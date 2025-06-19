@@ -31,6 +31,18 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
 
     // Delivery management routes
     Route::get('/deliveries', [DeliveryController::class, 'index'])->name('admin.deliveries.index');
+    
+    // Quick week test route
+    Route::get('/test-week', function() {
+        $selectedWeek = request('week', date('W'));
+        return response()->json([
+            'selected_week' => $selectedWeek,
+            'current_week' => date('W'),
+            'week_type' => ($selectedWeek % 2 === 1) ? 'A' : 'B',
+            'url' => request()->fullUrl(),
+            'all_params' => request()->all()
+        ]);
+    })->name('admin.test-week');
     Route::get('/api-test', [DeliveryController::class, 'apiTest'])->name('admin.api-test');
     Route::get('/diagnostic-subscriptions', [DeliveryController::class, 'diagnosticSubscriptions'])->name('admin.diagnostic-subscriptions');
     Route::get('/test-active-filter', [DeliveryController::class, 'testActiveFilter'])->name('admin.test-active-filter');
