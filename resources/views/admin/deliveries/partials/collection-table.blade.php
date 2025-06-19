@@ -7,6 +7,7 @@
                 <th>Address</th>
                 <th>Products/Notes</th>
                 <th>Contact</th>
+                <th>Collection Day</th>
                 <th>Frequency</th>
                 <th>Week</th>
                 <th>Status</th>
@@ -49,6 +50,17 @@
                         @endif
                         @if(!empty($collection['email']))
                             <i class="fas fa-envelope"></i> {{ $collection['email'] }}
+                        @endif
+                    </td>
+                    <td>
+                        @if(isset($collection['preferred_collection_day']))
+                            <span class="badge bg-info">
+                                {{ $collection['preferred_collection_day'] }}
+                            </span>
+                            <br>
+                            <small class="text-muted">Customer's preference</small>
+                        @else
+                            <span class="badge bg-secondary">Not Set</span>
                         @endif
                     </td>
                     <td>

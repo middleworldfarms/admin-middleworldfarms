@@ -246,4 +246,58 @@ class WpApiService
             return [];
         }
     }
+
+    /**
+     * Get user meta information from WordPress
+     * 
+     * @param int $userId The WordPress user ID
+     * @param string $metaKey Optional specific meta key to retrieve
+     * @return array|string|null The meta value(s)
+     */
+    public function getUserMeta($userId, $metaKey = null)
+    {
+        try {
+            $params = ['user_id' => $userId];
+            
+            // Add specific meta key if provided
+            if ($metaKey) {
+                $params['meta_key'] = $metaKey;
+            }
+            
+            $response = Http::withHeaders(['X-WC-API-Key' => $this->integrationKey])
+                ->get("{$this->apiUrl}/wp-json/mwf/v1/user-meta", $params);
+                
+            if ($response->successful()) {
+                $data = $response->json();
+                
+                if (isset($data['success']) && $data['success']) {
+                    if ($metaKey) {
+                        return $data['meta_value'] ?? null;
+                    }
+                    return $data['meta'] ?? [];
+                }
+            }
+            
+            // Fallback to WP REST API for user meta
+            $response = Http::withBasicAuth($this->wcConsumerKey, $this->wcConsumerSecret)
+                ->get("{$this->apiUrl}/wp-json/wp/v2/users/{$userId}");
+                
+            if ($response->successful()) {
+                $userData = $response->json();
+                
+                // For specific meta keys like preferred_collection_day
+                if ($metaKey === 'preferred_collection_day') {
+                    return $userData['meta']['preferred_collection_day'][0] ?? 'Friday'; // Default to Friday
+                }
+                
+                // Return all meta if available
+                return $userData['meta'] ?? [];
+            }
+            
+            return null;
+        } catch (Exception $e) {
+            Log::error('Get user meta failed: ' . $e->getMessage());
+            return null;
+        }
+    }
 }

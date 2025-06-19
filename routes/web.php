@@ -24,6 +24,7 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
     // Debug routes
     Route::get('/debug/api-test', [App\Http\Controllers\Admin\DebugController::class, 'apiTest'])->name('admin.debug.api-test');
     Route::get('/debug/fortnightly-week-test', [App\Http\Controllers\Admin\DebugController::class, 'fortnightlyWeekTest'])->name('admin.debug.fortnightly-week-test');
+    Route::get('/debug/collection-day', [DeliveryController::class, 'testCollectionDays'])->name('admin.debug.collection-day');
     
     // Admin dashboard route
     Route::get('/', [DashboardController::class, 'index'])->name('admin.dashboard');
@@ -39,6 +40,8 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
     Route::get('/debug-page-display', [DeliveryController::class, 'debugPageDisplay'])->name('admin.debug-page-display');
     Route::get('/debug-customer-statuses', [DeliveryController::class, 'debugCustomerStatuses'])->name('admin.debug-customer-statuses');
     Route::get('/compare-week-logic', [DeliveryController::class, 'compareWeekLogic'])->name('admin.compare-week-logic');
+    Route::get('/test-collection-days', [DeliveryController::class, 'testCollectionDays'])->name('admin.test-collection-days');
+    Route::get('/debug-frequencies', [DeliveryController::class, 'debugFrequencies'])->name('admin.debug-frequencies');
     Route::post('/customers/update-week', [DeliveryController::class, 'updateCustomerWeek'])->name('admin.customers.update-week');
 
     // Customer management routes

@@ -153,11 +153,33 @@ class DeliveryController extends Controller
                 $shippingTotal = (float) ($sub['shipping_total'] ?? 0);
                 $type = $shippingTotal > 0 ? 'deliveries' : 'collections';
                 
-                // Extract frequency from line items meta_data
+                // Extract frequency - use WooCommerce subscription standard fields first
                 $frequency = 'Weekly'; // Default
-                if (isset($sub['line_items'][0]['meta_data'])) {
+                
+                // Method 1: Check WooCommerce subscription billing_period and billing_interval (standard approach)
+                if (isset($sub['billing_period']) && strtolower($sub['billing_period']) === 'week') {
+                    $interval = intval($sub['billing_interval'] ?? 1);
+                    if ($interval === 2) {
+                        $frequency = 'Fortnightly';
+                    } elseif ($interval === 1) {
+                        $frequency = 'Weekly';
+                    }
+                }
+                
+                // Method 2: Check line items meta_data as fallback
+                if ($frequency === 'Weekly' && isset($sub['line_items'][0]['meta_data'])) {
                     foreach ($sub['line_items'][0]['meta_data'] as $meta) {
                         if ($meta['key'] === 'frequency') {
+                            $frequency = $meta['value'];
+                            break;
+                        }
+                    }
+                }
+                
+                // Method 3: Check top-level meta_data as final fallback
+                if ($frequency === 'Weekly' && isset($sub['meta_data'])) {
+                    foreach ($sub['meta_data'] as $meta) {
+                        if ($meta['key'] === 'frequency' || $meta['key'] === '_subscription_frequency') {
                             $frequency = $meta['value'];
                             break;
                         }
@@ -190,21 +212,36 @@ class DeliveryController extends Controller
                 $currentWeekType = ($currentWeek % 2 === 1) ? 'A' : 'B';
                 $shouldDeliverThisWeek = true;
                 $weekBadge = 'primary';
+                $frequencyBadge = 'success';
 
                 if (strtolower($frequency) === 'fortnightly') {
                     // For fortnightly customers, check if their assigned week matches current week
+                    // If no specific week type assigned, default to current week type
+                    if ($customerWeekType === 'Weekly') {
+                        $customerWeekType = $currentWeekType; // Assign new fortnightly customers to current week
+                    }
+                    
                     $shouldDeliverThisWeek = ($customerWeekType === $currentWeekType);
                     
-                    // Set week badge color
+                    // Set week badge color for fortnightly customers
                     if ($customerWeekType === 'A') {
                         $weekBadge = 'success'; // Green for Week A
                     } elseif ($customerWeekType === 'B') {
                         $weekBadge = 'info'; // Blue for Week B
                     }
+                    
+                    $frequencyBadge = 'warning'; // Orange for fortnightly
                 } else {
-                    // Weekly customers get primary badge
+                    // Weekly customers
+                    $customerWeekType = 'Weekly';
                     $weekBadge = 'primary';
+                    $frequencyBadge = 'success'; // Green for weekly
                 }
+
+                // Get preferred collection day from WP user meta for collection subscriptions
+                $preferred_collection_day = 'Friday'; // Default to Friday
+                // We'll batch load these values later to avoid slow API calls
+                // For now, use the default value to prevent API timeouts
 
                 // Store both subscription ID and customer ID - use subscription ID for API operations
                 $rawData[$type][] = [
@@ -232,7 +269,8 @@ class DeliveryController extends Controller
                     'current_week_type'     => $currentWeekType,
                     'should_deliver_this_week' => $shouldDeliverThisWeek,
                     'week_badge'            => $weekBadge,
-                    'frequency_badge'       => strtolower($frequency) === 'fortnightly' ? 'warning' : 'success',
+                    'frequency_badge'       => $frequencyBadge,
+                    'preferred_collection_day' => $preferred_collection_day,
                 ];
             }
         }
@@ -399,7 +437,7 @@ class DeliveryController extends Controller
         $collectionCount = isset($rawData['collections']) ? count($rawData['collections']) : 0;
         $duplicatesSkipped = ($deliveryCount + $collectionCount) - $totalProcessed;
         
-        return [
+        $data = [
             'success' => true,
             'data' => $groupedData,
             'collectionsByStatus' => $collectionsByStatus,
@@ -407,6 +445,12 @@ class DeliveryController extends Controller
             'data_source' => 'direct_database',
             'message' => "Data loaded with duplicate prevention. Processed: {$totalProcessed} unique items, Skipped: {$duplicatesSkipped} duplicates"
         ];
+        
+        // Add collection day preferences to the data
+        // This is done as a separate step to improve performance by batching the API calls
+        $data = $this->addCollectionDaysToScheduleData($data);
+        
+        return $data;
     }
 
     /**
@@ -1212,6 +1256,316 @@ class DeliveryController extends Controller
             return response()->json([
                 'success' => false,
                 'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
+     * Update transformed data with collection day preferences in batch
+     * @param array $transformedData The already transformed schedule data
+     * @return array The updated data with collection days
+     */
+    private function addCollectionDaysToScheduleData($transformedData)
+    {
+        // Extract all customer IDs from collections
+        $customerIds = [];
+        
+        // Collections in main schedule
+        if (isset($transformedData['data'])) {
+            foreach ($transformedData['data'] as $dateKey => $dateData) {
+                if (!isset($dateData['collections'])) continue;
+                
+                foreach ($dateData['collections'] as $collection) {
+                    if (!empty($collection['customer_id'])) {
+                        $customerIds[] = $collection['customer_id'];
+                    }
+                }
+            }
+        }
+        
+        // Collections by status
+        if (isset($transformedData['collectionsByStatus'])) {
+            foreach ($transformedData['collectionsByStatus'] as $status => $dates) {
+                foreach ($dates as $dateKey => $dateData) {
+                    if (!isset($dateData['collections'])) continue;
+                    
+                    foreach ($dateData['collections'] as $collection) {
+                        if (!empty($collection['customer_id'])) {
+                            $customerIds[] = $collection['customer_id'];
+                        }
+                    }
+                }
+            }
+        }
+        
+        // If no customers, return unchanged data
+        if (empty($customerIds)) {
+            return $transformedData;
+        }
+        
+        // Get unique customer IDs
+        $customerIds = array_unique($customerIds);
+        
+        // Get collection days directly from the database for better performance
+        $collectionDays = [];
+        
+        // Use direct DB query to get all collection days at once - using proper table prefix
+        $results = DB::connection('wordpress')
+            ->table('usermeta') // the prefix is applied automatically by Laravel
+            ->whereIn('user_id', $customerIds)
+            ->where('meta_key', 'preferred_collection_day')
+            ->select('user_id', 'meta_value')
+            ->get();
+            
+        // Map results to collection days array
+        foreach ($results as $result) {
+            $collectionDays[$result->user_id] = $result->meta_value;
+        }
+        
+        // Now update the collection data with the preferred collection days
+        // Update collections in main schedule
+        if (isset($transformedData['data'])) {
+            foreach ($transformedData['data'] as $dateKey => &$dateData) {
+                if (!isset($dateData['collections'])) continue;
+                
+                foreach ($dateData['collections'] as &$collection) {
+                    if (!empty($collection['customer_id']) && isset($collectionDays[$collection['customer_id']])) {
+                        $collection['preferred_collection_day'] = $collectionDays[$collection['customer_id']];
+                    } else {
+                        $collection['preferred_collection_day'] = 'Friday'; // Default
+                    }
+                }
+            }
+        }
+        
+        // Update collections by status
+        if (isset($transformedData['collectionsByStatus'])) {
+            foreach ($transformedData['collectionsByStatus'] as $status => &$dates) {
+                foreach ($dates as $dateKey => &$dateData) {
+                    if (!isset($dateData['collections'])) continue;
+                    
+                    foreach ($dateData['collections'] as &$collection) {
+                        if (!empty($collection['customer_id']) && isset($collectionDays[$collection['customer_id']])) {
+                            $collection['preferred_collection_day'] = $collectionDays[$collection['customer_id']];
+                        } else {
+                            $collection['preferred_collection_day'] = 'Friday'; // Default
+                        }
+                    }
+                }
+            }
+        }
+        
+        return $transformedData;
+    }
+
+    /**
+     * Test the collection days functionality
+     */
+    public function testCollectionDays()
+    {
+        try {
+            // Get unique customer IDs with collection day preferences
+            $customerIds = DB::connection('wordpress')
+                ->table('usermeta') // Let Laravel apply the prefix
+                ->where('meta_key', 'preferred_collection_day')
+                ->select('user_id', 'meta_value')
+                ->orderBy('meta_value')
+                ->limit(20)
+                ->get();
+                
+            // Map collection days for each customer
+            $collectionDays = [];
+            foreach ($customerIds as $row) {
+                $collectionDays[$row->user_id] = $row->meta_value;
+            }
+            
+            // Get the distribution of collection days
+            $distributionQuery = DB::connection('wordpress')
+                ->table('usermeta') // Let Laravel apply the prefix
+                ->where('meta_key', 'preferred_collection_day')
+                ->select('meta_value', DB::raw('COUNT(*) as count'))
+                ->groupBy('meta_value')
+                ->orderBy('count', 'desc');
+                
+            $distribution = $distributionQuery->get();
+            
+            return response()->json([
+                'success' => true,
+                'sample_collection_days' => $collectionDays,
+                'total_preferences_set' => count($customerIds),
+                'distribution' => $distribution,
+                'message' => 'Collection day preferences are now loaded efficiently via direct database access'
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ], 500);
+        }
+    }
+
+    /**
+     * Debug frequencies and week types for deliveries and collections
+     */
+    public function debugFrequencies()
+    {
+        try {
+            // Get data from the WpApiService
+            $wpApi = app(WpApiService::class);
+            $rawData = $wpApi->getDeliveryScheduleData(500); // Get all subscriptions
+            
+            // Process data for both deliveries and collections
+            $deliveryFrequencies = [];
+            $deliveryWeekTypes = [];
+            $collectionFrequencies = [];
+            $collectionWeekTypes = [];
+            
+            // Process deliveries
+            if (isset($rawData['deliveries'])) {
+                foreach ($rawData['deliveries'] as $delivery) {
+                    // Count frequencies
+                    $frequency = strtolower($delivery['frequency'] ?? 'unknown');
+                    if (!isset($deliveryFrequencies[$frequency])) {
+                        $deliveryFrequencies[$frequency] = 0;
+                    }
+                    $deliveryFrequencies[$frequency]++;
+                    
+                    // Count week types
+                    $weekType = $delivery['customer_week_type'] ?? 'unknown';
+                    if (!isset($deliveryWeekTypes[$weekType])) {
+                        $deliveryWeekTypes[$weekType] = 0;
+                    }
+                    $deliveryWeekTypes[$weekType]++;
+                }
+            }
+            
+            // Process collections
+            if (isset($rawData['collections'])) {
+                foreach ($rawData['collections'] as $collection) {
+                    // Count frequencies
+                    $frequency = strtolower($collection['frequency'] ?? 'unknown');
+                    if (!isset($collectionFrequencies[$frequency])) {
+                        $collectionFrequencies[$frequency] = 0;
+                    }
+                    $collectionFrequencies[$frequency]++;
+                    
+                    // Count week types
+                    $weekType = $collection['customer_week_type'] ?? 'unknown';
+                    if (!isset($collectionWeekTypes[$weekType])) {
+                        $collectionWeekTypes[$weekType] = 0;
+                    }
+                    $collectionWeekTypes[$weekType]++;
+                }
+            }
+            
+            // Gather sample data
+            $deliverySamples = [];
+            $collectionSamples = [];
+            
+            // Sample of fortnightly deliveries
+            if (isset($rawData['deliveries'])) {
+                foreach ($rawData['deliveries'] as $delivery) {
+                    if (strtolower($delivery['frequency'] ?? '') === 'fortnightly') {
+                        $deliverySamples[] = [
+                            'id' => $delivery['id'],
+                            'name' => $delivery['name'],
+                            'frequency' => $delivery['frequency'],
+                            'customer_week_type' => $delivery['customer_week_type'],
+                            'line_items' => array_map(fn($item) => [
+                                'name' => $item['name'],
+                                'meta' => $item['meta_data'] ?? []
+                            ], $delivery['products'] ?? [])
+                        ];
+                        
+                        if (count($deliverySamples) >= 3) {
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // Sample of fortnightly collections
+            if (isset($rawData['collections'])) {
+                foreach ($rawData['collections'] as $collection) {
+                    if (strtolower($collection['frequency'] ?? '') === 'fortnightly') {
+                        $collectionSamples[] = [
+                            'id' => $collection['id'],
+                            'name' => $collection['name'],
+                            'frequency' => $collection['frequency'],
+                            'customer_week_type' => $collection['customer_week_type'],
+                            'line_items' => array_map(fn($item) => [
+                                'name' => $item['name'], 
+                                'meta' => $item['meta_data'] ?? []
+                            ], $collection['products'] ?? [])
+                        ];
+                        
+                        if (count($collectionSamples) >= 3) {
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // Create a sample for raw API response
+            $rawSubscriptionSample = null;
+            $transformedSubscriptionSample = null;
+            
+            if (!empty($rawData[0]) && is_array($rawData[0])) {
+                // Find a fortnightly subscription
+                foreach ($rawData as $sub) {
+                    $isFortnightly = false;
+                    if (isset($sub['line_items'][0]['meta_data'])) {
+                        foreach ($sub['line_items'][0]['meta_data'] as $meta) {
+                            if ($meta['key'] === 'frequency' && strtolower($meta['value']) === 'fortnightly') {
+                                $isFortnightly = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if ($isFortnightly) {
+                        $rawSubscriptionSample = $sub;
+                        // Convert this to what would be in our array
+                        $shippingTotal = (float) ($sub['shipping_total'] ?? 0);
+                        $type = $shippingTotal > 0 ? 'delivery' : 'collection';
+                        $transformedSubscriptionSample = [
+                            'type' => $type,
+                            'id' => $sub['id'],
+                            'customer_id' => $sub['customer_id'],
+                            'line_items' => $sub['line_items'] ?? [],
+                            'meta_data' => $sub['meta_data'] ?? [],
+                            'shipping_total' => $sub['shipping_total'] ?? 0,
+                        ];
+                        break;
+                    }
+                }
+            }
+            
+            return response()->json([
+                'success' => true,
+                'deliveries' => [
+                    'total' => count($rawData['deliveries'] ?? []),
+                    'frequencies' => $deliveryFrequencies,
+                    'week_types' => $deliveryWeekTypes,
+                    'samples' => $deliverySamples,
+                ],
+                'collections' => [
+                    'total' => count($rawData['collections'] ?? []),
+                    'frequencies' => $collectionFrequencies,
+                    'week_types' => $collectionWeekTypes,
+                    'samples' => $collectionSamples,
+                ],
+                'raw_subscription_sample' => $rawSubscriptionSample,
+                'transformed_subscription_sample' => $transformedSubscriptionSample,
+                'message' => 'Debug information for frequencies and week types'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ], 500);
         }
     }

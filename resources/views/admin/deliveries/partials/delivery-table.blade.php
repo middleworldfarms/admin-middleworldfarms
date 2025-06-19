@@ -62,7 +62,7 @@
                         @endif
                     </td>
                     <td>
-                        @if(isset($delivery['customer_week_type']) && strtolower($delivery['frequency'] ?? '') === 'fortnightly')
+                        @if(isset($delivery['customer_week_type']) && $delivery['customer_week_type'] !== 'Weekly')
                             <div class="dropdown">
                                 <button class="btn btn-sm badge bg-{{ $delivery['week_badge'] ?? 'secondary' }} dropdown-toggle" 
                                         type="button" 
@@ -94,12 +94,8 @@
                                     | {{ $delivery['should_deliver_this_week'] ? '✅ Active' : '⏸️ Skip' }} this week
                                 @endif
                             </small>
-                        @elseif(isset($delivery['customer_week_type']) && $delivery['customer_week_type'] !== 'Weekly')
-                            <span class="badge bg-{{ $delivery['week_badge'] ?? 'secondary' }}">
-                                Week {{ $delivery['customer_week_type'] }}
-                            </span>
                         @else
-                            <span class="badge bg-primary">One-time</span>
+                            <span class="badge bg-primary">Every Week</span>
                         @endif
                     </td>
                     <td>
