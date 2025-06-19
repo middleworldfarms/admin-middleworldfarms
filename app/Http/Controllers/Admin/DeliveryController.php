@@ -145,6 +145,15 @@ class DeliveryController extends Controller
      */
     private function transformScheduleData($rawData, $selectedWeek = null)
     {
+        // Use current week if no selectedWeek provided
+        if ($selectedWeek === null) {
+            $selectedWeek = date('W');
+        }
+        $selectedWeek = (int) $selectedWeek;
+        
+        // Calculate the selected week type (A or B)
+        $selectedWeekType = ($selectedWeek % 2 === 1) ? 'A' : 'B';
+        
         // If rawData is a flat API response (list of subscriptions), split into deliveries/collections
         if (isset($rawData[0]) && is_array($rawData[0])) {
             $subscriptions = $rawData;
@@ -207,36 +216,56 @@ class DeliveryController extends Controller
                     }
                 }
 
-                // Calculate week logic for fortnightly customers
+                // **WEEK FILTERING LOGIC** - Skip subscriptions that shouldn't appear in the selected week
+                $shouldIncludeInSelectedWeek = false;
+                
+                if (strtolower($frequency) === 'weekly') {
+                    // Weekly subscriptions appear in every week
+                    $shouldIncludeInSelectedWeek = true;
+                } elseif (strtolower($frequency) === 'fortnightly') {
+                    // For fortnightly subscriptions, only show on their assigned week
+                    if ($customerWeekType === 'Weekly') {
+                        // If no specific week assigned, assign to current week type
+                        $customerWeekType = $selectedWeekType;
+                    }
+                    
+                    // Check if the customer's assigned week matches the selected week
+                    $shouldIncludeInSelectedWeek = ($customerWeekType === $selectedWeekType);
+                }
+                
+                // Skip this subscription if it shouldn't appear in the selected week
+                if (!$shouldIncludeInSelectedWeek) {
+                    continue;
+                }
+                
+                // Skip this subscription if it shouldn't appear in the selected week
+                if (!$shouldIncludeInSelectedWeek) {
+                    continue;
+                }
+                
+                // Calculate week logic for display
                 $currentWeek = (int) date('W');
                 $currentWeekType = ($currentWeek % 2 === 1) ? 'A' : 'B';
                 $shouldDeliverThisWeek = true;
                 $weekBadge = 'primary';
-                $frequencyBadge = 'success';
 
                 if (strtolower($frequency) === 'fortnightly') {
                     // For fortnightly customers, check if their assigned week matches current week
-                    // If no specific week type assigned, default to current week type
-                    if ($customerWeekType === 'Weekly') {
-                        $customerWeekType = $currentWeekType; // Assign new fortnightly customers to current week
-                    }
-                    
                     $shouldDeliverThisWeek = ($customerWeekType === $currentWeekType);
                     
-                    // Set week badge color for fortnightly customers
+                    // Set week badge color
                     if ($customerWeekType === 'A') {
                         $weekBadge = 'success'; // Green for Week A
                     } elseif ($customerWeekType === 'B') {
                         $weekBadge = 'info'; // Blue for Week B
                     }
-                    
-                    $frequencyBadge = 'warning'; // Orange for fortnightly
                 } else {
-                    // Weekly customers
-                    $customerWeekType = 'Weekly';
+                    // Weekly customers get primary badge
                     $weekBadge = 'primary';
-                    $frequencyBadge = 'success'; // Green for weekly
                 }
+                
+                // Set frequency badge
+                $frequencyBadge = strtolower($frequency) === 'fortnightly' ? 'warning' : 'success';
 
                 // Get preferred collection day from WP user meta for collection subscriptions
                 $preferred_collection_day = 'Friday'; // Default to Friday
