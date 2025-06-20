@@ -7,7 +7,6 @@
                 <th>Address</th>
                 <th>Products/Notes</th>
                 <th>Contact</th>
-                <th>Collection Day</th>
                 <th>Frequency</th>
                 <th>Week</th>
                 <th>Status</th>
@@ -19,48 +18,57 @@
             @foreach($items as $collection)
                 <tr>
                     <td>
-                        <strong>{{ $collection['name'] ?? 'N/A' }}</strong>
-                        @if(isset($collection['id']))
-                            <br><small class="text-muted">ID: {{ $collection['id'] }}</small>
+                        <strong>{{ $collection['customer_name'] ?? 'N/A' }}</strong>
+                        @if(isset($collection['order_number']))
+                            <br><small class="text-muted">ID: {{ $collection['order_number'] }}</small>
                         @endif
                     </td>
                     <td>
-                        @if(isset($collection['address']) && is_array($collection['address']) && !empty(array_filter($collection['address'])))
-                            @foreach($collection['address'] as $addressLine)
-                                @if(!empty($addressLine))
-                                    {{ $addressLine }}<br>
-                                @endif
-                            @endforeach
+                        @if(isset($collection['shipping_address']) && is_array($collection['shipping_address']))
+                            {{ $collection['shipping_address']['first_name'] ?? '' }} {{ $collection['shipping_address']['last_name'] ?? '' }}<br>
+                            @if(!empty($collection['shipping_address']['address_1']))
+                                {{ $collection['shipping_address']['address_1'] }}<br>
+                            @endif
+                            @if(!empty($collection['shipping_address']['address_2']))
+                                {{ $collection['shipping_address']['address_2'] }}<br>
+                            @endif
+                            @if(!empty($collection['shipping_address']['city']))
+                                {{ $collection['shipping_address']['city'] }}<br>
+                            @endif
+                            @if(!empty($collection['shipping_address']['postcode']))
+                                {{ $collection['shipping_address']['postcode'] }}
+                            @endif
+                        @elseif(isset($collection['billing_address']) && is_array($collection['billing_address']))
+                            {{ $collection['billing_address']['first_name'] ?? '' }} {{ $collection['billing_address']['last_name'] ?? '' }}<br>
+                            @if(!empty($collection['billing_address']['address_1']))
+                                {{ $collection['billing_address']['address_1'] }}<br>
+                            @endif
+                            @if(!empty($collection['billing_address']['address_2']))
+                                {{ $collection['billing_address']['address_2'] }}<br>
+                            @endif
+                            @if(!empty($collection['billing_address']['city']))
+                                {{ $collection['billing_address']['city'] }}<br>
+                            @endif
+                            @if(!empty($collection['billing_address']['postcode']))
+                                {{ $collection['billing_address']['postcode'] }}
+                            @endif
                         @else
                             N/A
                         @endif
                     </td>
                     <td>
-                        @if(!empty($collection['products']) && is_array($collection['products']))
-                            @foreach($collection['products'] as $product)
-                                {{ $product['name'] ?? 'Product' }} ({{ $product['quantity'] ?? 1 }})<br>
-                            @endforeach
+                        @if(!empty($collection['special_instructions']) || !empty($collection['delivery_notes']))
+                            {{ $collection['special_instructions'] ?? $collection['delivery_notes'] ?? 'N/A' }}
                         @else
-                            <small class="text-muted">No product details</small>
+                            <small class="text-muted">£{{ number_format($collection['total'] ?? 0, 2) }}</small>
                         @endif
                     </td>
                     <td>
-                        @if(!empty($collection['phone']))
-                            <i class="fas fa-phone"></i> {{ $collection['phone'] }}<br>
+                        @if(!empty($collection['billing_address']['phone']))
+                            <i class="fas fa-phone"></i> {{ $collection['billing_address']['phone'] }}<br>
                         @endif
-                        @if(!empty($collection['email']))
-                            <i class="fas fa-envelope"></i> {{ $collection['email'] }}
-                        @endif
-                    </td>
-                    <td>
-                        @if(isset($collection['preferred_collection_day']))
-                            <span class="badge bg-info">
-                                {{ $collection['preferred_collection_day'] }}
-                            </span>
-                            <br>
-                            <small class="text-muted">Customer's preference</small>
-                        @else
-                            <span class="badge bg-secondary">Not Set</span>
+                        @if(!empty($collection['customer_email']))
+                            <i class="fas fa-envelope"></i> {{ $collection['customer_email'] }}
                         @endif
                     </td>
                     <td>
@@ -76,8 +84,8 @@
                                 </small>
                             @endif
                         @else
-                            <span class="badge bg-success">
-                                Weekly Collection
+                            <span class="badge bg-{{ isset($collection['subscription_id']) ? 'success' : 'info' }}">
+                                {{ isset($collection['subscription_id']) ? 'Weekly Collection' : 'One-time' }}
                             </span>
                         @endif
                     </td>

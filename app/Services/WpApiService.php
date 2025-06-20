@@ -72,9 +72,23 @@ class WpApiService
     public function searchUsers($query, $limit = 20)
     {
         try {
-            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
-                ->get("{$this->apiUrl}/wp-json/mwf/v1/users/search", ['query' => $query, 'limit' => $limit]);
-            return collect($response->json());
+            $response = Http::withHeaders([
+                'X-WC-API-Key' => $this->integrationKey
+            ])->get("{$this->apiUrl}/wp-json/mwf/v1/users/search", [
+                'q' => $query, 
+                'limit' => $limit,
+                'role' => 'customer'
+            ]);
+            
+            $data = $response->json();
+            
+            // Check if the response has the expected structure
+            if (isset($data['success']) && $data['success'] && isset($data['users'])) {
+                return collect($data['users']);
+            }
+            
+            Log::warning('User search returned unexpected format', ['response' => $data]);
+            return collect();
         } catch (Exception $e) {
             Log::error('User search failed: ' . $e->getMessage());
             return collect();
@@ -87,9 +101,22 @@ class WpApiService
     public function getUserById($userId)
     {
         try {
-            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
-                ->get("{$this->apiUrl}/wp-json/mwf/v1/users/{$userId}");
-            return $response->json();
+            $response = Http::withHeaders([
+                'X-WC-API-Key' => $this->integrationKey
+            ])->get("{$this->apiUrl}/wp-json/mwf/v1/users/{$userId}");
+            
+            $data = $response->json();
+            
+            // Check if the response has the expected structure
+            if (isset($data['success']) && $data['success'] && isset($data['user'])) {
+                return $data['user'];
+            }
+            
+            Log::warning('Get user returned unexpected format', [
+                'user_id' => $userId,
+                'response' => $data
+            ]);
+            return null;
         } catch (Exception $e) {
             Log::error('Get user failed: ' . $e->getMessage());
             return null;
@@ -99,7 +126,7 @@ class WpApiService
     /**
      * Get recent users via API
      */
-    public function getRecentUsers($limit = 10, $role = null)
+    public function getRecentUsers($limit = 10, $role = 'customer')
     {
         try {
             $params = ['limit' => $limit];
@@ -107,9 +134,19 @@ class WpApiService
                 $params['role'] = $role;
             }
 
-            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
-                ->get("{$this->apiUrl}/wp-json/mwf/v1/users/recent", $params);
-            return collect($response->json());
+            $response = Http::withHeaders([
+                'X-WC-API-Key' => $this->integrationKey
+            ])->get("{$this->apiUrl}/wp-json/mwf/v1/users/recent", $params);
+            
+            $data = $response->json();
+            
+            // Check if the response has the expected structure
+            if (isset($data['success']) && $data['success'] && isset($data['users'])) {
+                return collect($data['users']);
+            }
+            
+            Log::warning('Get recent users returned unexpected format', ['response' => $data]);
+            return collect();
         } catch (Exception $e) {
             Log::error('Get recent users failed: ' . $e->getMessage());
             return collect();
@@ -133,19 +170,31 @@ class WpApiService
     }
 
     /**
-     * Generate user switch URL via API
+     * Generate user switch URL via MWF integration plugin
      */
-    public function generateUserSwitchUrl($userId, $redirectTo = '/my-account/')
+    public function generateUserSwitchUrl($userId, $redirectTo = '/my-account/', $adminContext = 'laravel_admin')
     {
         try {
-            $response = Http::withBasicAuth($this->apiKey, $this->apiSecret)
-                ->post("{$this->apiUrl}/wp-json/mwf/v1/users/switch", [
-                    'id' => $userId,
-                    'redirect_to' => $redirectTo
-                ]);
+            $response = Http::withHeaders([
+                'X-WC-API-Key' => $this->integrationKey
+            ])->post("{$this->apiUrl}/wp-json/mwf/v1/users/switch", [
+                'user_id' => $userId,
+                'redirect_to' => $redirectTo,
+                'admin_context' => $adminContext
+            ]);
 
             $data = $response->json();
-            return $data['switch_url'] ?? null;
+            
+            // Check if the response has the expected structure
+            if (isset($data['success']) && $data['success'] && isset($data['preview_url'])) {
+                return $data['preview_url'];
+            }
+            
+            Log::warning('User switch returned unexpected format', [
+                'user_id' => $userId,
+                'response' => $data
+            ]);
+            return null;
         } catch (Exception $e) {
             Log::error('Generate switch URL failed: ' . $e->getMessage());
             return null;
@@ -298,6 +347,40 @@ class WpApiService
         } catch (Exception $e) {
             Log::error('Get user meta failed: ' . $e->getMessage());
             return null;
+        }
+    }
+    
+    /**
+     * Public method for making raw API requests (for debugging)
+     */
+    public function makeRequest($method, $endpoint, $params = [])
+    {
+        try {
+            $url = "{$this->apiUrl}/wp-json/{$endpoint}";
+            
+            // Determine authentication method based on endpoint
+            if (strpos($endpoint, 'mwf/') === 0) {
+                // Use X-WC-API-Key for MWF endpoints
+                $httpClient = Http::withHeaders(['X-WC-API-Key' => $this->integrationKey]);
+            } else {
+                // Use basic auth for WooCommerce endpoints
+                $httpClient = Http::withBasicAuth($this->apiKey, $this->apiSecret);
+            }
+            
+            if ($method === 'GET') {
+                $response = $httpClient->get($url, $params);
+            } else {
+                $response = $httpClient->send($method, $url, ['json' => $params]);
+            }
+            
+            return [
+                'status_code' => $response->status(),
+                'successful' => $response->successful(),
+                'data' => $response->json(),
+                'headers' => $response->headers()
+            ];
+        } catch (Exception $e) {
+            return ['error' => $e->getMessage()];
         }
     }
 }

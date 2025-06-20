@@ -16,28 +16,20 @@
                     </h6>
                     @php
                         $currentWeek = (int) date('W');
-                        $selectedWeekType = ($selectedWeek % 2 === 1) ? 'A' : 'B';
-                        $nextWeekType = ($selectedWeekType === 'A') ? 'B' : 'A';
-                        $isCurrentWeek = ($selectedWeek == $currentWeek);
+                        $weekType = ($currentWeek % 2 === 1) ? 'A' : 'B';
+                        $nextWeekType = ($weekType === 'A') ? 'B' : 'A';
                     @endphp
                     <p class="mb-0">
-                        <strong>{{ $isCurrentWeek ? 'Current Week' : 'Viewing Week' }}:</strong> 
-                        <span class="badge {{ $selectedWeekType === 'A' ? 'bg-success' : 'bg-info' }} me-2">
-                            Week {{ $selectedWeekType }}
+                        <strong>Current Week:</strong> 
+                        <span class="badge {{ $weekType === 'A' ? 'bg-success' : 'bg-info' }} me-2">
+                            Week {{ $weekType }}
                         </span>
                         <small class="text-muted">
-                            (ISO Week {{ $selectedWeek }} - {{ $selectedWeek % 2 === 1 ? 'Odd' : 'Even' }} weeks = Week {{ $selectedWeekType }})
-                            @if(!$isCurrentWeek)
-                                <br><em>Current week is {{ $currentWeek }}</em>
-                            @endif
+                            (ISO Week {{ $currentWeek }} - {{ $currentWeek % 2 === 1 ? 'Odd' : 'Even' }} weeks = Week {{ $weekType }})
                         </small>
                     </p>
                     <small class="text-muted">
-                        @if($isCurrentWeek)
-                            Next week will be <strong>Week {{ $nextWeekType }}</strong> fortnightly deliveries
-                        @else
-                            Showing deliveries/collections for Week {{ $selectedWeekType }} customers only
-                        @endif
+                        Next week will be <strong>Week {{ $nextWeekType }}</strong> fortnightly deliveries
                     </small>
                 </div>
                 <div class="col-md-4 text-end">
@@ -115,56 +107,28 @@
     @if(isset($scheduleData) && $scheduleData)
         {{-- Week Navigation (moved here) --}}
         <div class="d-flex align-items-center mb-3">
-            @php
-                $selectedWeek = isset($selectedWeek) ? (int)$selectedWeek : (int)date('W');
-                $currentWeek = (int)date('W');
-                $year = date('Y');
-                $prevWeek = max(1, $selectedWeek - 1);
-                $nextWeek = min(53, $selectedWeek + 1);
-            @endphp
-            
-            {{-- Previous Week Button --}}
-            <form method="GET" action="{{ route('admin.deliveries.index') }}" class="d-inline me-2">
-                <input type="hidden" name="week" value="{{ $prevWeek }}">
-                <button type="submit" class="btn btn-outline-secondary" @if($selectedWeek <= 1) disabled @endif>
+            <form method="GET" id="weekNavForm" class="d-flex align-items-center">
+                @php
+                    $selectedWeek = isset($selectedWeek) ? $selectedWeek : date('W');
+                    $currentWeek = date('W');
+                    $year = date('Y');
+                @endphp
+                <button type="submit" name="week" value="{{ $selectedWeek - 1 }}" class="btn btn-outline-secondary me-2" @if($selectedWeek <= 1) disabled @endif>
                     &laquo; Previous Week
                 </button>
-            </form>
-            
-            {{-- Current Week Button --}}
-            <form method="GET" action="{{ route('admin.deliveries.index') }}" class="d-inline me-2">
-                <input type="hidden" name="week" value="{{ $currentWeek }}">
-                <button type="submit" class="btn btn-outline-primary @if($selectedWeek == $currentWeek) active fw-bold @endif">
+                <button type="submit" name="week" value="{{ $currentWeek }}" class="btn btn-outline-primary me-2 @if($selectedWeek == $currentWeek) active fw-bold @endif">
                     Current Week ({{ $currentWeek }})
                 </button>
-            </form>
-            
-            {{-- Next Week Button --}}
-            <form method="GET" action="{{ route('admin.deliveries.index') }}" class="d-inline me-2">
-                <input type="hidden" name="week" value="{{ $nextWeek }}">
-                <button type="submit" class="btn btn-outline-secondary" @if($selectedWeek >= 53) disabled @endif>
+                <button type="submit" name="week" value="{{ $selectedWeek + 1 }}" class="btn btn-outline-secondary me-2">
                     Next Week &raquo;
                 </button>
-            </form>
-            
-            {{-- Week Dropdown --}}
-            <form method="GET" id="weekNavForm" class="d-inline" action="{{ route('admin.deliveries.index') }}">
                 <label for="weekSelect" class="ms-2 me-1 mb-0">Go to week:</label>
-                <select id="weekSelect" name="week" class="form-select w-auto d-inline" style="width: auto !important;" onchange="console.log('Week changed to:', this.value); this.form.submit();">
+                <select id="weekSelect" name="week" class="form-select w-auto" onchange="document.getElementById('weekNavForm').submit();">
                     @for($w = 1; $w <= 53; $w++)
                         <option value="{{ $w }}" @if($selectedWeek == $w) selected @endif>Week {{ $w }}</option>
                     @endfor
                 </select>
             </form>
-            
-            {{-- Debug buttons for direct testing --}}
-            @if(config('app.debug'))
-            <div class="ms-3">
-                <a href="{{ route('admin.deliveries.index', ['week' => 24]) }}" class="btn btn-sm btn-outline-info">Test Week 24</a>
-                <a href="{{ route('admin.deliveries.index', ['week' => 26]) }}" class="btn btn-sm btn-outline-info">Test Week 26</a>
-            </div>
-            @endif
-        </div>
         </div>
         {{-- End Week Navigation --}}
         
@@ -176,22 +140,9 @@
             
             <div class="card">
                 <div class="card-header">
-                    <h3>Schedule Management - Week {{ $selectedWeek }}
+                    <h3>Schedule Management 
                         <small class="text-muted">({{ $totalDeliveries }} deliveries, {{ $totalCollections }} collections)</small>
                     </h3>
-                    
-                    {{-- Debug Info (remove this later) --}}
-                    @if(config('app.debug'))
-                    <div class="alert alert-info mt-2">
-                        <small>
-                            <strong>Debug:</strong> 
-                            Selected Week: {{ $selectedWeek }} | 
-                            Current Week: {{ date('W') }} | 
-                            Week Type: {{ ($selectedWeek % 2 === 1) ? 'A (Odd)' : 'B (Even)' }} |
-                            URL: {{ request()->fullUrl() }}
-                        </small>
-                    </div>
-                    @endif
                     
                     {{-- Navigation Tabs --}}
                     <ul class="nav nav-tabs mt-3" id="scheduleTab" role="tablist">
@@ -628,59 +579,21 @@ document.addEventListener('DOMContentLoaded', function() {
                         week_type: newWeek
                     })
                 })
-                .then(response => {
-                    if (!response.ok) {
-                        console.error('Error response:', response);
-                        return response.text().then(text => {
-                            throw new Error(`Server error (${response.status}): ${text}`);
-                        });
-                    }
-                    return response.json();
-                })
+                .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        // Show success message with method info if available
-                        let successMsg = `Successfully changed customer to Week ${newWeek}.`;
-                        
-                        if (data.method) {
-                            successMsg += ` (Method: ${data.method})`;
-                        }
-                        
-                        // Add warning if using session-based fallback
-                        if (data.method === 'session_based') {
-                            successMsg += `\n\nNOTE: This change is temporary (session-based) since the API update failed. The change will be visible on this browser session only.`;
-                        }
-                        
-                        if (data.warning) {
-                            successMsg += `\n\nWARNING: ${data.message}`;
-                        }
-                        
-                        successMsg += '\n\nRefreshing page...';
-                        
-                        alert(successMsg);
-                        
-                        // Update UI immediately before refresh for better UX
-                        dropdownBtn.innerHTML = `Week ${newWeek}`;
-                        dropdownBtn.classList.remove('bg-success', 'bg-info', 'bg-primary');
-                        dropdownBtn.classList.add(newWeek === 'A' ? 'bg-success' : 'bg-info');
+                        // Show success message
+                        alert(`Successfully changed customer to Week ${newWeek}. Refreshing page...`);
                         
                         // Refresh the page to show updated data
-                        setTimeout(() => window.location.reload(), 1000);
+                        window.location.reload();
                     } else {
-                        let errorMsg = 'Failed to update customer week: ' + (data.message || 'Unknown error');
-                        
-                        // Add debug info if available
-                        if (data.debug) {
-                            console.error('Debug info:', data.debug);
-                            errorMsg += '\n\nCheck console for debug information.';
-                        }
-                        
-                        alert(errorMsg);
+                        alert('Failed to update customer week: ' + (data.message || 'Unknown error'));
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert(`An error occurred while updating customer week:\n${error.message}`);
+                    alert('An error occurred while updating customer week.');
                 })
                 .finally(() => {
                     // Restore button state

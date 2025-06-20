@@ -21,28 +21,11 @@ Route::prefix('admin')->group(function () {
 // Protected admin routes (require authentication)
 Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
     
-    // Debug routes
-    Route::get('/debug/api-test', [App\Http\Controllers\Admin\DebugController::class, 'apiTest'])->name('admin.debug.api-test');
-    Route::get('/debug/fortnightly-week-test', [App\Http\Controllers\Admin\DebugController::class, 'fortnightlyWeekTest'])->name('admin.debug.fortnightly-week-test');
-    Route::get('/debug/collection-day', [DeliveryController::class, 'testCollectionDays'])->name('admin.debug.collection-day');
-    
     // Admin dashboard route
     Route::get('/', [DashboardController::class, 'index'])->name('admin.dashboard');
 
     // Delivery management routes
     Route::get('/deliveries', [DeliveryController::class, 'index'])->name('admin.deliveries.index');
-    
-    // Quick week test route
-    Route::get('/test-week', function() {
-        $selectedWeek = request('week', date('W'));
-        return response()->json([
-            'selected_week' => $selectedWeek,
-            'current_week' => date('W'),
-            'week_type' => ($selectedWeek % 2 === 1) ? 'A' : 'B',
-            'url' => request()->fullUrl(),
-            'all_params' => request()->all()
-        ]);
-    })->name('admin.test-week');
     Route::get('/api-test', [DeliveryController::class, 'apiTest'])->name('admin.api-test');
     Route::get('/diagnostic-subscriptions', [DeliveryController::class, 'diagnosticSubscriptions'])->name('admin.diagnostic-subscriptions');
     Route::get('/test-active-filter', [DeliveryController::class, 'testActiveFilter'])->name('admin.test-active-filter');
@@ -52,8 +35,6 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
     Route::get('/debug-page-display', [DeliveryController::class, 'debugPageDisplay'])->name('admin.debug-page-display');
     Route::get('/debug-customer-statuses', [DeliveryController::class, 'debugCustomerStatuses'])->name('admin.debug-customer-statuses');
     Route::get('/compare-week-logic', [DeliveryController::class, 'compareWeekLogic'])->name('admin.compare-week-logic');
-    Route::get('/test-collection-days', [DeliveryController::class, 'testCollectionDays'])->name('admin.test-collection-days');
-    Route::get('/debug-frequencies', [DeliveryController::class, 'debugFrequencies'])->name('admin.debug-frequencies');
     Route::post('/customers/update-week', [DeliveryController::class, 'updateCustomerWeek'])->name('admin.customers.update-week');
 
     // Customer management routes
@@ -105,5 +86,16 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         } catch (\Exception $e) {
             return "Error: " . $e->getMessage();
         }
+    });
+
+    // Route planning and optimization routes
+    Route::prefix('routes')->name('admin.routes.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Admin\RouteController::class, 'index'])->name('index');
+        Route::post('/optimize', [App\Http\Controllers\Admin\RouteController::class, 'optimize'])->name('optimize');
+        Route::post('/send-to-driver', [App\Http\Controllers\Admin\RouteController::class, 'sendToDriver'])->name('send-to-driver');
+        Route::post('/send-to-driver-sms', [App\Http\Controllers\Admin\RouteController::class, 'sendToDriverSMS'])->name('send-to-driver-sms');
+        Route::get('/map-data', [App\Http\Controllers\Admin\RouteController::class, 'getMapData'])->name('map-data');
+        Route::post('/create-shareable-map', [App\Http\Controllers\Admin\RouteController::class, 'createShareableMap'])->name('create-shareable-map');
+        Route::get('/wp-go-maps-data', [App\Http\Controllers\Admin\RouteController::class, 'getWPGoMapsData'])->name('wp-go-maps-data');
     });
 });

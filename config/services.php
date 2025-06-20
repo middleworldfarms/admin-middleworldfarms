@@ -58,4 +58,18 @@ return [
         'consumer_secret' => env('WC_CONSUMER_SECRET', ''),
         'integration_key' => env('SELF_SERVE_SHOP_INTEGRATION_KEY', ''),
     ],
+
+    'google_maps' => [
+        'api_key' => env('GOOGLE_MAPS_API_KEY'),
+    ],
+
+    'twilio' => [
+        'sid' => env('TWILIO_SID'),
+        'token' => env('TWILIO_TOKEN'),
+        'from' => env('TWILIO_FROM'),
+    ],
+
+    'delivery' => [
+        'depot_address' => env('DELIVERY_DEPOT_ADDRESS', 'Middleworld Farms, Llanfairpwll, Anglesey, Wales, UK'),
+    ],
 ];

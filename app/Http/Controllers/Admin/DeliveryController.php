@@ -57,7 +57,7 @@ class DeliveryController extends Controller
                 }
             }
             
-            // Calculate status counts for delivery subtabs
+            // Calculate status counts for delivery subtabs AFTER week filtering
             $deliveryStatusCounts = [
                 'active' => 0,      // Add active for deliveries (processing = active)
                 'processing' => 0,
@@ -69,30 +69,40 @@ class DeliveryController extends Controller
                 'other' => 0
             ];
             
-            if (isset($scheduleData['deliveriesByStatus'])) {
-                foreach ($scheduleData['deliveriesByStatus'] as $status => $statusData) {
-                    foreach ($statusData as $dateData) {
-                        $count = count($dateData['deliveries'] ?? []);
-                        $deliveryStatusCounts[$status] += $count;
-                        
-                        // Add delivery counts to combined status counts for All tab
-                        if ($status === 'processing') {
-                            // Processing deliveries are "active" 
-                            $statusCounts['active'] += $count;
-                            $statusCounts['processing'] += $count;
-                            $deliveryStatusCounts['active'] += $count;
-                        } elseif ($status === 'active') {
-                            // Active deliveries
-                            $statusCounts['active'] += $count;
-                            $deliveryStatusCounts['active'] += $count;
-                        } else {
-                            // Other delivery statuses (including on-hold)
-                            if (isset($statusCounts[$status])) {
-                                $statusCounts[$status] += $count;
-                            } else {
-                                $statusCounts['other'] += $count;
-                            }
-                        }
+            // Count only deliveries that are actually displayed (after week filtering)
+            foreach ($scheduleData['data'] as $dateData) {
+                foreach ($dateData['deliveries'] ?? [] as $delivery) {
+                    $status = strtolower($delivery['status']);
+                    $status = str_replace('wc-', '', $status);
+                    
+                    // Map statuses consistently - handle WooCommerce subscription statuses
+                    if (in_array($status, ['active', 'processing'])) {
+                        // Both 'active' and 'processing' are considered active for deliveries
+                        $mappedStatus = 'active';
+                    } elseif ($status === 'on-hold') {
+                        $mappedStatus = 'on-hold';
+                    } elseif ($status === 'cancelled') {
+                        $mappedStatus = 'cancelled';
+                    } elseif ($status === 'pending') {
+                        $mappedStatus = 'pending';
+                    } elseif ($status === 'completed') {
+                        $mappedStatus = 'completed';
+                    } elseif ($status === 'refunded') {
+                        $mappedStatus = 'refunded';
+                    } else {
+                        $mappedStatus = 'other';
+                    }
+                    
+                    // Count for the mapped status
+                    if (isset($deliveryStatusCounts[$mappedStatus])) {
+                        $deliveryStatusCounts[$mappedStatus]++;
+                    } else {
+                        $deliveryStatusCounts['other']++;
+                    }
+                    
+                    // Also keep separate processing count for the processing tab
+                    if ($status === 'processing' && isset($deliveryStatusCounts['processing'])) {
+                        $deliveryStatusCounts['processing']++;
                     }
                 }
             }            
@@ -199,6 +209,27 @@ class DeliveryController extends Controller
                     }
                 }
                 
+                // Method 4: Check product name for frequency indicators (for when frequency is in product name)
+                if ($frequency === 'Weekly' && isset($sub['line_items'][0]['name'])) {
+                    $productName = strtolower($sub['line_items'][0]['name']);
+                    if (strpos($productName, 'fortnightly') !== false) {
+                        $frequency = 'Fortnightly';
+                    } elseif (strpos($productName, 'weekly') !== false) {
+                        $frequency = 'Weekly';
+                    }
+                }
+                
+                // Normalize frequency values - handle variations like "Fortnightly box", "Weekly box", etc.
+                $frequency = trim(strtolower($frequency));
+                if (strpos($frequency, 'fortnightly') !== false) {
+                    $frequency = 'Fortnightly';
+                } elseif (strpos($frequency, 'weekly') !== false) {
+                    $frequency = 'Weekly';
+                } else {
+                    // Default to Weekly if we can't determine
+                    $frequency = 'Weekly';
+                }
+                
                 // Extract customer week type from meta_data if available
                 $customerWeekType = 'Weekly'; // Default
                 
@@ -220,25 +251,19 @@ class DeliveryController extends Controller
                     }
                 }
 
-                // **WEEK FILTERING LOGIC** - More lenient approach
-                $shouldIncludeInSelectedWeek = true; // Default to include (less aggressive filtering)
+                // **WEEK FILTERING LOGIC** 
+                $shouldIncludeInSelectedWeek = true; // Default for weekly subscriptions
                 
                 if (strtolower($frequency) === 'fortnightly') {
-                    // Only filter fortnightly subscriptions based on their week assignment
-                    if ($customerWeekType !== 'Weekly' && in_array($customerWeekType, ['A', 'B'])) {
-                        // Customer has a specific week assignment, check if it matches selected week
-                        $shouldIncludeInSelectedWeek = ($customerWeekType === $selectedWeekType);
-                    } else {
-                        // No specific week assignment or still marked as 'Weekly' 
-                        // Show them in all weeks (let them be assigned later)
-                        $shouldIncludeInSelectedWeek = true;
+                    // For fortnightly customers, assign week type if not set
+                    if ($customerWeekType === 'Weekly' || !in_array($customerWeekType, ['A', 'B'])) {
+                        // Auto-assign fortnightly customers to a week type based on their subscription ID
+                        // This ensures consistent assignment: odd IDs = Week A, even IDs = Week B
+                        $customerWeekType = ((int)$sub['id'] % 2 === 1) ? 'A' : 'B';
                     }
-                }
-                // Weekly subscriptions and other frequencies always show (no filtering needed)
-                
-                // Skip this subscription only if explicitly filtered out
-                if (!$shouldIncludeInSelectedWeek) {
-                    continue;
+                    
+                    // Now check if this fortnightly customer should appear in the selected week
+                    $shouldIncludeInSelectedWeek = ($customerWeekType === $selectedWeekType);
                 }
                 
                 // Skip this subscription if it shouldn't appear in the selected week
@@ -460,21 +485,43 @@ class DeliveryController extends Controller
                 $status = strtolower($delivery['status']);
                 $status = str_replace('wc-', '', $status);
                 
-                // Map statuses consistently
-                if ($status === 'active') {
-                    $status = 'active';
-                } elseif (!isset($deliveriesByStatus[$status])) {
-                    $status = 'other';
+                // Map statuses consistently - handle WooCommerce subscription statuses
+                if (in_array($status, ['active', 'processing'])) {
+                    // Both 'active' and 'processing' are considered active for deliveries
+                    $mappedStatus = 'active';
+                } elseif ($status === 'on-hold') {
+                    $mappedStatus = 'on-hold';
+                } elseif ($status === 'cancelled') {
+                    $mappedStatus = 'cancelled';
+                } elseif ($status === 'pending') {
+                    $mappedStatus = 'pending';
+                } elseif ($status === 'completed') {
+                    $mappedStatus = 'completed';
+                } elseif ($status === 'refunded') {
+                    $mappedStatus = 'refunded';
+                } else {
+                    $mappedStatus = 'other';
                 }
                 
-                if (!isset($deliveriesByStatus[$status][$date])) {
-                    $deliveriesByStatus[$status][$date] = [
+                // Also keep separate processing count for the processing tab
+                if ($status === 'processing') {
+                    if (!isset($deliveriesByStatus['processing'][$date])) {
+                        $deliveriesByStatus['processing'][$date] = [
+                            'date_formatted' => $dateData['date_formatted'],
+                            'deliveries' => []
+                        ];
+                    }
+                    $deliveriesByStatus['processing'][$date]['deliveries'][] = $delivery;
+                }
+                
+                if (!isset($deliveriesByStatus[$mappedStatus][$date])) {
+                    $deliveriesByStatus[$mappedStatus][$date] = [
                         'date_formatted' => $dateData['date_formatted'],
                         'deliveries' => []
                     ];
                 }
                 
-                $deliveriesByStatus[$status][$date]['deliveries'][] = $delivery;
+                $deliveriesByStatus[$mappedStatus][$date]['deliveries'][] = $delivery;
             }
         }
         
@@ -1647,5 +1694,148 @@ class DeliveryController extends Controller
         $targetWeekMonday->modify('+' . ($weekNumber - 1) . ' weeks');
         
         return $targetWeekMonday->format('Y-m-d');
+    }
+    
+    /**
+     * Print only active collections and deliveries
+     */
+    public function printActiveSchedule(Request $request, WpApiService $wpApi)
+    {
+        try {
+            // Get selected week from request, default to current week
+            $selectedWeek = $request->get('week', date('W'));
+            
+            // Get raw data via API
+            $rawData = $wpApi->getDeliveryScheduleData(500);
+            
+            // Transform data to match view expectations
+            $scheduleData = $this->transformScheduleData($rawData, $selectedWeek);
+            
+            // Extract only active collections and deliveries
+            $activeCollections = [];
+            $activeDeliveries = [];
+            
+            if (isset($scheduleData['collectionsByStatus']['active'])) {
+                foreach ($scheduleData['collectionsByStatus']['active'] as $date => $dateData) {
+                    $activeCollections[$date] = $dateData;
+                }
+            }
+            
+            if (isset($scheduleData['deliveriesByStatus']['active'])) {
+                foreach ($scheduleData['deliveriesByStatus']['active'] as $date => $dateData) {
+                    $activeDeliveries[$date] = $dateData;
+                }
+            }
+            
+            // Count totals
+            $totalActiveCollections = 0;
+            $totalActiveDeliveries = 0;
+            
+            foreach ($activeCollections as $dateData) {
+                $totalActiveCollections += count($dateData['collections'] ?? []);
+            }
+            
+            foreach ($activeDeliveries as $dateData) {
+                $totalActiveDeliveries += count($dateData['deliveries'] ?? []);
+            }
+            
+            return view('pdf.printable-schedule', compact(
+                'activeCollections',
+                'activeDeliveries', 
+                'totalActiveCollections',
+                'totalActiveDeliveries',
+                'selectedWeek'
+            ));
+            
+        } catch (\Exception $e) {
+            $activeCollections = [];
+            $activeDeliveries = [];
+            $totalActiveCollections = 0;
+            $totalActiveDeliveries = 0;
+            $error = $e->getMessage();
+            
+            return view('pdf.printable-schedule', compact(
+                'activeCollections',
+                'activeDeliveries',
+                'totalActiveCollections', 
+                'totalActiveDeliveries',
+                'selectedWeek',
+                'error'
+            ));
+        }
+    }
+
+    /**
+     * Print/export deliveries or collections separately
+     */
+    public function print(Request $request, WpApiService $wpApi)
+    {
+        try {
+            $type = $request->get('type', 'deliveries'); // 'deliveries' or 'collections'
+            $selectedWeek = $request->get('week', date('W'));
+            
+            // Get schedule data via API
+            $rawData = $wpApi->getDeliveryScheduleData(500);
+            $scheduleData = $this->transformScheduleData($rawData, $selectedWeek);
+            
+            // Filter for only active items of the specified type
+            $printData = [];
+            $title = '';
+            $dayInfo = '';
+            
+            if ($type === 'deliveries') {
+                $title = 'Deliveries Schedule';
+                $dayInfo = 'Thursday Afternoon Deliveries';
+                
+                // Get only active deliveries
+                if (isset($scheduleData['deliveriesByStatus']['active'])) {
+                    foreach ($scheduleData['deliveriesByStatus']['active'] as $date => $dateData) {
+                        $printData[$date] = [
+                            'date_formatted' => $dateData['date_formatted'],
+                            'items' => $dateData['deliveries'] ?? []
+                        ];
+                    }
+                }
+            } else {
+                $title = 'Collections Schedule';
+                $dayInfo = 'Friday Collections';
+                
+                // Get only active collections
+                if (isset($scheduleData['collectionsByStatus']['active'])) {
+                    foreach ($scheduleData['collectionsByStatus']['active'] as $date => $dateData) {
+                        $printData[$date] = [
+                            'date_formatted' => $dateData['date_formatted'],
+                            'items' => $dateData['collections'] ?? []
+                        ];
+                    }
+                }
+            }
+            
+            // Calculate totals
+            $totalItems = 0;
+            foreach ($printData as $dateData) {
+                $totalItems += count($dateData['items']);
+            }
+            
+            return view('admin.deliveries.print', compact(
+                'printData', 
+                'type', 
+                'title',
+                'dayInfo',
+                'totalItems', 
+                'selectedWeek'
+            ));
+            
+        } catch (\Exception $e) {
+            return view('admin.deliveries.print', [
+                'printData' => [],
+                'type' => $type ?? 'deliveries',
+                'title' => 'Error Loading Schedule',
+                'dayInfo' => '',
+                'totalItems' => 0,
+                'selectedWeek' => $selectedWeek ?? date('W'),
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 }
