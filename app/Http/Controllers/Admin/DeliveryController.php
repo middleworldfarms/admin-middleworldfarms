@@ -301,14 +301,20 @@ class DeliveryController extends Controller
                 // For now, use the default value to prevent API timeouts
 
                 // Store both subscription ID and customer ID - use subscription ID for API operations
+                $extractedEmail = $sub['billing']['email'] ?? '';
+                $extractedFirstName = $sub['billing']['first_name'] ?? '';
+                $extractedLastName = $sub['billing']['last_name'] ?? '';
+                $extractedName = trim($extractedFirstName . ' ' . $extractedLastName);
+                
                 $rawData[$type][] = [
                     'id'                    => $sub['id'], // This is the subscription ID
                     'subscription_id'        => $sub['id'], // Keep a clear reference
                     'customer_id'           => $sub['customer_id'], // This is the WP user ID
                     'status'                => $sub['status'],
                     'date_created'          => $sub['date_created'],
-                    'customer_email'        => $sub['billing']['email'] ?? '',
-                    'name'                  => trim(($sub['billing']['first_name'] ?? '') . ' ' . ($sub['billing']['last_name'] ?? '')),
+                    'customer_email'        => $extractedEmail,
+                    'name'                  => $extractedName, // Keep for backward compatibility
+                    'customer_name'         => $extractedName, // Add this field that the templates expect
                     'address'               => array_filter([
                         $sub['shipping']['address_1'] ?? '',
                         $sub['shipping']['address_2'] ?? '',
