@@ -107,25 +107,38 @@
     @if(isset($scheduleData) && $scheduleData)
         {{-- Week Navigation (moved here) --}}
         <div class="d-flex align-items-center mb-3">
+            @php
+                // Use the selectedWeek from controller, fallback to current week
+                $displayWeek = isset($selectedWeek) ? (int) $selectedWeek : (int) date('W');
+                $currentWeek = (int) date('W');
+                $year = date('Y');
+                
+                // Handle week boundaries properly
+                $prevWeek = $displayWeek > 1 ? $displayWeek - 1 : 53;
+                $nextWeek = $displayWeek < 53 ? $displayWeek + 1 : 1;
+            @endphp
+            
+            {{-- Previous Week Button --}}
+            <a href="{{ url()->current() }}?week={{ $prevWeek }}" class="btn btn-outline-secondary me-2">
+                &laquo; Previous Week
+            </a>
+            
+            {{-- Current Week Button --}}
+            <a href="{{ url()->current() }}?week={{ $currentWeek }}" class="btn btn-outline-primary me-2 @if($displayWeek == $currentWeek) active fw-bold @endif">
+                Current Week ({{ $currentWeek }})
+            </a>
+            
+            {{-- Next Week Button --}}
+            <a href="{{ url()->current() }}?week={{ $nextWeek }}" class="btn btn-outline-secondary me-2">
+                Next Week &raquo;
+            </a>
+            
+            {{-- Week Selector Form --}}
             <form method="GET" id="weekNavForm" class="d-flex align-items-center">
-                @php
-                    $selectedWeek = isset($selectedWeek) ? $selectedWeek : date('W');
-                    $currentWeek = date('W');
-                    $year = date('Y');
-                @endphp
-                <button type="submit" name="week" value="{{ $selectedWeek - 1 }}" class="btn btn-outline-secondary me-2" @if($selectedWeek <= 1) disabled @endif>
-                    &laquo; Previous Week
-                </button>
-                <button type="submit" name="week" value="{{ $currentWeek }}" class="btn btn-outline-primary me-2 @if($selectedWeek == $currentWeek) active fw-bold @endif">
-                    Current Week ({{ $currentWeek }})
-                </button>
-                <button type="submit" name="week" value="{{ $selectedWeek + 1 }}" class="btn btn-outline-secondary me-2">
-                    Next Week &raquo;
-                </button>
                 <label for="weekSelect" class="ms-2 me-1 mb-0">Go to week:</label>
-                <select id="weekSelect" name="week" class="form-select w-auto" onchange="document.getElementById('weekNavForm').submit();">
+                <select id="weekSelect" name="week" class="form-select w-auto" onchange="this.form.submit();">
                     @for($w = 1; $w <= 53; $w++)
-                        <option value="{{ $w }}" @if($selectedWeek == $w) selected @endif>Week {{ $w }}</option>
+                        <option value="{{ $w }}" @if($displayWeek == $w) selected @endif>Week {{ $w }}</option>
                     @endfor
                 </select>
             </form>
@@ -140,9 +153,12 @@
             
             <div class="card">
                 <div class="card-header">
-                    <h3>Schedule Management 
+                    <h3>Schedule Management - Week {{ $selectedWeek ?? $displayWeek }}
                         <small class="text-muted">({{ $totalDeliveries }} deliveries, {{ $totalCollections }} collections)</small>
                     </h3>
+                    <small class="text-muted">
+                        Debug: Selected Week: {{ $selectedWeek ?? $displayWeek }} | Current Week: {{ $currentWeek }} | Week Type: {{ (($selectedWeek ?? $displayWeek) % 2 === 1) ? 'A' : 'B' }} ({{ (($selectedWeek ?? $displayWeek) % 2 === 1) ? 'Odd' : 'Even' }}) | URL: {{ request()->fullUrl() }}
+                    </small>
                     
                     {{-- Navigation Tabs --}}
                     <ul class="nav nav-tabs mt-3" id="scheduleTab" role="tablist">
@@ -299,7 +315,14 @@
                         {{-- DELIVERIES TAB - ONLY DELIVERIES --}}
                         <div class="tab-pane fade" id="deliveries" role="tabpanel" aria-labelledby="deliveries-tab">
                             @if($totalDeliveries > 0)
-                                {{-- Same status subtabs structure --}}
+                                {{-- Print Button for Deliveries --}}
+                                <div class="d-flex justify-content-end mb-3">
+                                    <button onclick="printDeliveries()" class="btn btn-success btn-sm">
+                                        <i class="fas fa-print"></i> Print Deliveries
+                                    </button>
+                                </div>
+                                
+                                {{-- Deliveries Status Subtabs (Same order as All tab) --}}
                                 <ul class="nav nav-pills mt-3 mb-4" id="deliveriesStatusTab" role="tablist">
                                     <li class="nav-item" role="presentation">
                                         <button class="nav-link" id="deliveries-all-tab" data-bs-toggle="pill" data-bs-target="#deliveries-all" type="button" role="tab" aria-controls="deliveries-all" aria-selected="false">
@@ -308,13 +331,34 @@
                                     </li>
                                     <li class="nav-item" role="presentation">
                                         <button class="nav-link active" id="deliveries-active-tab" data-bs-toggle="pill" data-bs-target="#deliveries-active" type="button" role="tab" aria-controls="deliveries-active" aria-selected="true">
-                                            ✅ Active ({{ $totalDeliveries }})
+                                            ✅ Active ({{ $deliveryStatusCounts['active'] }})
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link {{ $deliveryStatusCounts['on-hold'] == 0 ? 'text-muted' : '' }}" id="deliveries-on-hold-tab" data-bs-toggle="pill" data-bs-target="#deliveries-on-hold" type="button" role="tab" aria-controls="deliveries-on-hold" aria-selected="false" {{ $deliveryStatusCounts['on-hold'] == 0 ? 'title="No on-hold deliveries"' : '' }}>
+                                            ⏸️ On Hold ({{ $deliveryStatusCounts['on-hold'] }})
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link {{ $deliveryStatusCounts['cancelled'] == 0 ? 'text-muted' : '' }}" id="deliveries-cancelled-tab" data-bs-toggle="pill" data-bs-target="#deliveries-cancelled" type="button" role="tab" aria-controls="deliveries-cancelled" aria-selected="false" {{ $deliveryStatusCounts['cancelled'] == 0 ? 'title="No cancelled deliveries"' : '' }}>
+                                            ❌ Cancelled ({{ $deliveryStatusCounts['cancelled'] }})
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link {{ $deliveryStatusCounts['pending'] == 0 ? 'text-muted' : '' }}" id="deliveries-pending-tab" data-bs-toggle="pill" data-bs-target="#deliveries-pending" type="button" role="tab" aria-controls="deliveries-pending" aria-selected="false" {{ $deliveryStatusCounts['pending'] == 0 ? 'title="No pending deliveries"' : '' }}>
+                                            ⏳ Pending ({{ $deliveryStatusCounts['pending'] }})
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link {{ $deliveryStatusCounts['other'] == 0 ? 'text-muted' : '' }}" id="deliveries-other-tab" data-bs-toggle="pill" data-bs-target="#deliveries-other" type="button" role="tab" aria-controls="deliveries-other" aria-selected="false" {{ $deliveryStatusCounts['other'] == 0 ? 'title="No other status deliveries"' : '' }}>
+                                            📋 Other ({{ $deliveryStatusCounts['other'] }})
                                         </button>
                                     </li>
                                 </ul>
 
-                                {{-- ONLY DELIVERY DATA --}}
+                                {{-- Deliveries Status Tab Content (Same order as All tab) --}}
                                 <div class="tab-content" id="deliveriesStatusTabContent">
+                                    {{-- All Deliveries --}}
                                     <div class="tab-pane fade" id="deliveries-all" role="tabpanel" aria-labelledby="deliveries-all-tab">
                                         @foreach($scheduleData['data'] as $date => $dateData)
                                             @if(count($dateData['deliveries'] ?? []) > 0)
@@ -324,13 +368,74 @@
                                         @endforeach
                                     </div>
 
+                                    {{-- Active Deliveries (DEFAULT) --}}
                                     <div class="tab-pane fade show active" id="deliveries-active" role="tabpanel" aria-labelledby="deliveries-active-tab">
-                                        @foreach($scheduleData['data'] as $date => $dateData)
-                                            @if(count($dateData['deliveries'] ?? []) > 0)
+                                        @if($deliveryStatusCounts['active'] > 0 && isset($scheduleData['deliveriesByStatus']['active']))
+                                            @foreach($scheduleData['deliveriesByStatus']['active'] as $date => $dateData)
                                                 <h5 class="mt-3 mb-3 text-success">{{ $dateData['date_formatted'] ?? $date }}</h5>
                                                 @include('admin.deliveries.partials.collection-table', ['items' => $dateData['deliveries'], 'type' => 'delivery'])
-                                            @endif
-                                        @endforeach
+                                            @endforeach
+                                        @else
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle"></i> No active deliveries found.
+                                            </div>
+                                        @endif
+                                    </div>
+
+                                    {{-- On Hold Deliveries --}}
+                                    <div class="tab-pane fade" id="deliveries-on-hold" role="tabpanel" aria-labelledby="deliveries-on-hold-tab">
+                                        @if($deliveryStatusCounts['on-hold'] > 0 && isset($scheduleData['deliveriesByStatus']['on-hold']))
+                                            @foreach($scheduleData['deliveriesByStatus']['on-hold'] as $date => $dateData)
+                                                <h5 class="mt-3 mb-3 text-warning">{{ $dateData['date_formatted'] ?? $date }}</h5>
+                                                @include('admin.deliveries.partials.collection-table', ['items' => $dateData['deliveries'], 'type' => 'delivery'])
+                                            @endforeach
+                                        @else
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle"></i> No on-hold deliveries found.
+                                            </div>
+                                        @endif
+                                    </div>
+
+                                    {{-- Cancelled Deliveries --}}
+                                    <div class="tab-pane fade" id="deliveries-cancelled" role="tabpanel" aria-labelledby="deliveries-cancelled-tab">
+                                        @if($deliveryStatusCounts['cancelled'] > 0 && isset($scheduleData['deliveriesByStatus']['cancelled']))
+                                            @foreach($scheduleData['deliveriesByStatus']['cancelled'] as $date => $dateData)
+                                                <h5 class="mt-3 mb-3 text-danger">{{ $dateData['date_formatted'] ?? $date }}</h5>
+                                                @include('admin.deliveries.partials.collection-table', ['items' => $dateData['deliveries'], 'type' => 'delivery'])
+                                            @endforeach
+                                        @else
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle"></i> No cancelled deliveries found.
+                                            </div>
+                                        @endif
+                                    </div>
+
+                                    {{-- Pending Deliveries --}}
+                                    <div class="tab-pane fade" id="deliveries-pending" role="tabpanel" aria-labelledby="deliveries-pending-tab">
+                                        @if($deliveryStatusCounts['pending'] > 0 && isset($scheduleData['deliveriesByStatus']['pending']))
+                                            @foreach($scheduleData['deliveriesByStatus']['pending'] as $date => $dateData)
+                                                <h5 class="mt-3 mb-3 text-info">{{ $dateData['date_formatted'] ?? $date }}</h5>
+                                                @include('admin.deliveries.partials.collection-table', ['items' => $dateData['deliveries'], 'type' => 'delivery'])
+                                            @endforeach
+                                        @else
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle"></i> No pending deliveries found.
+                                            </div>
+                                        @endif
+                                    </div>
+
+                                    {{-- Other Status Deliveries --}}
+                                    <div class="tab-pane fade" id="deliveries-other" role="tabpanel" aria-labelledby="deliveries-other-tab">
+                                        @if($deliveryStatusCounts['other'] > 0 && isset($scheduleData['deliveriesByStatus']['other']))
+                                            @foreach($scheduleData['deliveriesByStatus']['other'] as $date => $dateData)
+                                                <h5 class="mt-3 mb-3 text-secondary">{{ $dateData['date_formatted'] ?? $date }}</h5>
+                                                @include('admin.deliveries.partials.collection-table', ['items' => $dateData['deliveries'], 'type' => 'delivery'])
+                                            @endforeach
+                                        @else
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle"></i> No other status deliveries found.
+                                            </div>
+                                        @endif
                                     </div>
                                 </div>
                             @else
@@ -343,6 +448,13 @@
                         {{-- Collections Only Tab --}}
                         <div class="tab-pane fade" id="collections" role="tabpanel" aria-labelledby="collections-tab">
                             @if($totalCollections > 0)
+                                {{-- Print Button for Collections --}}
+                                <div class="d-flex justify-content-end mb-3">
+                                    <button onclick="printCollections()" class="btn btn-info btn-sm">
+                                        <i class="fas fa-print"></i> Print Collections
+                                    </button>
+                                </div>
+                                
                                 {{-- Collections Status Subtabs (Same order as All tab) --}}
                                 <ul class="nav nav-pills mt-3 mb-4" id="collectionsStatusTab" role="tablist">
                                     <li class="nav-item" role="presentation">
@@ -655,6 +767,243 @@ function switchToCustomer(customerId, customerName) {
             alert('Error switching to customer. Please try again.');
         });
     }
+}
+
+// Print Functions
+function printDeliveries() {
+    // Create a new window for printing
+    var printWindow = window.open('', '_blank');
+    
+    // Get current date for the header
+    var today = new Date();
+    var tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    var dateStr = tomorrow.toLocaleDateString('en-GB', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+    });
+    
+    // Start building the HTML content
+    var printContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Active Delivery Schedule - ${dateStr}</title>
+            <style>
+                body { 
+                    margin: 30px; 
+                    font-family: Arial, sans-serif; 
+                    font-size: 12px;
+                }
+                @page { 
+                    margin: 25mm; 
+                    size: A4; 
+                }
+                h1 { 
+                    text-align: center; 
+                    margin-bottom: 20px; 
+                    font-size: 18px;
+                }
+                h2 { 
+                    color: #0066cc; 
+                    border-bottom: 2px solid #0066cc; 
+                    padding-bottom: 5px; 
+                    font-size: 16px;
+                }
+                table { 
+                    width: 100%; 
+                    border-collapse: collapse; 
+                    margin-bottom: 20px; 
+                }
+                th, td { 
+                    border: 1px solid #000; 
+                    padding: 8px; 
+                    text-align: left; 
+                    vertical-align: top;
+                }
+                th { 
+                    background-color: #f8f9fa; 
+                    font-weight: bold; 
+                }
+                .badge { 
+                    border: 1px solid #000; 
+                    padding: 2px 6px; 
+                    font-size: 10px; 
+                    border-radius: 3px;
+                }
+                .page-break { 
+                    page-break-before: always; 
+                }
+                .date-header {
+                    background-color: #f8f9fa;
+                    padding: 10px;
+                    margin: 20px 0 10px 0;
+                    border: 1px solid #000;
+                    font-weight: bold;
+                }
+            </style>
+        </head>
+        <body>
+            <h1>🚚 ACTIVE DELIVERY SCHEDULE - ${dateStr}</h1>
+    `;
+    
+    // Get ONLY active delivery data from the deliveries-active tab content
+    var activeDeliveriesTab = document.querySelector('#deliveries-active');
+    var deliveryTables = activeDeliveriesTab ? activeDeliveriesTab.querySelectorAll('table') : [];
+    var hasDeliveries = false;
+    
+    deliveryTables.forEach(function(table, index) {
+        if (table.querySelector('tbody tr')) {
+            hasDeliveries = true;
+            if (index > 0) {
+                printContent += '<div class="page-break"></div>';
+            }
+            printContent += '<h2>🚚 Active Deliveries</h2>';
+            printContent += table.outerHTML;
+        }
+    });
+    
+    if (!hasDeliveries) {
+        printContent += '<p style="text-align: center; font-size: 16px; margin-top: 50px;">No active deliveries found for this week.</p>';
+    }
+    
+    printContent += `
+            <div style="margin-top: 30px; text-align: center; font-size: 10px; color: #666;">
+                Generated on ${new Date().toLocaleString()} | Middleworld Farms Admin - ACTIVE DELIVERIES ONLY
+            </div>
+        </body>
+        </html>
+    `;
+    
+    // Write content and print
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    
+    setTimeout(function() {
+        printWindow.print();
+        printWindow.close();
+    }, 500);
+}
+
+function printCollections() {
+    // Create a new window for printing
+    var printWindow = window.open('', '_blank');
+    
+    // Get current date for the header
+    var today = new Date();
+    var tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    var dateStr = tomorrow.toLocaleDateString('en-GB', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+    });
+    
+    // Start building the HTML content
+    var printContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Active Collection Schedule - ${dateStr}</title>
+            <style>
+                body { 
+                    margin: 30px; 
+                    font-family: Arial, sans-serif; 
+                    font-size: 12px;
+                }
+                @page { 
+                    margin: 25mm; 
+                    size: A4; 
+                }
+                h1 { 
+                    text-align: center; 
+                    margin-bottom: 20px; 
+                    font-size: 18px;
+                }
+                h2 { 
+                    color: #28a745; 
+                    border-bottom: 2px solid #28a745; 
+                    padding-bottom: 5px; 
+                    font-size: 16px;
+                }
+                table { 
+                    width: 100%; 
+                    border-collapse: collapse; 
+                    margin-bottom: 20px; 
+                }
+                th, td { 
+                    border: 1px solid #000; 
+                    padding: 8px; 
+                    text-align: left; 
+                    vertical-align: top;
+                }
+                th { 
+                    background-color: #f8f9fa; 
+                    font-weight: bold; 
+                }
+                .badge { 
+                    border: 1px solid #000; 
+                    padding: 2px 6px; 
+                    font-size: 10px; 
+                    border-radius: 3px;
+                }
+                .page-break { 
+                    page-break-before: always; 
+                }
+                .date-header {
+                    background-color: #f8f9fa;
+                    padding: 10px;
+                    margin: 20px 0 10px 0;
+                    border: 1px solid #000;
+                    font-weight: bold;
+                }
+            </style>
+        </head>
+        <body>
+            <h1>🏪 ACTIVE COLLECTION SCHEDULE - ${dateStr}</h1>
+    `;
+    
+    // Get ONLY active collection data from the collections-active tab content
+    var activeCollectionsTab = document.querySelector('#collections-active');
+    var collectionTables = activeCollectionsTab ? activeCollectionsTab.querySelectorAll('table') : [];
+    var hasCollections = false;
+    
+    collectionTables.forEach(function(table, index) {
+        if (table.querySelector('tbody tr')) {
+            hasCollections = true;
+            if (index > 0) {
+                printContent += '<div class="page-break"></div>';
+            }
+            printContent += '<h2>🏪 Active Collections</h2>';
+            printContent += table.outerHTML;
+        }
+    });
+    
+    if (!hasCollections) {
+        printContent += '<p style="text-align: center; font-size: 16px; margin-top: 50px;">No active collections found for this week.</p>';
+    }
+    
+    printContent += `
+            <div style="margin-top: 30px; text-align: center; font-size: 10px; color: #666;">
+                Generated on ${new Date().toLocaleString()} | Middleworld Farms Admin - ACTIVE COLLECTIONS ONLY
+            </div>
+        </body>
+        </html>
+    `;
+    
+    // Write content and print
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    
+    setTimeout(function() {
+        printWindow.print();
+        printWindow.close();
+    }, 500);
 }
 </script>
 @endsection

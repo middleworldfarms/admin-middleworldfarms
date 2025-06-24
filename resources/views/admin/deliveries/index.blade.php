@@ -3,6 +3,7 @@
 @section('title', 'Delivery Schedule Management')
 
 @section('content')
+{{-- 🚀 CACHE TEST - LAST UPDATED: {{ date('Y-m-d H:i:s') }} --}}
 <div class="container">
     <h1>Delivery Schedule Management</h1>
     <p>Real-time delivery data from WooCommerce</p>
@@ -99,7 +100,7 @@
             
             <div class="card">`
                 <div class="card-header">
-                    <h3>Schedule Management 
+                    <h3>🔄 CACHE TEST - Schedule Management 
                         <small class="text-muted">({{ $totalDeliveries }} deliveries, {{ $totalCollections }} collections)</small>
                     </h3>
                     
@@ -158,6 +159,7 @@
                                 @foreach($scheduleData['data'] as $date => $dateData)
                                     @if(count($dateData['deliveries'] ?? []) > 0)
                                         <h4 class="mt-3 mb-3">{{ $dateData['date_formatted'] ?? $date }}</h4>
+                                        <h5 class="text-primary">🚚 Deliveries ({{ count($dateData['deliveries']) }})</h5>
                                         @include('admin.deliveries.partials.delivery-table', ['items' => $dateData['deliveries'], 'type' => 'delivery'])
                                     @endif
                                 @endforeach

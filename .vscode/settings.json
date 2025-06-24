@@ -27,5 +27,28 @@
     "**/database/**": true
   },
   "editor.formatOnSave": false,
-  "editor.minimap.enabled": false
+  "editor.minimap.enabled": false,
+  "extensions.autoUpdate": false,
+  "extensions.autoCheckUpdates": false,
+  "files.autoSave": "off",
+  "typescript.suggest.enabled": false,
+  "javascript.suggest.enabled": false,
+  "search.maxResults": 1000,
+  "php.suggest.basic": false,
+  "terminal.integrated.rendererType": "dom",
+  "html.suggest.html5": false,
+  "html.validate.scripts": false,
+  "html.validate.styles": false,
+  "css.validate": false,
+  "editor.quickSuggestions": {
+    "comments": "off",
+    "strings": "off",
+    "other": "off"
+  },
+  "editor.parameterHints.enabled": false,
+  "editor.hover.enabled": false,
+  "editor.colorDecorators": false,
+  "workbench.enableExperiments": false,
+  "telemetry.telemetryLevel": "off",
+  "update.mode": "none"
 }

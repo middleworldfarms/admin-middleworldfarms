@@ -17,7 +17,7 @@ class DeliveryController extends Controller
     {
         try {
             // Get selected week from request, default to current week
-            $selectedWeek = $request->get('week', date('W'));
+            $selectedWeek = (int) $request->get('week', date('W'));
             
             // Test API connection
             $apiStatus = $wpApi->testConnection();
@@ -159,9 +159,9 @@ class DeliveryController extends Controller
      */
     private function transformScheduleData($rawData, $selectedWeek = null)
     {
-        // Use current week if no selectedWeek provided
+        // Use current week if no selectedWeek provided, ensure it's an integer
         if ($selectedWeek === null) {
-            $selectedWeek = date('W');
+            $selectedWeek = (int) date('W');
         }
         $selectedWeek = (int) $selectedWeek;
         
@@ -322,6 +322,9 @@ class DeliveryController extends Controller
                         $sub['shipping']['state'] ?? '',
                         $sub['shipping']['postcode'] ?? ''
                     ]),
+                    // Add the address data in the format expected by the Blade templates
+                    'shipping_address'      => $sub['shipping'] ?? [],
+                    'billing_address'       => $sub['billing'] ?? [],
                     'products'              => array_map(fn($item) => ['quantity' => $item['quantity'], 'name' => $item['name']], $sub['line_items'] ?? []),
                     'phone'                 => $sub['billing']['phone'] ?? '',
                     'email'                 => $sub['billing']['email'] ?? '',

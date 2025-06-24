@@ -274,12 +274,13 @@ class WpApiService
             // WooCommerce API has a maximum per_page limit of 100
             $perPage = min($limit, 100);
             
-            // Fetch active subscriptions via WooCommerce REST
+            // Fetch active subscriptions via WooCommerce REST with full context to get billing/shipping data
             $response = Http::withBasicAuth($this->wcConsumerKey, $this->wcConsumerSecret)
                 ->get("{$this->wcApiUrl}/wp-json/wc/v3/subscriptions", [
                     'per_page' => $perPage,
                     'orderby'  => 'date',
                     'order'    => 'desc',
+                    'context'  => 'edit', // This should include billing and shipping data
                 ]);
              
             $data = $response->json();
@@ -381,6 +382,67 @@ class WpApiService
             ];
         } catch (Exception $e) {
             return ['error' => $e->getMessage()];
+        }
+    }
+    
+    /**
+     * Enrich subscription data with customer billing/shipping details
+     */
+    private function enrichSubscriptionsWithCustomerData($subscriptions)
+    {
+        // Collect unique customer IDs
+        $customerIds = array_unique(array_column($subscriptions, 'customer_id'));
+        
+        // Batch fetch customer data
+        $customers = [];
+        foreach ($customerIds as $customerId) {
+            if ($customerId > 0) {
+                $customer = $this->getCustomerData($customerId);
+                if ($customer) {
+                    $customers[$customerId] = $customer;
+                }
+            }
+        }
+        
+        // Enrich subscriptions with customer data
+        foreach ($subscriptions as &$subscription) {
+            $customerId = $subscription['customer_id'] ?? 0;
+            
+            if (isset($customers[$customerId])) {
+                $customer = $customers[$customerId];
+                
+                // Add billing data if missing
+                if (empty($subscription['billing']) && isset($customer['billing'])) {
+                    $subscription['billing'] = $customer['billing'];
+                }
+                
+                // Add shipping data if missing
+                if (empty($subscription['shipping']) && isset($customer['shipping'])) {
+                    $subscription['shipping'] = $customer['shipping'];
+                }
+            }
+        }
+        
+        return $subscriptions;
+    }
+    
+    /**
+     * Get customer data including billing/shipping
+     */
+    private function getCustomerData($customerId)
+    {
+        try {
+            $response = Http::withBasicAuth($this->wcConsumerKey, $this->wcConsumerSecret)
+                ->get("{$this->wcApiUrl}/wp-json/wc/v3/customers/{$customerId}");
+            
+            if ($response->successful()) {
+                return $response->json();
+            }
+            
+            return null;
+        } catch (Exception $e) {
+            Log::warning("Failed to get customer data for ID {$customerId}: " . $e->getMessage());
+            return null;
         }
     }
 }
