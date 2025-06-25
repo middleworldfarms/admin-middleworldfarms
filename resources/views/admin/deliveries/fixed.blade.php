@@ -164,9 +164,7 @@
                     <h3>Schedule Management - Week {{ $selectedWeek ?? $displayWeek }}
                         <small class="text-muted">({{ $totalDeliveries }} deliveries, {{ $totalCollections }} collections)</small>
                     </h3>
-                    <small class="text-muted">
-                        Debug: Selected Week: {{ $selectedWeek ?? $displayWeek }} | Current Week: {{ $currentWeek }} | Week Type: {{ (($selectedWeek ?? $displayWeek) % 2 === 1) ? 'A' : 'B' }} ({{ (($selectedWeek ?? $displayWeek) % 2 === 1) ? 'Odd' : 'Even' }}) | URL: {{ request()->fullUrl() }}
-                    </small>
+
                     
                     {{-- Navigation Tabs --}}
                     <ul class="nav nav-tabs mt-3" id="scheduleTab" role="tablist">
@@ -609,82 +607,241 @@
 @section('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Handle user switching buttons
-    document.querySelectorAll('.user-switch-btn').forEach(function(button) {
-        button.addEventListener('click', function() {
-            const email = this.getAttribute('data-email');
-            const name = this.getAttribute('data-name');
-            
-            if (!email) {
-                alert('No email address found for this customer.');
-                return;
+    // Handle user search functionality
+    const searchInput = document.getElementById('userSearch');
+    const searchButton = document.getElementById('searchButton');
+    const searchResults = document.getElementById('searchResults');
+    const recentUsersList = document.getElementById('recentUsersList');
+
+    // User search functionality
+    function searchUsers(query) {
+        if (query.length < 2) {
+            searchResults.style.display = 'none';
+            return;
+        }
+
+        searchResults.innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm" role="status"></div> Searching...</div>';
+        searchResults.style.display = 'block';
+
+        fetch(`/admin/users/search?q=${encodeURIComponent(query)}`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
             }
-            
-            if (confirm(`Switch to user: ${name} (${email})?`)) {
-                // Show loading state
-                const originalText = this.innerHTML;
-                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Switching...';
-                this.disabled = true;
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.users && data.users.length > 0) {
+                let html = '<div class="list-group">';
+                data.users.forEach(user => {
+                    html += `
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>${user.display_name || user.name || 'Unknown'}</strong><br>
+                                <small class="text-muted">${user.email}</small>
+                                ${user.role ? `<span class="badge bg-secondary ms-2">${user.role}</span>` : ''}
+                            </div>
+                            <button class="btn btn-primary btn-sm user-switch-btn" 
+                                    data-email="${user.email}" 
+                                    data-name="${user.display_name || user.name || user.email}">
+                                <i class="fas fa-user-switch"></i> Switch
+                            </button>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                searchResults.innerHTML = html;
                 
-                // Make AJAX request to switch user
-                fetch('/admin/users/switch-by-email', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    body: JSON.stringify({
-                        email: email,
-                        customer_name: name
-                    })
+                // Re-attach event listeners to new switch buttons
+                attachSwitchEventListeners();
+            } else {
+                searchResults.innerHTML = '<div class="alert alert-info">No users found matching your search.</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Search error:', error);
+            searchResults.innerHTML = '<div class="alert alert-danger">Error occurred while searching for users.</div>';
+        });
+    }
+
+    // Load recent users
+    function loadRecentUsers() {
+        recentUsersList.innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm" role="status"></div> Loading recent users...</div>';
+        
+        fetch('/admin/users/recent', {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.users && data.users.length > 0) {
+                let html = '<div class="list-group">';
+                data.users.forEach(user => {
+                    html += `
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>${user.display_name || user.name || 'Unknown'}</strong><br>
+                                <small class="text-muted">${user.email}</small>
+                                ${user.role ? `<span class="badge bg-secondary ms-2">${user.role}</span>` : ''}
+                            </div>
+                            <button class="btn btn-primary btn-sm user-switch-btn" 
+                                    data-email="${user.email}" 
+                                    data-name="${user.display_name || user.name || user.email}">
+                                <i class="fas fa-user-switch"></i> Switch
+                            </button>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                recentUsersList.innerHTML = html;
+                
+                // Re-attach event listeners to new switch buttons
+                attachSwitchEventListeners();
+            } else {
+                recentUsersList.innerHTML = '<div class="alert alert-info">No recent users found.</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Recent users error:', error);
+            recentUsersList.innerHTML = '<div class="alert alert-danger">Error loading recent users.</div>';
+        });
+    }
+
+    // Attach event listeners to switch buttons
+    function attachSwitchEventListeners() {
+        document.querySelectorAll('.user-switch-btn').forEach(function(button) {
+            // Remove existing listeners to prevent duplicates
+            button.replaceWith(button.cloneNode(true));
+        });
+        
+        // Re-attach listeners to all switch buttons (including new ones)
+        document.querySelectorAll('.user-switch-btn').forEach(function(button) {
+            button.addEventListener('click', handleUserSwitch);
+        });
+    }
+
+    // Handle user switch button clicks
+    function handleUserSwitch() {
+        const email = this.getAttribute('data-email');
+        const name = this.getAttribute('data-name');
+        
+        if (!email) {
+            alert('No email address found for this customer.');
+            return;
+        }
+        
+        if (confirm(`Switch to user: ${name} (${email})?`)) {
+            // Show loading state
+            const originalText = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Switching...';
+            this.disabled = true;
+            
+            // Make AJAX request to switch user
+            fetch('/admin/users/switch-by-email', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    email: email,
+                    customer_name: name
                 })
-                .then(response => {
-                    if (response.status === 419) {
-                        alert('Session expired. Please refresh the page and try again.');
-                        window.location.reload();
-                        return;
-                    }
+            })
+            .then(response => {
+                if (response.status === 419) {
+                    alert('Session expired. Please refresh the page and try again.');
+                    window.location.reload();
+                    return;
+                }
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    // Show success message with how user was found
+                    const foundInfo = data.found_by ? ` (found by ${data.found_by})` : '';
+                    alert(`Successfully switched to ${name}${foundInfo}. Opening customer preview...\n\nNote: Remember to logout from the customer account when finished to enable switching to other users.`);
                     
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    }
-                    
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success) {
-                        // Show success message with how user was found
-                        const foundInfo = data.found_by ? ` (found by ${data.found_by})` : '';
-                        alert(`Successfully switched to ${name}${foundInfo}. Opening customer preview...\n\nNote: Remember to logout from the customer account when finished to enable switching to other users.`);
-                        
-                        // Open the user's profile in a new tab
-                        if (data.switch_url) {
-                            window.open(data.switch_url, '_blank');
-                        } else {
-                            window.open('https://middleworldfarms.org/my-account/', '_blank');
-                        }
-                    } else {
-                        // Show detailed error message
-                        let errorMsg = data.error || 'Unknown error';
-                        if (data.suggestion) {
-                            errorMsg += '\n\nSuggestion: ' + data.suggestion;
-                        }
-                        alert('Failed to switch user: ' + errorMsg);
-                    }
-                })
-                .catch(error => {
-                    console.error('Network or parse error:', error);
-                    alert('Error occurred while switching users: ' + error.message);
-                })
-                .finally(() => {
-                    // Restore button state
+                    // Restore button state immediately after success
                     this.innerHTML = originalText;
                     this.disabled = false;
-                });
+                    
+                    // Open the user's profile in a new tab
+                    if (data.switch_url) {
+                        window.open(data.switch_url, '_blank');
+                    } else {
+                        window.open('https://middleworldfarms.org/my-account/', '_blank');
+                    }
+                } else {
+                    // Show detailed error message
+                    let errorMsg = data.error || 'Unknown error';
+                    if (data.suggestion) {
+                        errorMsg += '\n\nSuggestion: ' + data.suggestion;
+                    }
+                    alert('Failed to switch user: ' + errorMsg);
+                }
+            })
+            .catch(error => {
+                console.error('Network or parse error:', error);
+                alert('Error occurred while switching users: ' + error.message);
+            })
+            .finally(() => {
+                // Restore button state
+                this.innerHTML = originalText;
+                this.disabled = false;
+            });
+        }
+    }
+
+    // Event listeners
+    if (searchButton) {
+        searchButton.addEventListener('click', function() {
+            const query = searchInput.value.trim();
+            if (query) {
+                searchUsers(query);
             }
         });
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const query = this.value.trim();
+                if (query) {
+                    searchUsers(query);
+                }
+            }
+        });
+    }
+
+    // Load recent users when the section is expanded
+    document.querySelector('[data-bs-target="#recentUsers"]')?.addEventListener('click', function() {
+        if (document.getElementById('recentUsers').classList.contains('show')) {
+            return; // Already loaded
+        }
+        setTimeout(() => {
+            loadRecentUsers();
+        }, 300); // Wait for bootstrap collapse animation
+    });
+
+    // Initial attachment of event listeners to existing switch buttons
+    attachSwitchEventListeners();
+    
+    // Reset any switch buttons that might be stuck in loading state
+    document.querySelectorAll('.user-switch-btn').forEach(function(button) {
+        if (button.innerHTML.includes('fa-spinner')) {
+            button.innerHTML = '<i class="fas fa-user-switch"></i> Switch';
+            button.disabled = false;
+        }
     });
 
     // Handle week change buttons

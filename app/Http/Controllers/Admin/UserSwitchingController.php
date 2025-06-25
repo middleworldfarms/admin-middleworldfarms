@@ -17,28 +17,6 @@ class UserSwitchingController extends Controller
     }
 
     /**
-     * Test the direct database connection
-     */
-    public function test()
-    {
-        try {
-            $connectionTest = $this->wpApi->testConnection();
-            $recentUsers = $this->wpApi->getRecentUsers(5);
-            
-            return response()->json([
-                'connection' => $connectionTest,
-                'sample_users' => $recentUsers,
-                'method' => 'api'
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => $e->getMessage(),
-                'method' => 'api'
-            ], 500);
-        }
-    }
-
-    /**
      * Display the user switching interface
      */
     public function index(Request $request)
@@ -262,12 +240,7 @@ class UserSwitchingController extends Controller
                     return response()->json([
                         'success' => false,
                         'error' => "No WordPress user found for email: {$email}",
-                        'suggestion' => "This customer email may not have a WordPress user account. Try creating a user account for this customer first.",
-                        'debug_info' => [
-                            'searched_email' => $email,
-                            'searched_name' => $customerName,
-                            'searched_username' => isset($username) ? $username : null
-                        ]
+                        'suggestion' => "This customer email may not have a WordPress user account. Try creating a user account for this customer first."
                     ]);
                 }
             } else {

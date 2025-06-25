@@ -26,21 +26,12 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
 
     // Delivery management routes
     Route::get('/deliveries', [DeliveryController::class, 'index'])->name('admin.deliveries.index');
-    Route::get('/api-test', [DeliveryController::class, 'apiTest'])->name('admin.api-test');
     Route::get('/diagnostic-subscriptions', [DeliveryController::class, 'diagnosticSubscriptions'])->name('admin.diagnostic-subscriptions');
-    Route::get('/test-active-filter', [DeliveryController::class, 'testActiveFilter'])->name('admin.test-active-filter');
-    Route::get('/debug-week-assignment', [DeliveryController::class, 'debugWeekAssignment'])->name('admin.debug-week-assignment');
-    Route::get('/debug-delivery-schedule', [DeliveryController::class, 'debugDeliverySchedule'])->name('admin.debug-delivery-schedule');
-    Route::get('/debug-specific-customers', [DeliveryController::class, 'debugSpecificCustomers'])->name('admin.debug-specific-customers');
-    Route::get('/debug-page-display', [DeliveryController::class, 'debugPageDisplay'])->name('admin.debug-page-display');
-    Route::get('/debug-customer-statuses', [DeliveryController::class, 'debugCustomerStatuses'])->name('admin.debug-customer-statuses');
-    Route::get('/compare-week-logic', [DeliveryController::class, 'compareWeekLogic'])->name('admin.compare-week-logic');
     Route::post('/customers/update-week', [DeliveryController::class, 'updateCustomerWeek'])->name('admin.customers.update-week');
 
     // Customer management routes
     Route::prefix('users')->name('admin.users.')->group(function () {
         Route::get('/', [App\Http\Controllers\Admin\UserSwitchingController::class, 'index'])->name('index');
-        Route::get('/test', [App\Http\Controllers\Admin\UserSwitchingController::class, 'test'])->name('test');
         Route::get('/search', [App\Http\Controllers\Admin\UserSwitchingController::class, 'search'])->name('search');
         Route::get('/recent', [App\Http\Controllers\Admin\UserSwitchingController::class, 'getRecentUsers'])->name('recent');
         Route::post('/switch/{userId}', [App\Http\Controllers\Admin\UserSwitchingController::class, 'switchToUser'])->name('switch');
@@ -71,26 +62,6 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
     // Simple test route
     Route::get('/test', function () {
         return 'Test route works!';
-    });
-    
-    // User switching test page
-    Route::get('/test-user-switch', function () {
-        return view('test-user-switch');
-    });
-
-    // Debug route for deliveries
-    Route::get('/debug', function (DeliveryScheduleService $service) {
-        try {
-            echo "Route accessed successfully<br>";
-            echo "Service injected successfully<br>";
-            
-            $testConnection = $service->testConnection();
-            echo "Connection test: " . json_encode($testConnection) . "<br>";
-            
-            return "Debug completed successfully";
-        } catch (\Exception $e) {
-            return "Error: " . $e->getMessage();
-        }
     });
 
     // Route planning and optimization routes
