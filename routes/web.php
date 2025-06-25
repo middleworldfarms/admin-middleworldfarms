@@ -72,6 +72,11 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
     Route::get('/test', function () {
         return 'Test route works!';
     });
+    
+    // User switching test page
+    Route::get('/test-user-switch', function () {
+        return view('test-user-switch');
+    });
 
     // Debug route for deliveries
     Route::get('/debug', function (DeliveryScheduleService $service) {

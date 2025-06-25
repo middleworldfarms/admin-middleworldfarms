@@ -56,7 +56,7 @@
     </div>
     
     {{-- User Search and Switching --}}
-    @if(isset($userSwitchingAvailable) && $userSwitchingAvailable)
+    @auth
     <div class="card mb-4">
         <div class="card-header">
             <h5 class="mb-0">👤 User Management</h5>
@@ -94,7 +94,15 @@
             </div>
         </div>
     </div>
-    @endif
+    @else
+    <div class="alert alert-warning">
+        <h5><i class="fas fa-lock"></i> Authentication Required</h5>
+        <p>You need to be logged in to use the user switching functionality.</p>
+        <a href="{{ route('admin.login.form') }}" class="btn btn-primary">
+            <i class="fas fa-sign-in-alt"></i> Login to Admin Panel
+        </a>
+    </div>
+    @endauth
 
     {{-- Error Display --}}
     @if(isset($error) && $error)
@@ -623,31 +631,52 @@ document.addEventListener('DOMContentLoaded', function() {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'X-Requested-With': 'XMLHttpRequest'
                     },
                     body: JSON.stringify({
-                        email: email
+                        email: email,
+                        customer_name: name
                     })
                 })
-                .then(response => response.json())
+                .then(response => {
+                    if (response.status === 419) {
+                        alert('Session expired. Please refresh the page and try again.');
+                        window.location.reload();
+                        return;
+                    }
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    return response.json();
+                })
                 .then(data => {
                     if (data.success) {
-                        // Show success message
-                        alert(`Successfully switched to ${name}. Redirecting to their profile...`);
+                        // Show success message with how user was found
+                        const foundInfo = data.found_by ? ` (found by ${data.found_by})` : '';
+                        alert(`Successfully switched to ${name}${foundInfo}. Opening customer preview...\n\nNote: Remember to logout from the customer account when finished to enable switching to other users.`);
                         
-                        // Redirect to the user's profile
-                        if (data.redirect_url) {
-                            window.open(data.redirect_url, '_blank');
+                        // Open the user's profile in a new tab
+                        if (data.switch_url) {
+                            window.open(data.switch_url, '_blank');
                         } else {
                             window.open('https://middleworldfarms.org/my-account/', '_blank');
                         }
                     } else {
-                        alert('Failed to switch user: ' + (data.message || 'Unknown error'));
+                        // Show detailed error message
+                        let errorMsg = data.error || 'Unknown error';
+                        if (data.suggestion) {
+                            errorMsg += '\n\nSuggestion: ' + data.suggestion;
+                        }
+                        alert('Failed to switch user: ' + errorMsg);
                     }
                 })
                 .catch(error => {
-                    console.error('Error:', error);
-                    alert('An error occurred while switching users.');
+                    console.error('Network or parse error:', error);
+                    alert('Error occurred while switching users: ' + error.message);
                 })
                 .finally(() => {
                     // Restore button state
@@ -727,47 +756,7 @@ function toggleFortnightlyInfo() {
     }
 }
 
-// Customer switching function
-function switchToCustomer(customerId, customerName) {
-    console.log('Attempting switchToCustomer:', customerId, customerName);
-    if (!customerId) {
-        alert('No customer ID available for switching.');
-        return;
-    }
-    if (confirm(`Switch to customer "${customerName}"?\n\nThis will open a new tab with you logged in as this customer.`)) {
-        const btn = event.target.closest('button');
-        const originalHtml = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        btn.disabled = true;
 
-        fetch(`/admin/users/switch/${customerId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': getCSRFToken()
-            },
-            body: JSON.stringify({ redirect_to: '/my-account/' })
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log('Switch response data:', data);
-            btn.innerHTML = originalHtml;
-            btn.disabled = false;
-            if (data.success && data.switch_url) {
-                window.open(data.switch_url, '_blank');
-                showSuccessMessage(`Successfully switched to customer "${customerName}". Check the new tab that opened.`);
-            } else {
-                alert('Failed to switch to customer: ' + (data.error || data.message || 'Unknown error'));
-            }
-        })
-        .catch(error => {
-            console.error('Switch error:', error);
-            btn.innerHTML = originalHtml;
-            btn.disabled = false;
-            alert('Error switching to customer. Please try again.');
-        });
-    }
-}
 
 // Print Functions
 function printDeliveries() {

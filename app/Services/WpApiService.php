@@ -76,8 +76,9 @@ class WpApiService
                 'X-WC-API-Key' => $this->integrationKey
             ])->get("{$this->apiUrl}/wp-json/mwf/v1/users/search", [
                 'q' => $query, 
-                'limit' => $limit,
-                'role' => 'customer'
+                'limit' => $limit
+                // Temporarily remove role filter to see if user exists with different role
+                // 'role' => 'customer'
             ]);
             
             $data = $response->json();
@@ -180,7 +181,9 @@ class WpApiService
             ])->post("{$this->apiUrl}/wp-json/mwf/v1/users/switch", [
                 'user_id' => $userId,
                 'redirect_to' => $redirectTo,
-                'admin_context' => $adminContext
+                'admin_context' => $adminContext,
+                'clear_session' => true,  // Force session cleanup
+                'auto_logout' => true     // Automatically logout previous user first
             ]);
 
             $data = $response->json();

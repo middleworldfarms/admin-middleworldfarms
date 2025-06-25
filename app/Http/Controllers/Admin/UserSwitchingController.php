@@ -217,17 +217,63 @@ class UserSwitchingController extends Controller
         $redirectTo = $request->input('redirect_to', '/my-account/');
 
         try {
-            // First, search for the user by email to get their ID
+            // First, search for the user by exact email
+            Log::info("UserSwitching: Starting search", [
+                'email' => $email,
+                'customer_name' => $customerName
+            ]);
+            
             $users = $this->wpApi->searchUsers($email, 1);
             
+            Log::info("UserSwitching: Search results", [
+                'email' => $email,
+                'users_found' => $users ? $users->count() : 0,
+                'users_data' => $users ? $users->toArray() : null
+            ]);
+            
             if (empty($users) || $users->isEmpty()) {
-                return response()->json([
-                    'success' => false,
-                    'error' => "No user found with email: {$email}"
-                ]);
+                // Fallback 1: Try searching by customer name if provided
+                if (!empty($customerName) && $customerName !== 'Customer') {
+                    Log::info("Email not found, trying name search", ['email' => $email, 'name' => $customerName]);
+                    $users = $this->wpApi->searchUsers($customerName, 5);
+                    
+                    if (!empty($users) && $users->count() > 0) {
+                        // Found users by name, use the first one
+                        $user = $users->first();
+                        $foundBy = "name '{$customerName}'";
+                    }
+                }
+                
+                // Fallback 2: Try partial email search (remove domain)
+                if ((empty($users) || $users->isEmpty()) && strpos($email, '@') !== false) {
+                    $emailParts = explode('@', $email);
+                    $username = $emailParts[0];
+                    Log::info("Name search failed, trying username search", ['username' => $username]);
+                    $users = $this->wpApi->searchUsers($username, 5);
+                    
+                    if (!empty($users) && $users->count() > 0) {
+                        $user = $users->first();
+                        $foundBy = "username '{$username}'";
+                    }
+                }
+                
+                // If still no users found, return helpful error
+                if (empty($users) || $users->isEmpty()) {
+                    return response()->json([
+                        'success' => false,
+                        'error' => "No WordPress user found for email: {$email}",
+                        'suggestion' => "This customer email may not have a WordPress user account. Try creating a user account for this customer first.",
+                        'debug_info' => [
+                            'searched_email' => $email,
+                            'searched_name' => $customerName,
+                            'searched_username' => isset($username) ? $username : null
+                        ]
+                    ]);
+                }
+            } else {
+                $user = $users->first();
+                $foundBy = "email '{$email}'";
             }
-
-            $user = $users->first();
             $userId = $user['id'] ?? null;
 
             if (!$userId) {
@@ -254,8 +300,9 @@ class UserSwitchingController extends Controller
             return response()->json([
                 'success' => true,
                 'switch_url' => $switchUrl,
-                'message' => "Switch URL generated for {$customerName}",
-                'user' => $user
+                'message' => "Switch URL generated for {$customerName} (found by {$foundBy})",
+                'user' => $user,
+                'found_by' => $foundBy ?? 'email'
             ]);
 
         } catch (\Exception $e) {
