@@ -14,6 +14,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin.auth' => \App\Http\Middleware\AdminAuthentication::class,
         ]);
+        
+        // Add TrustProxies middleware to web middleware group
+        $middleware->web(prepend: [
+            \App\Http\Middleware\TrustProxies::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

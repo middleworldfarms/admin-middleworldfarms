@@ -27,7 +27,7 @@ class AdminAuthentication
             ]);
 
             // Redirect to login with message
-            return redirect('/admin/login')->with('error', 'Please log in to access the admin panel.');
+            return redirect(config('app.url') . '/admin/login')->with('error', 'Please log in to access the admin panel.');
         }
 
         // Simple session check without timeout for now

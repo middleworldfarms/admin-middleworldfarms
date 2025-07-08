@@ -48,14 +48,14 @@ return [
     ],
 
     'wp_api' => [
-        'url'    => env('WP_API_URL', 'https://example.com'),
-        'key'    => env('WP_API_KEY'),
-        'secret' => env('WP_API_SECRET'),
+        'url'    => env('WOOCOMMERCE_URL', 'https://middleworldfarms.org'),
+        'key'    => env('WOOCOMMERCE_CONSUMER_KEY'),
+        'secret' => env('WOOCOMMERCE_CONSUMER_SECRET'),
     ],
     'wc_api' => [
-        'url'             => env('WC_API_URL', ''),
-        'consumer_key'    => env('WC_CONSUMER_KEY', ''),
-        'consumer_secret' => env('WC_CONSUMER_SECRET', ''),
+        'url'             => env('WOOCOMMERCE_URL', ''),
+        'consumer_key'    => env('WOOCOMMERCE_CONSUMER_KEY', ''),
+        'consumer_secret' => env('WOOCOMMERCE_CONSUMER_SECRET', ''),
         'integration_key' => env('SELF_SERVE_SHOP_INTEGRATION_KEY', ''),
     ],
 
@@ -70,6 +70,10 @@ return [
     ],
 
     'delivery' => [
-        'depot_address' => env('DELIVERY_DEPOT_ADDRESS', 'Middleworld Farms, Llanfairpwll, Anglesey, Wales, UK'),
+        'depot_address' => env('DELIVERY_DEPOT_ADDRESS', 'Middle World Farms, Bradney Road, Washingborough, Lincoln, LN4 1AQ, UK'),
+    ],
+    
+    'google' => [
+        'maps_api_key' => env('GOOGLE_MAPS_API_KEY', ''),
     ],
 ];

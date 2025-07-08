@@ -11,6 +11,19 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | WordPress Email Mapping
+    |--------------------------------------------------------------------------
+    |
+    | Map Laravel admin emails to WordPress admin emails when they differ
+    |
+    */
+    'wordpress_email_mapping' => [
+        'martin@middleworldfarms.org' => 'middleworldfarms@gmail.com',
+        // Add more mappings here if needed
+    ],
+
     'users' => [
         [
             'name' => 'Martin',

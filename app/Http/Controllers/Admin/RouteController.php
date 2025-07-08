@@ -38,23 +38,52 @@ class RouteController extends Controller
             // Get delivery date from request or default to today
             $deliveryDate = $request->get('date', date('Y-m-d'));
             
-            // Get deliveries for the specified date
-            $scheduleData = $this->deliveryService->getSchedule();
-            $deliveries = $this->getDeliveriesForDate($scheduleData, $deliveryDate);
+            // Check if deliveries were passed via request (from the deliveries page)
+            $deliveries = [];
             
-            // Check if we have any deliveries
-            if (empty($deliveries)) {
+            // Method 1: Check if deliveries are passed in the request
+            if ($request->has('deliveries')) {
+                $deliveries = $request->get('deliveries', []);
+            }
+            
+            // Method 2: Check if we're in bulk selection mode
+            if ($request->get('selected') === 'bulk') {
+                // Deliveries will be loaded from localStorage by JavaScript
                 return view('admin.routes.index', [
                     'deliveries' => [],
-                    'message' => 'No deliveries found for ' . $deliveryDate,
-                    'delivery_date' => $deliveryDate
+                    'delivery_date' => $deliveryDate,
+                    'google_maps_key' => config('services.google_maps.api_key'),
+                    'bulk_mode' => true
                 ]);
             }
-
+            
+            // Method 3: If no deliveries passed, get all deliveries for today using WpApiService
+            if (empty($deliveries)) {
+                $wpApi = app(\App\Services\WpApiService::class);
+                $scheduleData = $wpApi->getDeliveryScheduleData(100);
+                
+                // Extract deliveries only (not collections) and format them for routing
+                $allDeliveries = $scheduleData['deliveries'] ?? [];
+                
+                // Filter and format deliveries for routing
+                foreach ($allDeliveries as $delivery) {
+                    $deliveries[] = [
+                        'id' => $delivery['id'] ?? '',
+                        'name' => $delivery['customer_name'] ?? 'Unknown Customer',
+                        'address' => $this->formatDeliveryAddressForRouting($delivery),
+                        'phone' => $delivery['customer_phone'] ?? '',
+                        'email' => $delivery['customer_email'] ?? '',
+                        'products' => $delivery['products'] ?? [],
+                        'notes' => $delivery['notes'] ?? ''
+                    ];
+                }
+            }
+            
             return view('admin.routes.index', [
                 'deliveries' => $deliveries,
                 'delivery_date' => $deliveryDate,
-                'google_maps_key' => config('services.google_maps.api_key')
+                'google_maps_key' => config('services.google_maps.api_key'),
+                'bulk_mode' => false
             ]);
 
         } catch (\Exception $e) {
@@ -63,7 +92,9 @@ class RouteController extends Controller
             return view('admin.routes.index', [
                 'deliveries' => [],
                 'error' => 'Failed to load deliveries: ' . $e->getMessage(),
-                'delivery_date' => $deliveryDate ?? date('Y-m-d')
+                'delivery_date' => $deliveryDate ?? date('Y-m-d'),
+                'google_maps_key' => config('services.google_maps.api_key'),
+                'bulk_mode' => false
             ]);
         }
     }
@@ -206,19 +237,19 @@ class RouteController extends Controller
             
             $mapData = [
                 'markers' => [],
-                'center' => ['lat' => 52.3676, 'lng' => -4.0976], // Wales center
-                'zoom' => 8
+                'center' => ['lat' => 53.2307, 'lng' => -0.5406], // Lincoln, UK center
+                'zoom' => 10
             ];
 
             // Add depot marker
-            $depotAddress = config('services.delivery.depot_address', 'Middleworld Farms, UK');
+            $depotAddress = config('services.delivery.depot_address', 'Middle World Farms, Bradney Road, Washingborough, Lincoln, LN4 1AQ, UK');
             $depotCoords = $this->routeService->geocodeAddress($depotAddress);
             
             if ($depotCoords) {
                 $mapData['markers'][] = [
                     'type' => 'depot',
                     'position' => ['lat' => $depotCoords['lat'], 'lng' => $depotCoords['lng']],
-                    'title' => 'Middleworld Farms (Depot)',
+                    'title' => 'Middle World Farms (Depot)',
                     'icon' => 'depot'
                 ];
                 $mapData['center'] = ['lat' => $depotCoords['lat'], 'lng' => $depotCoords['lng']];
@@ -368,5 +399,56 @@ class RouteController extends Controller
         }
         
         return null;
+    }
+
+    /**
+     * Format delivery address for routing display
+     */
+    private function formatDeliveryAddressForRouting($delivery)
+    {
+        // Try billing address first
+        if (isset($delivery['billing']) && is_array($delivery['billing'])) {
+            $address = $delivery['billing'];
+            $parts = array_filter([
+                $address['address_1'] ?? '',
+                $address['address_2'] ?? '',
+                $address['city'] ?? '',
+                $address['state'] ?? '',
+                $address['postcode'] ?? '',
+                $address['country'] ?? ''
+            ]);
+            
+            if (!empty($parts)) {
+                return implode(', ', $parts);
+            }
+        }
+        
+        // Try shipping address as fallback
+        if (isset($delivery['shipping']) && is_array($delivery['shipping'])) {
+            $address = $delivery['shipping'];
+            $parts = array_filter([
+                $address['address_1'] ?? '',
+                $address['address_2'] ?? '',
+                $address['city'] ?? '',
+                $address['state'] ?? '',
+                $address['postcode'] ?? '',
+                $address['country'] ?? ''
+            ]);
+            
+            if (!empty($parts)) {
+                return implode(', ', $parts);
+            }
+        }
+        
+        // Try direct address field
+        if (isset($delivery['address'])) {
+            if (is_string($delivery['address'])) {
+                return $delivery['address'];
+            } elseif (is_array($delivery['address'])) {
+                return implode(', ', array_filter($delivery['address']));
+            }
+        }
+        
+        return 'Address not available';
     }
 }

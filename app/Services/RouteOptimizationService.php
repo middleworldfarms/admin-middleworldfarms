@@ -209,9 +209,24 @@ class RouteOptimizationService
             if ($data['status'] === 'OK' && isset($data['routes'][0])) {
                 $route = $data['routes'][0];
                 
+                // Calculate total distance and duration across all legs
+                $totalDistance = 0;
+                $totalDuration = 0;
+                
+                foreach ($route['legs'] as $leg) {
+                    $totalDistance += $leg['distance']['value'] ?? 0; // in meters
+                    $totalDuration += $leg['duration']['value'] ?? 0; // in seconds
+                }
+                
+                // Convert to readable format
+                $totalDistanceKm = $totalDistance / 1000;
+                $totalDurationMinutes = $totalDuration / 60;
+                
                 return [
-                    'total_distance' => $route['legs'][0]['distance']['text'] ?? '0 km',
-                    'total_duration' => $route['legs'][0]['duration']['text'] ?? '0 mins',
+                    'total_distance' => $totalDistanceKm,
+                    'total_duration' => $totalDurationMinutes,
+                    'total_distance_text' => number_format($totalDistanceKm, 1) . ' km',
+                    'total_duration_text' => number_format($totalDurationMinutes, 0) . ' mins',
                     'steps' => $this->extractSteps($route['legs']),
                     'polyline' => $route['overview_polyline']['points'] ?? '',
                     'bounds' => $route['bounds'] ?? null

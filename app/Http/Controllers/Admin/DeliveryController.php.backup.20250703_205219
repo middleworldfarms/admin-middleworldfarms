@@ -173,8 +173,8 @@ class DeliveryController extends Controller
             $subscriptions = $rawData;
             $rawData = ['deliveries' => [], 'collections' => []];
             foreach ($subscriptions as $sub) {
-                // Use robust shipping total determination
-                $type = $this->determineCustomerType($sub['shipping_total'] ?? null, $sub);
+                $shippingTotal = (float) ($sub['shipping_total'] ?? 0);
+                $type = $shippingTotal > 0 ? 'deliveries' : 'collections';
                 
                 // Extract frequency - use WooCommerce subscription standard fields first
                 $frequency = 'Weekly'; // Default
@@ -1639,9 +1639,8 @@ class DeliveryController extends Controller
                     if ($isFortnightly) {
                         $rawSubscriptionSample = $sub;
                         // Convert this to what would be in our array
-                        $type = $this->determineCustomerType($sub['shipping_total'] ?? null, $sub);
-                        // Remove 's' from type name for this context
-                        $type = str_replace(['deliveries', 'collections'], ['delivery', 'collection'], $type);
+                        $shippingTotal = (float) ($sub['shipping_total'] ?? 0);
+                        $type = $shippingTotal > 0 ? 'delivery' : 'collection';
                         $transformedSubscriptionSample = [
                             'type' => $type,
                             'id' => $sub['id'],
@@ -1681,279 +1680,9 @@ class DeliveryController extends Controller
             ], 500);
         }
     }
-
+    
     /**
-     * DEBUG: Analyze a specific customer's delivery/collection status
-     */
-    public function debugSpecificCustomer($email, WpApiService $wpApi)
-    {
-        try {
-            $subscriptions = $wpApi->getDeliveryScheduleData(100); // Get more subscriptions to find the customer
-            
-            $customerFound = null;
-            $allMatches = [];
-            
-            // Search for customer by email
-            foreach ($subscriptions as $sub) {
-                $customerEmail = $sub['billing']['email'] ?? '';
-                if (stripos($customerEmail, $email) !== false || $customerEmail === $email) {
-                    $allMatches[] = $sub;
-                    if (!$customerFound) {
-                        $customerFound = $sub;
-                    }
-                }
-            }
-            
-            if (!$customerFound) {
-                return response()->json([
-                    'success' => false,
-                    'error' => "Customer with email containing '{$email}' not found",
-                    'searched_subscriptions' => count($subscriptions)
-                ]);
-            }
-            
-            $analysis = [
-                'customer_email' => $email,
-                'matches_found' => count($allMatches),
-                'subscription_details' => [],
-                'shipping_analysis' => [],
-                'recommendations' => []
-            ];
-            
-            foreach ($allMatches as $sub) {
-                $id = $sub['id'] ?? 'N/A';
-                $customerEmail = $sub['billing']['email'] ?? 'N/A';
-                $customerName = trim(($sub['billing']['first_name'] ?? '') . ' ' . ($sub['billing']['last_name'] ?? ''));
-                $shippingTotalRaw = $sub['shipping_total'] ?? 'NOT_SET';
-                
-                // Test both old and new logic
-                $oldLogicFloat = (float) ($sub['shipping_total'] ?? 0);
-                $oldLogicResult = $oldLogicFloat > 0 ? 'DELIVERY' : 'COLLECTION';
-                $newLogicResult = strtoupper(str_replace(['deliveries', 'collections'], ['delivery', 'collection'], $this->determineCustomerType($sub['shipping_total'] ?? null, $sub)));
-                
-                $analysis['subscription_details'][] = [
-                    'subscription_id' => $id,
-                    'customer_name' => $customerName,
-                    'customer_email' => $customerEmail,
-                    'status' => $sub['status'] ?? 'unknown',
-                    'shipping_total_raw' => $shippingTotalRaw,
-                    'shipping_total_type' => gettype($sub['shipping_total'] ?? null),
-                    'shipping_total_float' => $oldLogicFloat,
-                    'old_logic_result' => $oldLogicResult,
-                    'new_logic_result' => $newLogicResult,
-                    'should_be_delivery' => $oldLogicFloat > 0,
-                    'billing_address' => $sub['billing'] ?? [],
-                    'shipping_address' => $sub['shipping'] ?? [],
-                    'line_items' => $sub['line_items'] ?? []
-                ];
-                
-                $analysis['shipping_analysis'][] = [
-                    'subscription_id' => $id,
-                    'raw_value' => $shippingTotalRaw,
-                    'is_string' => is_string($shippingTotalRaw),
-                    'is_numeric' => is_numeric($shippingTotalRaw),
-                    'has_whitespace' => is_string($shippingTotalRaw) && trim($shippingTotalRaw) !== $shippingTotalRaw,
-                    'float_cast' => $oldLogicFloat,
-                    'classification' => $newLogicResult
-                ];
-            }
-            
-            // Generate recommendations
-            $hasShippingCost = false;
-            $hasInconsistentData = false;
-            
-            foreach ($analysis['subscription_details'] as $detail) {
-                if ($detail['shipping_total_float'] > 0) {
-                    $hasShippingCost = true;
-                }
-                if ($detail['old_logic_result'] !== $detail['new_logic_result']) {
-                    $hasInconsistentData = true;
-                }
-            }
-            
-            if ($hasShippingCost) {
-                $analysis['recommendations'][] = "✅ Customer HAS shipping costs - should appear as DELIVERY";
-            } else {
-                $analysis['recommendations'][] = "ℹ️ Customer has NO shipping costs - should appear as COLLECTION";
-            }
-            
-            if ($hasInconsistentData) {
-                $analysis['recommendations'][] = "⚠️ Logic inconsistency detected - review shipping total format";
-            } else {
-                $analysis['recommendations'][] = "✅ Logic is consistent between old and new methods";
-            }
-            
-            if (count($allMatches) > 1) {
-                $analysis['recommendations'][] = "🔍 Multiple subscriptions found - customer may have multiple accounts";
-            }
-            
-            return response()->json([
-                'success' => true,
-                'analysis' => $analysis
-            ]);
-            
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ], 500);
-        }
-    }
-
-    /**
-     * Manage subscription - analyze and provide options for fixes
-     */
-    public function manageSubscription($email, WpApiService $wpApi)
-    {
-        try {
-            // Get all subscriptions and look for the customer
-            $subscriptions = $wpApi->getDeliveryScheduleData(200);
-            
-            $customerMatches = [];
-            
-            // Search for customer by email
-            foreach ($subscriptions as $sub) {
-                $customerEmail = $sub['billing']['email'] ?? '';
-                if (stripos($customerEmail, $email) !== false) {
-                    $customerMatches[] = $sub;
-                }
-            }
-            
-            if (empty($customerMatches)) {
-                return response()->json([
-                    'success' => false,
-                    'error' => "Customer with email containing '{$email}' not found"
-                ]);
-            }
-            
-            // Analyze subscriptions
-            $analysis = [
-                'customer_email' => $email,
-                'subscriptions_found' => count($customerMatches),
-                'issues_detected' => [],
-                'subscription_details' => [],
-                'suggested_actions' => []
-            ];
-            
-            $totalVegetableBoxes = 0;
-            $totalCost = 0;
-            
-            foreach ($customerMatches as $sub) {
-                $subscriptionId = $sub['id'] ?? 'N/A';
-                $status = $sub['status'] ?? 'N/A';
-                $total = floatval($sub['total'] ?? 0);
-                $totalCost += $total;
-                
-                $subscriptionDetail = [
-                    'id' => $subscriptionId,
-                    'status' => $status,
-                    'total' => $total,
-                    'date_created' => $sub['date_created'] ?? 'N/A',
-                    'line_items' => [],
-                    'vegetable_boxes' => 0
-                ];
-                
-                // Count vegetable boxes in this subscription
-                foreach ($sub['line_items'] ?? [] as $item) {
-                    $itemName = $item['name'] ?? '';
-                    $quantity = intval($item['quantity'] ?? 0);
-                    $itemTotal = floatval($item['total'] ?? 0);
-                    
-                    $subscriptionDetail['line_items'][] = [
-                        'name' => $itemName,
-                        'quantity' => $quantity,
-                        'total' => $itemTotal
-                    ];
-                    
-                    if (stripos($itemName, 'vegetable box') !== false) {
-                        $subscriptionDetail['vegetable_boxes'] += $quantity;
-                        $totalVegetableBoxes += $quantity;
-                    }
-                }
-                
-                $analysis['subscription_details'][] = $subscriptionDetail;
-            }
-            
-            // Detect issues
-            if (count($customerMatches) > 1) {
-                $analysis['issues_detected'][] = "Multiple active subscriptions found";
-                $analysis['suggested_actions'][] = "Consider consolidating subscriptions";
-            }
-            
-            if ($totalVegetableBoxes > 1) {
-                $analysis['issues_detected'][] = "Customer has {$totalVegetableBoxes} vegetable boxes total";
-                $analysis['suggested_actions'][] = "Check if customer intended to have multiple boxes";
-                
-                // Calculate potential refund if single person should only have 1 box
-                $singleBoxPrice = 20.00; // Estimated price
-                $excessBoxes = $totalVegetableBoxes - 1;
-                $potentialRefund = $excessBoxes * $singleBoxPrice;
-                
-                if ($potentialRefund > 0) {
-                    $analysis['refund_calculation'] = [
-                        'total_boxes' => $totalVegetableBoxes,
-                        'expected_boxes' => 1,
-                        'excess_boxes' => $excessBoxes,
-                        'estimated_refund' => $potentialRefund
-                    ];
-                    $analysis['suggested_actions'][] = "Consider refunding approximately £{$potentialRefund} for excess boxes";
-                }
-            }
-            
-            // Add management options
-            $analysis['management_options'] = [
-                'view_in_woocommerce' => "https://middleworldfarms.org/wp-admin/edit.php?post_type=shop_subscription",
-                'customer_search' => "Search for: {$email}",
-                'actions_available' => [
-                    'Cancel excess subscriptions',
-                    'Modify subscription quantities',
-                    'Process refunds',
-                    'Contact customer for confirmation'
-                ]
-            ];
-            
-            return response()->json([
-                'success' => true,
-                'analysis' => $analysis
-            ]);
-            
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ], 500);
-        }
-    }
-
-    /**
-     * Normalize shipping total value to float
-     * @param mixed $shippingTotal The shipping total value
-     * @return float The normalized shipping total
-     */
-    private function normalizeShippingTotal($shippingTotal)
-    {
-        if ($shippingTotal === null || $shippingTotal === '') {
-            return 0.0;
-        }
-        
-        if (is_string($shippingTotal)) {
-            $shippingTotal = trim($shippingTotal);
-            if (!is_numeric($shippingTotal)) {
-                return 0.0;
-            }
-        }
-        
-        return (float) $shippingTotal;
-    }
-
-    /**
-     * Get the start date (Monday) of a given week number
-     * 
-     * @param int $weekNumber The ISO week number
-     * @param int|null $year The year (default: current year)
-     * @return string The date in Y-m-d format
+     * Calculate the start date (Monday) of a given ISO week
      */
     private function getWeekStartDate($weekNumber, $year = null)
     {
@@ -1975,290 +1704,147 @@ class DeliveryController extends Controller
         
         return $targetWeekMonday->format('Y-m-d');
     }
-
+    
     /**
-     * Determine if a customer/order is a delivery or collection
-     * Uses shipping class, method, address, and shipping total for robust classification
-     * 
-     * @param mixed $shippingTotal The shipping total value
-     * @param array $subscription The full subscription data (optional)
-     * @return string 'deliveries' or 'collections'
+     * Print only active collections and deliveries
      */
-    private function determineCustomerType($shippingTotal, $subscription = null)
-    {
-        // Method 1: Check shipping lines for collection class/method
-        if ($subscription && isset($subscription['shipping_lines']) && is_array($subscription['shipping_lines'])) {
-            foreach ($subscription['shipping_lines'] as $shippingLine) {
-                if (isset($shippingLine['method_title']) && is_string($shippingLine['method_title'])) {
-                    $methodTitle = strtolower($shippingLine['method_title']);
-                    if (strpos($methodTitle, 'collection') !== false) {
-                        return 'collections';
-                    }
-                }
-            }
-        }
-        
-        // Method 2: Check shipping classes in line_items
-        if ($subscription && isset($subscription['line_items']) && is_array($subscription['line_items'])) {
-            foreach ($subscription['line_items'] as $item) {
-                if (isset($item['shipping_class']) && is_string($item['shipping_class'])) {
-                    $shippingClass = strtolower($item['shipping_class']);
-                    if (strpos($shippingClass, 'collection') !== false) {
-                        return 'collections';
-                    }
-                }
-            }
-        }
-        
-        // Method 3: Check meta_data for shipping class
-        if ($subscription && isset($subscription['meta_data']) && is_array($subscription['meta_data'])) {
-            foreach ($subscription['meta_data'] as $meta) {
-                if (isset($meta['key']) && isset($meta['value']) && is_string($meta['key']) && is_string($meta['value'])) {
-                    $key = strtolower($meta['key']);
-                    $value = strtolower($meta['value']);
-                    
-                    if (strpos($key, 'shipping') !== false && strpos($value, 'collection') !== false) {
-                        return 'collections';
-                    }
-                }
-            }
-        }
-        
-        // Method 4: Check if customer has a delivery address
-        $hasDeliveryAddress = false;
-        if ($subscription) {
-            // Check shipping address first
-            if (isset($subscription['shipping']['address_1']) && !empty(trim($subscription['shipping']['address_1']))) {
-                $hasDeliveryAddress = true;
-            }
-            // Fallback to billing address
-            elseif (isset($subscription['billing']['address_1']) && !empty(trim($subscription['billing']['address_1']))) {
-                $hasDeliveryAddress = true;
-            }
-        }
-        
-        // Method 5: Check shipping total
-        $normalizedShippingTotal = $this->normalizeShippingTotal($shippingTotal);
-        
-        // If shipping total is greater than 0, it's likely a delivery
-        if ($normalizedShippingTotal > 0) {
-            return 'deliveries';
-        }
-        
-        // If customer has a delivery address but no shipping cost, 
-        // it might be a delivery with free shipping or promotional delivery
-        if ($hasDeliveryAddress) {
-            return 'deliveries';
-        }
-        
-        // Default to collection if no shipping cost, no delivery address, and no other indicators
-        return 'collections';
-    }
-
-    /**
-     * Debug classification logic for all customers
-     */
-    public function debugClassification(WpApiService $wpApi)
+    public function printActiveSchedule(Request $request, WpApiService $wpApi)
     {
         try {
-            // Get all subscriptions
-            $subscriptions = $wpApi->getDeliveryScheduleData(100);
+            // Get selected week from request, default to current week
+            $selectedWeek = $request->get('week', date('W'));
             
-            $oldLogicCounts = ['deliveries' => 0, 'collections' => 0];
-            $newLogicCounts = ['deliveries' => 0, 'collections' => 0];
-            $classifications = [];
-            $mismatches = [];
+            // Get raw data via API
+            $rawData = $wpApi->getDeliveryScheduleData(500);
             
-            foreach ($subscriptions as $sub) {
-                $email = $sub['billing']['email'] ?? 'N/A';
-                $name = trim(($sub['billing']['first_name'] ?? '') . ' ' . ($sub['billing']['last_name'] ?? ''));
-                $shippingTotal = (float) ($sub['shipping_total'] ?? 0);
-                
-                // Old logic
-                $oldLogic = $shippingTotal > 0 ? 'deliveries' : 'collections';
-                $oldLogicCounts[$oldLogic]++;
-                
-                // New logic
-                $newLogic = $this->determineCustomerType($sub['shipping_total'] ?? null, $sub);
-                $newLogicCounts[$newLogic]++;
-                
-                $classification = [
-                    'name' => $name,
-                    'email' => $email,
-                    'subscription_id' => $sub['id'] ?? 'N/A',
-                    'shipping_total' => $shippingTotal,
-                    'old_logic' => $oldLogic,
-                    'new_logic' => $newLogic,
-                    'match' => $oldLogic === $newLogic,
-                    'has_shipping_address' => !empty($sub['shipping']['address_1'] ?? ''),
-                    'has_billing_address' => !empty($sub['billing']['address_1'] ?? '')
-                ];
-                
-                $classifications[] = $classification;
-                
-                if ($oldLogic !== $newLogic) {
-                    $mismatches[] = $classification;
+            // Transform data to match view expectations
+            $scheduleData = $this->transformScheduleData($rawData, $selectedWeek);
+            
+            // Extract only active collections and deliveries
+            $activeCollections = [];
+            $activeDeliveries = [];
+            
+            if (isset($scheduleData['collectionsByStatus']['active'])) {
+                foreach ($scheduleData['collectionsByStatus']['active'] as $date => $dateData) {
+                    $activeCollections[$date] = $dateData;
                 }
             }
             
-            return response()->json([
-                'success' => true,
-                'summary' => [
-                    'total_subscriptions' => count($subscriptions),
-                    'old_logic_counts' => $oldLogicCounts,
-                    'new_logic_counts' => $newLogicCounts,
-                    'mismatches_count' => count($mismatches)
-                ],
-                'improvements' => [
-                    'deliveries_gained' => $newLogicCounts['deliveries'] - $oldLogicCounts['deliveries'],
-                    'collections_lost' => $oldLogicCounts['collections'] - $newLogicCounts['collections']
-                ],
-                'mismatches' => $mismatches,
-                'all_classifications' => $classifications
-            ]);
+            if (isset($scheduleData['deliveriesByStatus']['active'])) {
+                foreach ($scheduleData['deliveriesByStatus']['active'] as $date => $dateData) {
+                    $activeDeliveries[$date] = $dateData;
+                }
+            }
+            
+            // Count totals
+            $totalActiveCollections = 0;
+            $totalActiveDeliveries = 0;
+            
+            foreach ($activeCollections as $dateData) {
+                $totalActiveCollections += count($dateData['collections'] ?? []);
+            }
+            
+            foreach ($activeDeliveries as $dateData) {
+                $totalActiveDeliveries += count($dateData['deliveries'] ?? []);
+            }
+            
+            return view('pdf.printable-schedule', compact(
+                'activeCollections',
+                'activeDeliveries', 
+                'totalActiveCollections',
+                'totalActiveDeliveries',
+                'selectedWeek'
+            ));
             
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ], 500);
+            $activeCollections = [];
+            $activeDeliveries = [];
+            $totalActiveCollections = 0;
+            $totalActiveDeliveries = 0;
+            $error = $e->getMessage();
+            
+            return view('pdf.printable-schedule', compact(
+                'activeCollections',
+                'activeDeliveries',
+                'totalActiveCollections', 
+                'totalActiveDeliveries',
+                'selectedWeek',
+                'error'
+            ));
         }
     }
 
     /**
-     * Debug Pauline Moore's duplicate order issue
+     * Print/export deliveries or collections separately
      */
-    public function debugPauline(WpApiService $wpApi)
+    public function print(Request $request, WpApiService $wpApi)
     {
         try {
-            // Get all subscriptions and look for Pauline
-            $subscriptions = $wpApi->getDeliveryScheduleData(200);
+            $type = $request->get('type', 'deliveries'); // 'deliveries' or 'collections'
+            $selectedWeek = $request->get('week', date('W'));
             
-            $paulineData = [];
-            $allPaulineMatches = [];
+            // Get schedule data via API
+            $rawData = $wpApi->getDeliveryScheduleData(500);
+            $scheduleData = $this->transformScheduleData($rawData, $selectedWeek);
             
-            // Search for Pauline by email and name
-            foreach ($subscriptions as $sub) {
-                $email = $sub['billing']['email'] ?? '';
-                $firstName = $sub['billing']['first_name'] ?? '';
-                $lastName = $sub['billing']['last_name'] ?? '';
-                $fullName = trim($firstName . ' ' . $lastName);
+            // Filter for only active items of the specified type
+            $printData = [];
+            $title = '';
+            $dayInfo = '';
+            
+            if ($type === 'deliveries') {
+                $title = 'Deliveries Schedule';
+                $dayInfo = 'Thursday Afternoon Deliveries';
                 
-                if (stripos($email, 'pgmoore59') !== false || 
-                    stripos($fullName, 'pauline') !== false || 
-                    stripos($fullName, 'moore') !== false) {
-                    $allPaulineMatches[] = $sub;
-                }
-            }
-            
-            if (empty($allPaulineMatches)) {
-                return response()->json([
-                    'success' => false,
-                    'error' => 'Pauline Moore not found in subscriptions'
-                ]);
-            }
-            
-            // Analyze each subscription
-            $analysis = [
-                'customer_info' => [
-                    'matches_found' => count($allPaulineMatches),
-                    'subscriptions' => []
-                ],
-                'duplicate_analysis' => [
-                    'total_line_items' => 0,
-                    'vegetable_boxes' => 0,
-                    'total_cost' => 0,
-                    'suspected_duplicates' => []
-                ],
-                'recommendations' => []
-            ];
-            
-            foreach ($allPaulineMatches as $index => $sub) {
-                $subscriptionAnalysis = [
-                    'subscription_id' => $sub['id'] ?? 'N/A',
-                    'status' => $sub['status'] ?? 'N/A',
-                    'total' => $sub['total'] ?? 0,
-                    'date_created' => $sub['date_created'] ?? 'N/A',
-                    'customer_info' => [
-                        'email' => $sub['billing']['email'] ?? 'N/A',
-                        'name' => trim(($sub['billing']['first_name'] ?? '') . ' ' . ($sub['billing']['last_name'] ?? '')),
-                        'address' => trim(($sub['billing']['address_1'] ?? '') . ' ' . ($sub['billing']['address_2'] ?? '') . ' ' . ($sub['billing']['city'] ?? '') . ' ' . ($sub['billing']['postcode'] ?? ''))
-                    ],
-                    'line_items' => [],
-                    'payment_info' => [
-                        'payment_method' => $sub['payment_method'] ?? 'N/A',
-                        'payment_method_title' => $sub['payment_method_title'] ?? 'N/A'
-                    ]
-                ];
-                
-                // Analyze line items
-                foreach ($sub['line_items'] ?? [] as $item) {
-                    $itemName = $item['name'] ?? 'N/A';
-                    $quantity = $item['quantity'] ?? 0;
-                    $total = $item['total'] ?? 0;
-                    
-                    $lineItem = [
-                        'name' => $itemName,
-                        'quantity' => $quantity,
-                        'total' => $total,
-                        'subtotal' => $item['subtotal'] ?? 0,
-                        'product_id' => $item['product_id'] ?? 'N/A',
-                        'variation_id' => $item['variation_id'] ?? 'N/A',
-                        'meta_data' => $item['meta_data'] ?? []
-                    ];
-                    
-                    $subscriptionAnalysis['line_items'][] = $lineItem;
-                    $analysis['duplicate_analysis']['total_line_items']++;
-                    
-                    // Check for vegetable boxes
-                    if (stripos($itemName, 'vegetable box') !== false) {
-                        $analysis['duplicate_analysis']['vegetable_boxes'] += $quantity;
+                // Get only active deliveries
+                if (isset($scheduleData['deliveriesByStatus']['active'])) {
+                    foreach ($scheduleData['deliveriesByStatus']['active'] as $date => $dateData) {
+                        $printData[$date] = [
+                            'date_formatted' => $dateData['date_formatted'],
+                            'items' => $dateData['deliveries'] ?? []
+                        ];
                     }
-                    
-                    $analysis['duplicate_analysis']['total_cost'] += floatval($total);
                 }
+            } else {
+                $title = 'Collections Schedule';
+                $dayInfo = 'Friday Collections';
                 
-                $analysis['customer_info']['subscriptions'][] = $subscriptionAnalysis;
+                // Get only active collections
+                if (isset($scheduleData['collectionsByStatus']['active'])) {
+                    foreach ($scheduleData['collectionsByStatus']['active'] as $date => $dateData) {
+                        $printData[$date] = [
+                            'date_formatted' => $dateData['date_formatted'],
+                            'items' => $dateData['collections'] ?? []
+                        ];
+                    }
+                }
             }
             
-            // Generate recommendations
-            if (count($allPaulineMatches) > 1) {
-                $analysis['recommendations'][] = "⚠️ Multiple subscriptions found - check for duplicate subscriptions";
+            // Calculate totals
+            $totalItems = 0;
+            foreach ($printData as $dateData) {
+                $totalItems += count($dateData['items']);
             }
             
-            if ($analysis['duplicate_analysis']['vegetable_boxes'] > 1) {
-                $analysis['recommendations'][] = "⚠️ Customer has {$analysis['duplicate_analysis']['vegetable_boxes']} vegetable boxes - likely duplicate";
-                $analysis['recommendations'][] = "💰 Consider refunding excess charges";
-            }
-            
-            // Calculate potential refund
-            $singleBoxPrice = 20.00; // Assuming single person box is £20
-            $expectedBoxes = 1;
-            $actualBoxes = $analysis['duplicate_analysis']['vegetable_boxes'];
-            $potentialRefund = ($actualBoxes - $expectedBoxes) * $singleBoxPrice;
-            
-            if ($potentialRefund > 0) {
-                $analysis['refund_calculation'] = [
-                    'expected_boxes' => $expectedBoxes,
-                    'actual_boxes' => $actualBoxes,
-                    'excess_boxes' => $actualBoxes - $expectedBoxes,
-                    'estimated_single_box_price' => $singleBoxPrice,
-                    'potential_refund' => $potentialRefund
-                ];
-            }
-            
-            return response()->json([
-                'success' => true,
-                'analysis' => $analysis
-            ]);
+            return view('admin.deliveries.print', compact(
+                'printData', 
+                'type', 
+                'title',
+                'dayInfo',
+                'totalItems', 
+                'selectedWeek'
+            ));
             
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ], 500);
+            return view('admin.deliveries.print', [
+                'printData' => [],
+                'type' => $type ?? 'deliveries',
+                'title' => 'Error Loading Schedule',
+                'dayInfo' => '',
+                'totalItems' => 0,
+                'selectedWeek' => $selectedWeek ?? date('W'),
+                'error' => $e->getMessage()
+            ]);
         }
     }
 }

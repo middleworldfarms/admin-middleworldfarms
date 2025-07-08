@@ -32,12 +32,12 @@ class DeliveryScheduleService
 
             return [
                 'success' => true,
-                'deliveries' => $scheduleData['deliveries']->toArray(),
-                'collections' => $scheduleData['collections']->toArray(),
-                'total_deliveries' => $scheduleData['total_deliveries'],
-                'total_collections' => $scheduleData['total_collections'],
-                'data_source' => 'direct_database_connection',
-                'message' => 'Data retrieved directly from WordPress/WooCommerce database'
+                'deliveries' => isset($scheduleData['deliveries']) && $scheduleData['deliveries'] ? $scheduleData['deliveries']->toArray() : [],
+                'collections' => isset($scheduleData['collections']) && $scheduleData['collections'] ? $scheduleData['collections']->toArray() : [],
+                'total_deliveries' => $scheduleData['total_deliveries'] ?? 0,
+                'total_collections' => $scheduleData['total_collections'] ?? 0,
+                'data_source' => 'wp_api_service',
+                'message' => 'Data retrieved via WordPress API service'
             ];
             
         } catch (\Exception $e) {

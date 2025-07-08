@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Route;
 
 // Public routes (no authentication required)
 Route::get('/', function () {
-    return redirect('/admin');
+    return redirect(config('app.url') . '/admin/login');
 });
 
 // Authentication routes
@@ -26,26 +26,33 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
 
     // Delivery management routes
     Route::get('/deliveries', [DeliveryController::class, 'index'])->name('admin.deliveries.index');
-    Route::get('/api-test', [DeliveryController::class, 'apiTest'])->name('admin.api-test');
     Route::get('/diagnostic-subscriptions', [DeliveryController::class, 'diagnosticSubscriptions'])->name('admin.diagnostic-subscriptions');
-    Route::get('/test-active-filter', [DeliveryController::class, 'testActiveFilter'])->name('admin.test-active-filter');
-    Route::get('/debug-week-assignment', [DeliveryController::class, 'debugWeekAssignment'])->name('admin.debug-week-assignment');
-    Route::get('/debug-delivery-schedule', [DeliveryController::class, 'debugDeliverySchedule'])->name('admin.debug-delivery-schedule');
-    Route::get('/debug-specific-customers', [DeliveryController::class, 'debugSpecificCustomers'])->name('admin.debug-specific-customers');
-    Route::get('/debug-page-display', [DeliveryController::class, 'debugPageDisplay'])->name('admin.debug-page-display');
-    Route::get('/debug-customer-statuses', [DeliveryController::class, 'debugCustomerStatuses'])->name('admin.debug-customer-statuses');
-    Route::get('/compare-week-logic', [DeliveryController::class, 'compareWeekLogic'])->name('admin.compare-week-logic');
+    
+    // DEBUG: Shipping totals analysis
+    Route::get('/debug-shipping-totals', [DeliveryController::class, 'debugShippingTotals'])->name('admin.debug-shipping-totals');
+    
+    // DEBUG: Specific customer analysis
+    Route::get('/debug-customer/{email}', [DeliveryController::class, 'debugSpecificCustomer'])->name('admin.debug-customer');
+    
+    // DEBUG: WooCommerce subscription structure analysis
+    Route::get('/debug-subscription-structure', [DeliveryController::class, 'debugSubscriptionStructure'])->name('admin.debug-subscription-structure');
+    
+    // Debug endpoint for specific customer analysis
+    Route::get('/debug-bethany', [DeliveryController::class, 'debugBethany'])->name('debug.bethany');
+    
     Route::post('/customers/update-week', [DeliveryController::class, 'updateCustomerWeek'])->name('admin.customers.update-week');
 
     // Customer management routes
     Route::prefix('users')->name('admin.users.')->group(function () {
         Route::get('/', [App\Http\Controllers\Admin\UserSwitchingController::class, 'index'])->name('index');
-        Route::get('/test', [App\Http\Controllers\Admin\UserSwitchingController::class, 'test'])->name('test');
         Route::get('/search', [App\Http\Controllers\Admin\UserSwitchingController::class, 'search'])->name('search');
         Route::get('/recent', [App\Http\Controllers\Admin\UserSwitchingController::class, 'getRecentUsers'])->name('recent');
+        Route::get('/test', [App\Http\Controllers\Admin\UserSwitchingController::class, 'test'])->name('test');
         Route::post('/switch/{userId}', [App\Http\Controllers\Admin\UserSwitchingController::class, 'switchToUser'])->name('switch');
         Route::get('/switch-redirect/{userId}', [App\Http\Controllers\Admin\UserSwitchingController::class, 'switchAndRedirect'])->name('switch-redirect');
         Route::post('/switch-by-email', [App\Http\Controllers\Admin\UserSwitchingController::class, 'switchByEmail'])->name('switch-by-email');
+        Route::post('/get-subscription-url', [App\Http\Controllers\Admin\UserSwitchingController::class, 'getSubscriptionUrl'])->name('get-subscription-url');
+        Route::get('/subscription-redirect/{userId}', [App\Http\Controllers\Admin\UserSwitchingController::class, 'subscriptionRedirect'])->name('subscription-redirect');
         Route::get('/details/{userId}', [App\Http\Controllers\Admin\UserSwitchingController::class, 'getUserDetails'])->name('details');
         Route::get('/redirect/{userId}', [App\Http\Controllers\Admin\UserSwitchingController::class, 'redirect'])->name('redirect');
     });
@@ -59,10 +66,16 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         return view('admin.placeholder', ['title' => 'Analytics', 'description' => 'Advanced analytics dashboard coming soon']);
     })->name('admin.analytics');
 
-    // System routes (placeholders for future implementation)
-    Route::get('/settings', function () {
-        return view('admin.placeholder', ['title' => 'Settings', 'description' => 'System configuration coming soon']);
-    })->name('admin.settings');
+    // System routes
+    Route::get('/settings', [App\Http\Controllers\Admin\SettingsController::class, 'index'])->name('admin.settings');
+    Route::post('/settings', [App\Http\Controllers\Admin\SettingsController::class, 'update'])->name('admin.settings.update');
+    Route::get('/settings/reset', [App\Http\Controllers\Admin\SettingsController::class, 'reset'])->name('admin.settings.reset');
+    Route::get('/settings/api', [App\Http\Controllers\Admin\SettingsController::class, 'api'])->name('admin.settings.api');
+    
+    // Server monitoring routes for IONOS I/O throttling detection
+    Route::get('/settings/server-metrics', [App\Http\Controllers\Admin\SettingsController::class, 'serverMetrics'])->name('admin.settings.server-metrics');
+    Route::post('/settings/test-io-speed', [App\Http\Controllers\Admin\SettingsController::class, 'testIOSpeed'])->name('admin.settings.test-io-speed');
+    Route::post('/settings/test-db-performance', [App\Http\Controllers\Admin\SettingsController::class, 'testDatabasePerformance'])->name('admin.settings.test-db-performance');
 
     Route::get('/logs', function () {
         return view('admin.placeholder', ['title' => 'System Logs', 'description' => 'Activity logs and debugging coming soon']);
@@ -71,21 +84,6 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
     // Simple test route
     Route::get('/test', function () {
         return 'Test route works!';
-    });
-
-    // Debug route for deliveries
-    Route::get('/debug', function (DeliveryScheduleService $service) {
-        try {
-            echo "Route accessed successfully<br>";
-            echo "Service injected successfully<br>";
-            
-            $testConnection = $service->testConnection();
-            echo "Connection test: " . json_encode($testConnection) . "<br>";
-            
-            return "Debug completed successfully";
-        } catch (\Exception $e) {
-            return "Error: " . $e->getMessage();
-        }
     });
 
     // Route planning and optimization routes
@@ -98,4 +96,16 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         Route::post('/create-shareable-map', [App\Http\Controllers\Admin\RouteController::class, 'createShareableMap'])->name('create-shareable-map');
         Route::get('/wp-go-maps-data', [App\Http\Controllers\Admin\RouteController::class, 'getWPGoMapsData'])->name('wp-go-maps-data');
     });
+
+    // New route planner page
+    Route::get('/deliveries/route-planner', [\App\Http\Controllers\Admin\RouteController::class, 'index'])->name('admin.deliveries.route-planner');
+
+    // Debug endpoint for delivery/collection classification verification
+    Route::get('/debug-classification', [DeliveryController::class, 'debugClassification'])->name('debug.classification');
+
+    // Debug endpoint for Pauline Moore's duplicate order analysis
+    Route::get('/debug-pauline', [DeliveryController::class, 'debugPauline'])->name('debug.pauline');
+
+    // Subscription management endpoint
+    Route::get('/manage-subscription/{email}', [DeliveryController::class, 'manageSubscription'])->name('manage.subscription');
 });

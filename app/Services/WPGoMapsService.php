@@ -97,7 +97,7 @@ class WPGoMapsService
 
             // Add depot marker
             $this->addMarkerToMap($mapId, [
-                'title' => 'Middleworld Farms (Depot)',
+                'title' => 'Middle World Farms (Depot)',
                 'address' => config('services.delivery.depot_address'),
                 'description' => 'Starting point for deliveries',
                 'icon' => 'https://maps.google.com/mapfiles/ms/icons/green-dot.png'
