@@ -1,0 +1,73 @@
+# Laravel
+/node_modules
+/public/hot
+/public/storage
+/storage/*.key
+/vendor
+.env
+.env.backup
+.env.production
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+npm-debug.log
+yarn-error.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+storage/logs/*
+
+# Cache
+bootstrap/cache/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+
+# Temporary files
+*.tmp
+*.temp
+
+# Deployment
+deploy.php
+.deployment
+.deployphp
+
+# Database
+*.sqlite
+*.sqlite3
+
+# Sensitive config files (NEVER commit these)
+config/database.php.local
+config/mail.php.local
+*.key
+*.pem
+*.crt
+
+# Local development
+docker-compose.override.yml
+.vagrant/
+.env.local
+.env.dev
+.env.staging
+.env.testing
+
+# Backup files
+*.bak
+*.backup
+*.old
