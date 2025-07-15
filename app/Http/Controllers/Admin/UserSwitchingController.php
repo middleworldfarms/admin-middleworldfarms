@@ -640,7 +640,6 @@ class UserSwitchingController extends Controller
                 ->with('error', 'Failed to access customer profile: ' . $e->getMessage());
         }
     }
-<<<<<<< Updated upstream
 
     /**
      * Test API connection
@@ -689,6 +688,4 @@ class UserSwitchingController extends Controller
             ], 500, [], JSON_PRETTY_PRINT);
         }
     }
-=======
->>>>>>> Stashed changes
 }

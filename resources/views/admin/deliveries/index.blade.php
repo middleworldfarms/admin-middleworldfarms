@@ -1039,6 +1039,134 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize bulk button states
     updateBulkButtonStates();
     updateCollectionBulkButtonStates();
+
+    // User switching functionality
+    document.querySelectorAll('.user-switch-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const email = this.dataset.email;
+            const customerName = this.dataset.name || 'Customer';
+            
+            if (!email) {
+                alert('No email available for this customer');
+                return;
+            }
+
+            // Show loading state
+            const originalText = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Switching...';
+            this.disabled = true;
+
+            // Make AJAX request to switch user
+            fetch('/admin/users/switch-by-email', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({
+                    email: email,
+                    customer_name: customerName,
+                    redirect_to: '/my-account/'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.switch_url) {
+                    // Open in new tab
+                    window.open(data.switch_url, '_blank');
+                    
+                    // Show success message
+                    const toast = document.createElement('div');
+                    toast.className = 'alert alert-success position-fixed';
+                    toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+                    toast.innerHTML = `
+                        <i class="fas fa-check-circle"></i> Successfully switched to ${customerName}
+                        <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+                    `;
+                    document.body.appendChild(toast);
+                    
+                    // Auto-remove toast after 3 seconds
+                    setTimeout(() => toast.remove(), 3000);
+                } else {
+                    alert('Failed to switch user: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error switching user:', error);
+                alert('Error switching user. Please try again.');
+            })
+            .finally(() => {
+                // Restore button state
+                this.innerHTML = originalText;
+                this.disabled = false;
+            });
+        });
+    });
+
+    // Subscription functionality
+    document.querySelectorAll('.subscription-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const email = this.dataset.email;
+            const customerName = this.dataset.name || 'Customer';
+            
+            if (!email) {
+                alert('No email available for this customer');
+                return;
+            }
+
+            // Show loading state
+            const originalText = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            this.disabled = true;
+
+            // Make AJAX request to get subscription URL
+            fetch('/admin/users/get-subscription-url', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({
+                    email: email,
+                    customer_name: customerName
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.subscription_url) {
+                    // Open in new tab
+                    window.open(data.subscription_url, '_blank');
+                } else {
+                    alert('Failed to get subscription URL: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error getting subscription URL:', error);
+                alert('Error loading subscription. Please try again.');
+            })
+            .finally(() => {
+                // Restore button state
+                this.innerHTML = originalText;
+                this.disabled = false;
+            });
+        });
+    });
+
+    // Profile functionality
+    document.querySelectorAll('.profile-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const email = this.dataset.email;
+            const customerName = this.dataset.name || 'Customer';
+            
+            if (!email) {
+                alert('No email available for this customer');
+                return;
+            }
+
+            // For now, just show customer info in a modal or alert
+            alert(`Customer Profile\n\nName: ${customerName}\nEmail: ${email}\n\nProfile management coming soon!`);
+        });
+    });
 });
 </script>
 @endsection
