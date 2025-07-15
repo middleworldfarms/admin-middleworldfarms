@@ -19,11 +19,18 @@ class DeliveryController extends Controller
             // Get selected week from request, default to current week
             $selectedWeek = (int) $request->get('week', date('W'));
             
-            // Test API connection
+            // Test API connection with shorter timeout
             $apiStatus = $wpApi->testConnection();
             
-            // Get raw data via API - implement getDeliveryScheduleData in WpApiService
-            $rawData = $wpApi->getDeliveryScheduleData(500);
+            // Get raw data via API with timeout handling
+            $rawData = [];
+            try {
+                $rawData = $wpApi->getDeliveryScheduleData(500);
+            } catch (\Exception $e) {
+                \Log::error('Delivery schedule API timeout: ' . $e->getMessage());
+                // Continue with empty data to show the page
+                $rawData = [];
+            }
             
             // Transform data to match view expectations
             $scheduleData = $this->transformScheduleData($rawData, $selectedWeek);

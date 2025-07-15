@@ -4,18 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'MWF Admin')</title>
+    <title>@yield('title', 'Symbiosis')</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/global.css">
     @yield('styles')
     <style>
-        :root {
-            --sidebar-width: 250px;
-            --sidebar-bg: #2c3e50;
-            --sidebar-hover: #34495e;
-            --sidebar-active: #27ae60;
-        }
-        
         body {
             overflow-x: hidden;
         }
@@ -38,21 +32,22 @@
         }
         
         .sidebar .sidebar-header {
-            padding: 20px;
-            background: #1a252f;
+            padding: 15px 20px 20px;
+            background: linear-gradient(135deg, #27ae60 0%, #213b2e 100%);
             text-align: center;
-            border-bottom: 1px solid #34495e;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
             position: relative;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         
         .sidebar.collapsed .sidebar-header {
-            padding: 20px 10px;
+            padding: 15px 10px 20px;
         }
         
         .sidebar-toggle-btn {
             position: absolute;
-            top: 15px;
-            right: 15px;
+            top: 10px;
+            right: 10px;
             background: rgba(255,255,255,0.1);
             border: none;
             color: white;
@@ -68,6 +63,37 @@
             z-index: 1060;
         }
         
+        .logo-container {
+            transition: all 0.3s ease;
+            padding: 10px;
+            margin: 10px auto;
+            max-width: 120px;
+            text-align: center;
+        }
+        
+        .logo-container img,
+        .rounded-logo {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            filter: drop-shadow(0 3px 8px rgba(0,0,0,0.3));
+            border: 3px solid rgba(255,255,255,0.2);
+            transition: all 0.3s ease;
+        }
+        
+        .logo-container img:hover,
+        .rounded-logo:hover {
+            transform: scale(1.05);
+            filter: drop-shadow(0 4px 12px rgba(0,0,0,0.4));
+            border-color: rgba(255,255,255,0.3);
+        }
+        
+        .sidebar.collapsed .logo-container {
+            opacity: 0;
+            transform: scale(0.5);
+        }
+        
         .sidebar-toggle-btn:hover {
             background: rgba(255,255,255,0.2);
             transform: scale(1.1);
@@ -79,16 +105,16 @@
         
         .sidebar.collapsed .sidebar-toggle-btn {
             position: fixed;
-            top: 20px;
+            top: 15px;
             left: 15px;
             width: 30px;
             height: 30px;
-            background: rgba(44,62,80,0.9);
+            background: rgba(33,59,46,0.9);
             border-radius: 50%;
         }
         
         .sidebar.collapsed .sidebar-toggle-btn:hover {
-            background: rgba(44,62,80,1);
+            background: rgba(33,59,46,1);
             transform: scale(1.1);
         }
         
@@ -96,6 +122,9 @@
             margin: 0;
             font-size: 1.2rem;
             transition: all 0.3s ease;
+            color: white;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            font-weight: 600;
         }
         
         .sidebar.collapsed .sidebar-header h4 {
@@ -151,28 +180,6 @@
         
         .main-content.expanded {
             margin-left: 60px !important;
-        }
-        
-        .top-navbar {
-            background: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            padding: 15px 30px;
-            margin-bottom: 0;
-        }
-        
-        .sidebar-toggle {
-            background: none;
-            border: none;
-            color: #2c3e50;
-            font-size: 1.2rem;
-            cursor: pointer;
-            padding: 5px 10px;
-            border-radius: 4px;
-            transition: all 0.3s ease;
-        }
-        
-        .sidebar-toggle:hover {
-            background: #f8f9fa;
         }
         
         .nav-section {
@@ -235,6 +242,26 @@
             font-size: 0.7rem;
             margin-left: auto;
         }
+        
+        .admin-info {
+            background: rgba(255,255,255,0.1);
+            border-radius: 6px;
+            padding: 8px 12px;
+            margin-top: 15px !important;
+        }
+        
+        .admin-info .text-muted {
+            color: rgba(255,255,255,0.7) !important;
+            font-size: 0.75rem;
+        }
+        
+        .admin-info .text-white {
+            color: white !important;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+
+        @media (max-width: 768px) {
+        }
     </style>
 </head>
 <body class="has-sidebar">
@@ -244,7 +271,10 @@
             <button class="sidebar-toggle-btn" id="sidebarToggleBtn" title="Toggle Sidebar">
                 <i class="fas fa-bars"></i>
             </button>
-            <h4><i class="fas fa-leaf me-2"></i>MWF Admin</h4>
+            <div class="logo-container mt-4">
+                <img src="/Middle World Logo Image White - PNG FOR SCREENS.png" alt="Middle World Farms" class="rounded-logo">
+            </div>
+            <h4 class="mb-0 mt-2">Symbiosis</h4>
             @php
                 $adminUser = \App\Http\Controllers\Auth\LoginController::getAdminUser();
             @endphp
@@ -325,23 +355,28 @@
     <!-- Sidebar overlay for mobile -->
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
     
+    <!-- Top Header -->
+    <div class="top-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="header-spacer">
+                <h2 class="header-brand-name">Symbiosis</h2>
+            </div>
+            <div class="header-content">
+                @hasSection('page-header')
+                    @yield('page-header')
+                @else
+                    <h1>Farm Management System</h1>
+                    <p class="lead">Integrated agricultural operations</p>
+                @endif
+            </div>
+            <div>
+                <img src="/Middle_World_Logo_Inverted 350px.png" alt="Middle World Farms" class="header-logo">
+            </div>
+        </div>
+    </div>
+
     <!-- Main content -->
     <div class="main-content" id="mainContent">
-        <!-- Top navigation bar -->
-        <nav class="top-navbar">
-            <div class="d-flex justify-content-between align-items-center">
-                <div class="d-flex align-items-center">
-                    <button class="sidebar-toggle" id="sidebarToggle">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    <h5 class="mb-0 ms-3">@yield('page-title', 'Dashboard')</h5>
-                </div>
-                <div class="d-flex align-items-center">
-                    <span class="text-muted">{{ date('l, F j, Y') }}</span>
-                </div>
-            </div>
-        </nav>
-        
         <!-- Page content -->
         <div class="content-wrapper">
             @yield('content')
@@ -354,6 +389,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             const sidebar = document.getElementById('sidebar');
             const mainContent = document.getElementById('mainContent');
+            const topHeader = document.querySelector('.top-header');
             const sidebarToggle = document.getElementById('sidebarToggle');
             const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
             const sidebarOverlay = document.getElementById('sidebarOverlay');
@@ -371,6 +407,9 @@
                 sidebar.classList.add('collapsed');
                 mainContent.classList.add('expanded');
                 body.classList.add('sidebar-collapsed');
+                if (topHeader) {
+                    topHeader.style.marginLeft = '60px';
+                }
             }
             
             // Function to toggle sidebar
@@ -387,6 +426,15 @@
                     sidebar.classList.toggle('collapsed');
                     mainContent.classList.toggle('expanded');
                     body.classList.toggle('sidebar-collapsed');
+                    
+                    // Update header margin
+                    if (topHeader) {
+                        if (sidebar.classList.contains('collapsed')) {
+                            topHeader.style.marginLeft = '60px';
+                        } else {
+                            topHeader.style.marginLeft = 'var(--sidebar-width)';
+                        }
+                    }
                     
                     // Save state to localStorage
                     localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
@@ -434,12 +482,22 @@
                         sidebar.classList.add('collapsed');
                         mainContent.classList.add('expanded');
                         body.classList.add('sidebar-collapsed');
+                        if (topHeader) {
+                            topHeader.style.marginLeft = '60px';
+                        }
+                    } else {
+                        if (topHeader) {
+                            topHeader.style.marginLeft = 'var(--sidebar-width)';
+                        }
                     }
                 } else {
                     // Remove collapsed state on mobile
                     sidebar.classList.remove('collapsed');
                     mainContent.classList.remove('expanded');
                     body.classList.remove('sidebar-collapsed');
+                    if (topHeader) {
+                        topHeader.style.marginLeft = '0';
+                    }
                 }
             });
         });

@@ -1,6 +1,11 @@
 @extends('layouts.app')
 
-@section('title', 'Delivery Schedule Management')
+@section('title', 'Symbiosis - Delivery Schedule Management')
+
+@section('page-header')
+    <h1>Delivery Schedule Management</h1>
+    <p class="lead">Real-time delivery data from WooCommerce</p>
+@endsection
 
 @section('content')
 <style>
@@ -13,6 +18,20 @@ body {
 .content-wrapper {
     position: relative !important;
     z-index: 1 !important;
+}
+
+/* Add spacing between bulk action buttons */
+.btn-group .btn {
+    margin-right: 5px;
+}
+
+.btn-group .btn:last-child {
+    margin-right: 0;
+}
+
+/* Add space before bulk action button groups */
+.mb-3 .btn-group {
+    margin-top: 20px;
 }
 
 /* Folder-style main tabs */
@@ -96,50 +115,50 @@ body {
     display: none; /* Hide the status header */
 }
 
-/* Subtabs - 3D folder style but smaller and upside down */
+/* Subtabs - 3D folder style the right way up */
 .nav-pills.nav-sm {
     gap: 3px;
-    margin-top: -2px; /* Pull up to connect with main tabs */
+    margin-top: 15px; /* Add space below main tabs */
     padding-left: 30px; /* Indent subtabs slightly */
 }
 
 .nav-pills.nav-sm .nav-link {
-    background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
     border: 1px solid #ced4da;
-    border-top: none;
-    border-radius: 0 0 10px 10px; /* Upside down folder shape */
-    padding: 6px 12px;
+    border-bottom: none;
+    border-radius: 10px 10px 0 0; /* Right way up folder shape */
+    padding: 8px 14px;
     font-size: 12px;
     font-weight: 600;
     color: #6c757d;
     position: relative;
     margin-bottom: 0;
-    transform: perspective(15px) rotateX(-2deg); /* Upside down 3D effect */
-    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    transform: perspective(15px) rotateX(2deg); /* Right way up 3D effect */
+    box-shadow: 0 -2px 6px rgba(0,0,0,0.1);
     transition: all 0.2s ease;
 }
 
 .nav-pills.nav-sm .nav-link:hover {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
     border-color: #adb5bd;
     color: #495057;
-    transform: perspective(15px) rotateX(0deg) translateY(1px); /* Lift up on hover */
-    box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+    transform: perspective(15px) rotateX(0deg) translateY(-1px); /* Lift up on hover */
+    box-shadow: 0 -3px 8px rgba(0,0,0,0.15);
 }
 
 .nav-pills.nav-sm .nav-link.active {
     background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
     border-color: #007bff;
     color: #ffffff;
-    transform: perspective(15px) rotateX(0deg) translateY(2px); /* Lift more when active */
-    box-shadow: 0 4px 10px rgba(0,123,255,0.3);
+    transform: perspective(15px) rotateX(0deg) translateY(-2px); /* Lift more when active */
+    box-shadow: 0 -4px 12px rgba(0,123,255,0.3);
     z-index: 5;
 }
 
-.nav-pills.nav-sm .nav-link.active::before {
+.nav-pills.nav-sm .nav-link.active::after {
     content: '';
     position: absolute;
-    top: -1px;
+    bottom: -1px;
     left: 0;
     right: 0;
     height: 2px;
@@ -176,8 +195,6 @@ body {
 </style>
 
 {{-- 🚀 CACHE TEST - LAST UPDATED: {{ date('Y-m-d H:i:s') }} --}}
-<h1>Delivery Schedule Management</h1>
-<p class="lead">Real-time delivery data from WooCommerce</p>
     
     {{-- API Status --}}
     @if(isset($api_test))
@@ -206,34 +223,6 @@ body {
             <strong>Error:</strong> {{ $error }}
         </div>
     @endif
-
-    {{-- User Search Section --}}
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5 class="mb-0"><i class="fas fa-search"></i> Quick User Search & Switch</h5>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-8">
-                    <div class="input-group">
-                        <input type="text" id="userSearch" class="form-control" placeholder="Search for customers by name or email...">
-                        <button class="btn btn-outline-secondary" type="button" id="searchBtn">
-                            <i class="fas fa-search"></i> Search
-                        </button>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <a href="{{ route('admin.users.test') }}" class="btn btn-outline-info" target="_blank">
-                        <i class="fas fa-flask"></i> Test API Connection
-                    </a>
-                </div>
-            </div>
-            <div id="searchResults" class="mt-3" style="display: none;">
-                <h6>Search Results:</h6>
-                <div id="userList"></div>
-            </div>
-        </div>
-    </div>
     
     {{-- Schedule Data --}}
     @if(isset($scheduleData) && $scheduleData)
@@ -276,6 +265,9 @@ body {
                             <strong>Week {{ $currentWeek }} of {{ date('Y') }}</strong> - 
                             <span class="badge bg-{{ $currentWeekType === 'A' ? 'success' : 'warning' }} ms-1">Week {{ $currentWeekType }}</span>
                         </p>
+                        <p class="mb-1">
+                            <strong>{{ date('l, F j, Y') }}</strong>
+                        </p>
                         <small class="text-muted">
                             Even weeks = Week A (Fortnightly deliveries) | Odd weeks = Week B (Skip fortnightly)
                         </small>
@@ -287,12 +279,8 @@ body {
                 </div>
             </div>
             
-            <div class="card">`
+            <div class="card">
                 <div class="card-header">
-                    <h3>🔄 CACHE TEST - Schedule Management 
-                        <small class="text-muted">({{ $totalDeliveries }} deliveries, {{ $totalCollections }} collections)</small>
-                    </h3>
-                    
                     {{-- Navigation Tabs --}}
                     <ul class="nav nav-tabs mt-3" id="scheduleTab" role="tablist">
                         <li class="nav-item" role="presentation">
@@ -841,79 +829,54 @@ body {
 @section('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('userSearch');
-    const searchBtn = document.getElementById('searchBtn');
-    const searchResults = document.getElementById('searchResults');
-    const userList = document.getElementById('userList');
-
-    function performSearch() {
-        const query = searchInput.value.trim();
-        if (query.length < 2) {
-            searchResults.style.display = 'none';
-            return;
-        }
-
-        // Show loading state
-        userList.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Searching...</div>';
-        searchResults.style.display = 'block';
-
-        // Perform AJAX search
-        fetch(`{{ route('admin.users.search') }}?q=${encodeURIComponent(query)}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success && data.users && data.users.length > 0) {
-                    let html = '';
-                    data.users.forEach(user => {
-                        html += `
-                            <div class="card mb-2">
-                                <div class="card-body py-2">
-                                    <div class="row align-items-center">
-                                        <div class="col-md-8">
-                                            <strong>${user.name || 'N/A'}</strong>
-                                            <br><small class="text-muted">${user.email || 'No email'}</small>
-                                            <br><small class="text-muted">ID: ${user.id}</small>
-                                        </div>
-                                        <div class="col-md-4 text-end">
-                                            <a href="{{ route('admin.users.switch', ['userId' => ':userId']) }}".replace(':userId', user.id) 
-                                               class="btn btn-sm btn-primary" 
-                                               target="_blank">
-                                                <i class="fas fa-user-circle"></i> Switch to User
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    });
-                    userList.innerHTML = html;
-                } else {
-                    userList.innerHTML = '<div class="alert alert-info">No users found matching your search.</div>';
-                }
-            })
-            .catch(error => {
-                console.error('Search error:', error);
-                userList.innerHTML = '<div class="alert alert-danger">Error performing search. Please try again.</div>';
+    // Bulk Operations for both Deliveries and Collections
+    // Handle multiple instances of select/deselect buttons across tabs
+    document.addEventListener('click', function(e) {
+        // Select All buttons (for any table type)
+        if (e.target.id === 'selectAllDeliveries' || e.target.closest('[id="selectAllDeliveries"]')) {
+            const checkboxes = document.querySelectorAll('.delivery-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = true;
             });
-    }
-
-    // Search on button click
-    searchBtn.addEventListener('click', performSearch);
-
-    // Search on Enter key
-    searchInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            performSearch();
+            const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+            if (selectAllCheckbox) selectAllCheckbox.checked = true;
+            updateBulkButtonStates();
+        }
+        
+        // Deselect All buttons (for any table type)
+        if (e.target.id === 'deselectAllDeliveries' || e.target.closest('[id="deselectAllDeliveries"]')) {
+            const checkboxes = document.querySelectorAll('.delivery-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+            if (selectAllCheckbox) selectAllCheckbox.checked = false;
+            updateBulkButtonStates();
+        }
+        
+        // Select All Collections
+        if (e.target.id === 'selectAllCollections' || e.target.closest('[id="selectAllCollections"]')) {
+            const checkboxes = document.querySelectorAll('.collection-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = true;
+            });
+            const selectAllCollectionCheckbox = document.getElementById('selectAllCollectionCheckbox');
+            if (selectAllCollectionCheckbox) selectAllCollectionCheckbox.checked = true;
+            updateCollectionBulkButtonStates();
+        }
+        
+        // Deselect All Collections
+        if (e.target.id === 'deselectAllCollections' || e.target.closest('[id="deselectAllCollections"]')) {
+            const checkboxes = document.querySelectorAll('.collection-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            const selectAllCollectionCheckbox = document.getElementById('selectAllCollectionCheckbox');
+            if (selectAllCollectionCheckbox) selectAllCollectionCheckbox.checked = false;
+            updateCollectionBulkButtonStates();
         }
     });
 
-    // Hide results when input is cleared
-    searchInput.addEventListener('input', function() {
-        if (this.value.trim().length === 0) {
-            searchResults.style.display = 'none';
-        }
-    });
-
-    // Bulk Operations for Deliveries
     const selectAllBtn = document.getElementById('selectAllDeliveries');
     const deselectAllBtn = document.getElementById('deselectAllDeliveries');
     const printScheduleBtn = document.getElementById('printScheduleBtn');
@@ -938,31 +901,11 @@ document.addEventListener('DOMContentLoaded', function() {
             updateBulkButtonStates();
             updateSelectAllCheckbox();
         }
+        if (e.target.classList.contains('collection-checkbox')) {
+            updateCollectionBulkButtonStates();
+            updateSelectAllCollectionCheckbox();
+        }
     });
-
-    // Select all button
-    if (selectAllBtn) {
-        selectAllBtn.addEventListener('click', function() {
-            const checkboxes = document.querySelectorAll('.delivery-checkbox');
-            checkboxes.forEach(checkbox => {
-                checkbox.checked = true;
-            });
-            if (selectAllCheckbox) selectAllCheckbox.checked = true;
-            updateBulkButtonStates();
-        });
-    }
-
-    // Deselect all button
-    if (deselectAllBtn) {
-        deselectAllBtn.addEventListener('click', function() {
-            const checkboxes = document.querySelectorAll('.delivery-checkbox');
-            checkboxes.forEach(checkbox => {
-                checkbox.checked = false;
-            });
-            if (selectAllCheckbox) selectAllCheckbox.checked = false;
-            updateBulkButtonStates();
-        });
-    }
 
     // Print schedule button
     if (printScheduleBtn) {
@@ -1051,8 +994,51 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // Collection-specific functions
+    function getSelectedCollectionIds() {
+        const checkboxes = document.querySelectorAll('.collection-checkbox:checked');
+        return Array.from(checkboxes).map(checkbox => checkbox.value);
+    }
+
+    function updateCollectionBulkButtonStates() {
+        const selectedCount = document.querySelectorAll('.collection-checkbox:checked').length;
+        
+        const printCollectionScheduleBtn = document.getElementById('printCollectionScheduleBtn');
+        const printCollectionSlipsBtn = document.getElementById('printCollectionSlipsBtn');
+        
+        if (printCollectionScheduleBtn) {
+            printCollectionScheduleBtn.disabled = selectedCount === 0;
+            printCollectionScheduleBtn.title = selectedCount === 0 ? 'Select collections to print schedule' : `Print schedule for ${selectedCount} collection(s)`;
+        }
+        
+        if (printCollectionSlipsBtn) {
+            printCollectionSlipsBtn.disabled = selectedCount === 0;
+            printCollectionSlipsBtn.title = selectedCount === 0 ? 'Select collections to print slips' : `Print ${selectedCount} collection slip(s)`;
+        }
+    }
+
+    function updateSelectAllCollectionCheckbox() {
+        const selectAllCollectionCheckbox = document.getElementById('selectAllCollectionCheckbox');
+        if (!selectAllCollectionCheckbox) return;
+        
+        const checkboxes = document.querySelectorAll('.collection-checkbox');
+        const checkedBoxes = document.querySelectorAll('.collection-checkbox:checked');
+        
+        if (checkedBoxes.length === 0) {
+            selectAllCollectionCheckbox.checked = false;
+            selectAllCollectionCheckbox.indeterminate = false;
+        } else if (checkedBoxes.length === checkboxes.length) {
+            selectAllCollectionCheckbox.checked = true;
+            selectAllCollectionCheckbox.indeterminate = false;
+        } else {
+            selectAllCollectionCheckbox.checked = false;
+            selectAllCollectionCheckbox.indeterminate = true;
+        }
+    }
+
     // Initialize bulk button states
     updateBulkButtonStates();
+    updateCollectionBulkButtonStates();
 });
 </script>
 @endsection

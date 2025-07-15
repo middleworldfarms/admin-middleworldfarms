@@ -6,7 +6,7 @@ return [
     | Admin Users Configuration
     |--------------------------------------------------------------------------
     |
-    | This file contains the authorized admin users for the MWF Admin Dashboard.
+    | This file contains the authorized admin users for the Symbiosis Admin Dashboard.
     | Each user should have a unique email and a secure password hash.
     |
     */

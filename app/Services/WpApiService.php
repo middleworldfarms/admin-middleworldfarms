@@ -348,7 +348,9 @@ class WpApiService
             $perPage = min($limit, 100);
             
             // Fetch active subscriptions via WooCommerce REST with full context to get billing/shipping data
-            $response = Http::withBasicAuth($this->wcConsumerKey, $this->wcConsumerSecret)
+            // Use shorter timeout to prevent 504 Gateway timeout
+            $response = Http::timeout(15)
+                ->withBasicAuth($this->wcConsumerKey, $this->wcConsumerSecret)
                 ->get("{$this->wcApiUrl}/wp-json/wc/v3/subscriptions", [
                     'per_page' => $perPage,
                     'orderby'  => 'date',
@@ -363,8 +365,13 @@ class WpApiService
                 return $data;
             }
             
+            Log::warning('WooCommerce API request failed', [
+                'status' => $response->status(),
+                'body' => $response->body()
+            ]);
+            
             return [];
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             Log::error('Get delivery schedule failed: ' . $e->getMessage());
             return [];
         }
