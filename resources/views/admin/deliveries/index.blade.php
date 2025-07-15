@@ -649,7 +649,7 @@ body {
                                                 @if($statusCounts['active'] > 0)
                                                 <li class="nav-item" role="presentation">
                                                     <button class="nav-link active btn-sm" id="collections-active-tab" data-bs-toggle="pill" data-bs-target="#collections-active" type="button" role="tab">
-                                                        Active ({{ $statusCounts['active'] }})
+                                                        📦 Active Collections ({{ $statusCounts['active'] }})
                                                     </button>
                                                 </li>
                                                 @endif
@@ -729,6 +729,7 @@ body {
                                                         @endphp
                                                         @if(count($activeCollections) > 0)
                                                             <h4 class="mt-3 mb-3">{{ $dateData['date_formatted'] ?? $date }}</h4>
+                                                            <h5 class="text-success">📦 Active Collections ({{ count($activeCollections) }})</h5>
                                                             @include('admin.deliveries.partials.collection-table', ['items' => $activeCollections, 'type' => 'collection', 'showCollectionActions' => true])
                                                         @endif
                                                     @endif
