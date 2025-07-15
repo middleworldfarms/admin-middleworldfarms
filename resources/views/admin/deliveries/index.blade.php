@@ -232,8 +232,10 @@ body {
                 $totalCollections = 0;
                 $activeDeliveries = 0;
                 $activeCollections = 0;
-                $currentWeek = date('W');
-                $currentWeekType = ($currentWeek % 2 === 0) ? 'A' : 'B';
+                $currentWeekActual = (int)date('W');
+                $displayWeek = isset($selectedWeek) ? (int)$selectedWeek : $currentWeekActual;
+                $displayWeekType = ($displayWeek % 2 === 1) ? 'A' : 'B'; // Odd weeks = A, Even weeks = B
+                $isCurrentWeek = ($displayWeek == $currentWeekActual);
                 foreach($scheduleData['data'] as $dateData) {
                     $totalDeliveries += count($dateData['deliveries'] ?? []);
                     $totalCollections += count($dateData['collections'] ?? []);
@@ -260,21 +262,73 @@ body {
             <div class="alert alert-info mb-4">
                 <div class="row">
                     <div class="col-md-8">
-                        <h5 class="mb-1">📅 Current Week Information</h5>
+                        <h5 class="mb-1">📅 {{ $isCurrentWeek ? 'Current' : 'Viewing' }} Week Information</h5>
                         <p class="mb-0">
-                            <strong>Week {{ $currentWeek }} of {{ date('Y') }}</strong> - 
-                            <span class="badge bg-{{ $currentWeekType === 'A' ? 'success' : 'warning' }} ms-1">Week {{ $currentWeekType }}</span>
+                            <strong>Week {{ $displayWeek }} of {{ date('Y') }}</strong> - 
+                            <span class="badge bg-{{ $displayWeekType === 'A' ? 'success' : 'warning' }} ms-1">Week {{ $displayWeekType }}</span>
+                            @if(!$isCurrentWeek)
+                                <small class="text-muted ms-2">(Current week: {{ $currentWeekActual }})</small>
+                            @endif
                         </p>
                         <p class="mb-1">
-                            <strong>{{ date('l, F j, Y') }}</strong>
+                            <strong>{{ $isCurrentWeek ? date('l, F j, Y') : 'Week ' . $displayWeek . ' Schedule' }}</strong>
                         </p>
                         <small class="text-muted">
-                            Even weeks = Week A (Fortnightly deliveries) | Odd weeks = Week B (Skip fortnightly)
+                            Odd weeks = Week A (Fortnightly deliveries) | Even weeks = Week B (Alternate fortnightly)
                         </small>
                     </div>
                     <div class="col-md-4 text-end">
-                        <span class="badge bg-primary">{{ $activeDeliveries }} active deliveries</span>
-                        <span class="badge bg-success ms-1">{{ $activeCollections }} active collections</span>
+                        <div class="d-flex flex-column align-items-end">
+                            <div class="mb-2">
+                                <span class="badge bg-primary">{{ $activeDeliveries }} active deliveries</span>
+                                <span class="badge bg-success ms-1">{{ $activeCollections }} active collections</span>
+                            </div>
+                            
+                            {{-- Week Navigation Buttons --}}
+                            <div class="d-flex align-items-center gap-1">
+                                @php
+                                    $selectedWeek = isset($selectedWeek) ? (int)$selectedWeek : (int)date('W');
+                                    $currentWeekActual = (int)date('W');
+                                    $prevWeek = max(1, $selectedWeek - 1);
+                                    $nextWeek = min(53, $selectedWeek + 1);
+                                @endphp
+                                
+                                {{-- Previous Week Button --}}
+                                <form method="GET" action="{{ route('admin.deliveries.index') }}" class="d-inline">
+                                    <input type="hidden" name="week" value="{{ $prevWeek }}">
+                                    <button type="submit" class="btn btn-outline-secondary btn-sm" title="Previous Week ({{ $prevWeek }})" @if($selectedWeek <= 1) disabled @endif>
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                </form>
+                                
+                                {{-- Current Week Button --}}
+                                <form method="GET" action="{{ route('admin.deliveries.index') }}" class="d-inline">
+                                    <input type="hidden" name="week" value="{{ $currentWeekActual }}">
+                                    <button type="submit" class="btn btn-outline-primary btn-sm @if($selectedWeek == $currentWeekActual) active fw-bold @endif" title="Current Week ({{ $currentWeekActual }})">
+                                        <i class="fas fa-calendar-day"></i>
+                                    </button>
+                                </form>
+                                
+                                {{-- Next Week Button --}}
+                                <form method="GET" action="{{ route('admin.deliveries.index') }}" class="d-inline">
+                                    <input type="hidden" name="week" value="{{ $nextWeek }}">
+                                    <button type="submit" class="btn btn-outline-secondary btn-sm" title="Next Week ({{ $nextWeek }})" @if($selectedWeek >= 53) disabled @endif>
+                                        <i class="fas fa-chevron-right"></i>
+                                    </button>
+                                </form>
+                                
+                                {{-- Week Dropdown --}}
+                                <form method="GET" action="{{ route('admin.deliveries.index') }}" class="d-inline ms-2">
+                                    <select name="week" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit();" title="Jump to specific week">
+                                        @for($w = 1; $w <= 53; $w++)
+                                            <option value="{{ $w }}" @if($selectedWeek == $w) selected @endif>
+                                                Week {{ $w }}
+                                            </option>
+                                        @endfor
+                                    </select>
+                                </form>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
