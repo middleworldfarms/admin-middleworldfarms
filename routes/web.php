@@ -98,7 +98,13 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
     });
 
     // New route planner page
-    Route::get('/deliveries/route-planner', [\App\Http\Controllers\Admin\RouteController::class, 'index'])->name('admin.deliveries.route-planner');
+    Route::get('/deliveries/route-planner', [\App\Http\Controllers\Admin\RouteController::class, 'index'])->name('admin.route-planner');
+    
+    // Print packing slips
+    Route::get('/deliveries/print', [App\Http\Controllers\Admin\DeliveryController::class, 'print'])->name('admin.deliveries.print');
+    
+    // Print actual packing slips (multiple per sheet)
+    Route::get('/deliveries/print-slips', [App\Http\Controllers\Admin\DeliveryController::class, 'printSlips'])->name('admin.deliveries.print-slips');
 
     // Debug endpoint for delivery/collection classification verification
     Route::get('/debug-classification', [DeliveryController::class, 'debugClassification'])->name('debug.classification');

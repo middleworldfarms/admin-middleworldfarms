@@ -1,11 +1,39 @@
 {{-- Collection Table Partial --}}
+
+{{-- Action Buttons for Collections --}}
+@if(isset($showCollectionActions) && $showCollectionActions)
+<div class="mb-3">
+    <div class="btn-group" role="group">
+        <button type="button" class="btn btn-outline-primary btn-sm" id="selectAllCollections">
+            <i class="fas fa-check-square"></i> Select All
+        </button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="deselectAllCollections">
+            <i class="fas fa-square"></i> Deselect All
+        </button>
+        <button type="button" class="btn btn-success btn-sm" id="printCollectionScheduleBtn">
+            <i class="fas fa-print"></i> Print Schedule
+        </button>
+        <button type="button" class="btn btn-warning btn-sm" id="printCollectionSlipsBtn">
+            <i class="fas fa-tags"></i> Print Collection Slips
+        </button>
+    </div>
+</div>
+@endif
+
 <div class="table-responsive mb-4">
     <table class="table table-striped table-sm">
         <thead>
             <tr>
+                @if(isset($type) && ($type === 'delivery' || $type === 'collection'))
+                <th>
+                    <input type="checkbox" class="form-check-input {{ $type === 'delivery' ? 'select-all-checkbox' : 'select-all-collection-checkbox' }} table-select-all" title="Select all {{ $type === 'delivery' ? 'deliveries' : 'collections' }}" data-type="{{ $type }}">
+                </th>
+                @endif
                 <th>Customer</th>
+                <th>Customer Notes</th>
                 <th>Address</th>
-                <th>Products/Notes</th>
+                <th>Products</th>
+                <th>Last Paid</th>
                 <th>Contact</th>
                 <th>Frequency</th>
                 <th>Week</th>
@@ -17,10 +45,35 @@
         <tbody>
             @foreach($items as $collection)
                 <tr>
+                    @if(isset($type) && ($type === 'delivery' || $type === 'collection'))
+                    <td>
+                        <input type="checkbox" class="form-check-input {{ $type === 'delivery' ? 'delivery-checkbox' : 'collection-checkbox' }}" 
+                               value="{{ json_encode($collection) }}"
+                               data-delivery-id="{{ $collection['id'] ?? $collection['order_number'] ?? $loop->index }}"
+                               data-collection-id="{{ $collection['id'] ?? $collection['order_number'] ?? $loop->index }}"
+                               data-order-id="{{ $collection['order_number'] ?? '' }}"
+                               data-customer-name="{{ $collection['customer_name'] ?? 'N/A' }}"
+                               data-customer-email="{{ $collection['customer_email'] ?? '' }}"
+                               data-delivery-date="{{ $collection['delivery_date'] ?? $collection['date'] ?? '' }}"
+                               data-customer-notes="{{ $collection['special_instructions'] ?? $collection['delivery_notes'] ?? '' }}"
+                               data-address="{{ json_encode($collection['shipping_address'] ?? $collection['billing_address'] ?? []) }}">
+                    </td>
+                    @endif
                     <td>
                         <strong>{{ $collection['customer_name'] ?? 'N/A' }}</strong>
                         @if(isset($collection['order_number']))
                             <br><small class="text-muted">ID: {{ $collection['order_number'] }}</small>
+                        @endif
+                    </td>
+                    <td>
+                        {{-- Customer Notes - Dedicated Column --}}
+                        @if(!empty($collection['special_instructions']) || !empty($collection['delivery_notes']))
+                            <div class="customer-notes p-2 bg-warning-subtle border border-warning rounded">
+                                <i class="fas fa-exclamation-triangle text-warning"></i>
+                                <strong>Note:</strong> {{ $collection['special_instructions'] ?? $collection['delivery_notes'] }}
+                            </div>
+                        @else
+                            <span class="text-muted">-</span>
                         @endif
                     </td>
                     <td>
@@ -57,10 +110,21 @@
                         @endif
                     </td>
                     <td>
-                        @if(!empty($collection['special_instructions']) || !empty($collection['delivery_notes']))
-                            {{ $collection['special_instructions'] ?? $collection['delivery_notes'] ?? 'N/A' }}
+                        @if(!empty($collection['products']) && is_array($collection['products']))
+                            @foreach($collection['products'] as $product)
+                                <div class="mb-1">
+                                    <strong>{{ $product['quantity'] ?? 1 }}x</strong> {{ $product['name'] ?? 'Unknown Product' }}
+                                </div>
+                            @endforeach
                         @else
-                            <small class="text-muted">£{{ number_format($collection['total'] ?? 0, 2) }}</small>
+                            <small class="text-muted">No products found</small>
+                        @endif
+                    </td>
+                    <td>
+                        {{-- Last Paid Amount --}}
+                        <strong class="text-success">£{{ number_format($collection['total'] ?? 0, 2) }}</strong>
+                        @if(!empty($collection['payment_date']))
+                            <br><small class="text-muted">{{ date('M j', strtotime($collection['payment_date'])) }}</small>
                         @endif
                     </td>
                     <td>
@@ -144,12 +208,26 @@
                     </td>
                     <td>
                         @if(!empty($collection['customer_email']))
-                            <button class="btn btn-sm btn-outline-primary user-switch-btn" 
-                                    data-email="{{ $collection['customer_email'] }}" 
-                                    data-name="{{ $collection['customer_name'] ?? 'Customer' }}"
-                                    title="Switch to this user's account">
-                                <i class="fas fa-user-circle"></i> Switch to User
-                            </button>
+                            <div class="d-flex flex-column gap-1">
+                                <button class="btn btn-sm btn-outline-primary user-switch-btn" 
+                                        data-email="{{ $collection['customer_email'] }}" 
+                                        data-name="{{ $collection['customer_name'] ?? 'Customer' }}"
+                                        title="Switch to this user's account">
+                                    <i class="fas fa-user-circle"></i> Switch to User
+                                </button>
+                                <button class="btn btn-sm btn-outline-success subscription-btn" 
+                                        data-email="{{ $collection['customer_email'] }}" 
+                                        data-name="{{ $collection['customer_name'] ?? 'Customer' }}"
+                                        title="View subscription in WooCommerce">
+                                    <i class="fas fa-shopping-cart"></i> View Subscription
+                                </button>
+                                <button class="btn btn-sm btn-outline-info profile-btn" 
+                                        data-email="{{ $collection['customer_email'] }}" 
+                                        data-name="{{ $collection['customer_name'] ?? 'Customer' }}"
+                                        title="View user profile in WordPress">
+                                    <i class="fas fa-user"></i> View Profile
+                                </button>
+                            </div>
                         @else
                             <span class="text-muted">-</span>
                         @endif

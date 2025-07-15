@@ -1043,8 +1043,7 @@ class DeliveryController extends Controller
                                 $source = 'parent_order_date';
                             } else {
                                 $subscriptionDate = \Carbon\Carbon::parse($subscription->post_date);
-                                $subscriptionWeek = (int) $subscriptionDate->format('W');
-                                $assignedWeek = ($subscriptionWeek % 2 === 1) ? 'A' : 'B';
+                                $debug['assigned_week'] = ($subscriptionDate->format('W') % 2 === 1) ? 'A' : 'B';
                                 $source = 'subscription_date_fallback';
                             }
                         } else {
@@ -2259,6 +2258,125 @@ class DeliveryController extends Controller
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ], 500);
+        }
+    }
+
+    /**
+     * Print packing slips for selected deliveries
+     */
+    public function print(Request $request, WpApiService $wpApi)
+    {
+        try {
+            // Get the IDs from the request
+            $ids = $request->get('ids');
+            if (empty($ids)) {
+                return redirect()->back()->with('error', 'No delivery IDs provided for printing.');
+            }
+            
+            // Convert comma-separated string to array if needed
+            if (is_string($ids)) {
+                $ids = explode(',', $ids);
+            }
+            
+            // Get delivery data for the selected IDs
+            $deliveries = [];
+            $currentWeek = date('W');
+            
+            // Get schedule data to find the selected deliveries
+            $rawData = $wpApi->getDeliveryScheduleData(500);
+            $scheduleData = $this->transformScheduleData($rawData, $currentWeek);
+            
+            // Find deliveries matching the selected IDs
+            foreach ($scheduleData['data'] as $dateData) {
+                if (isset($dateData['deliveries'])) {
+                    foreach ($dateData['deliveries'] as $delivery) {
+                        $deliveryId = $delivery['id'] ?? $delivery['order_number'] ?? null;
+                        if (in_array($deliveryId, $ids)) {
+                            $deliveries[] = $delivery;
+                        }
+                    }
+                }
+            }
+            
+            // Group deliveries by date for print view
+            $printData = [];
+            foreach ($deliveries as $delivery) {
+                $date = $delivery['delivery_date'] ?? date('Y-m-d');
+                if (!isset($printData[$date])) {
+                    $printData[$date] = [
+                        'date_formatted' => date('l, F j, Y', strtotime($date)),
+                        'items' => []
+                    ];
+                }
+                $printData[$date]['items'][] = $delivery;
+            }
+            
+            $title = 'Packing Slips';
+            $selectedWeek = $currentWeek;
+            $type = 'deliveries'; // Set the type for styling in the print view
+            $dayInfo = 'Selected Deliveries'; // Day information for the header
+            $totalItems = count($deliveries); // Total number of deliveries being printed
+            
+            return view('admin.deliveries.print', compact('deliveries', 'title', 'selectedWeek', 'type', 'dayInfo', 'totalItems', 'printData'));
+            
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Error generating packing slips: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Print actual packing slips for selected deliveries (multiple per sheet)
+     */
+    public function printSlips(Request $request, WpApiService $wpApi)
+    {
+        try {
+            // Get the IDs from the request
+            $ids = $request->get('ids');
+            if (empty($ids)) {
+                return redirect()->back()->with('error', 'No delivery IDs provided for printing packing slips.');
+            }
+            
+            // Convert comma-separated string to array if needed
+            if (is_string($ids)) {
+                $ids = explode(',', $ids);
+            }
+            
+            // Get settings for slips per page
+            $settings = \App\Models\Setting::getAll();
+            $slipsPerPage = $settings['packing_slips_per_page'] ?? 4;
+            
+            // Get delivery data for the selected IDs
+            $deliveries = [];
+            $currentWeek = date('W');
+            
+            // Get schedule data to find the selected deliveries
+            $rawData = $wpApi->getDeliveryScheduleData(500);
+            $scheduleData = $this->transformScheduleData($rawData, $currentWeek);
+            
+            // Find deliveries matching the selected IDs
+            foreach ($scheduleData['data'] as $dateData) {
+                if (isset($dateData['deliveries'])) {
+                    foreach ($dateData['deliveries'] as $delivery) {
+                        $deliveryId = $delivery['id'] ?? $delivery['order_number'] ?? null;
+                        if (in_array($deliveryId, $ids)) {
+                            $deliveries[] = $delivery;
+                        }
+                    }
+                }
+            }
+            
+            // Company information for slips
+            $companyInfo = [
+                'name' => 'Middle World Farms',
+                'address' => 'Your Farm Address', // You can update this
+                'phone' => 'Your Phone Number',   // You can update this
+                'logo_url' => asset('images/logo.png') // You can update this path
+            ];
+            
+            return view('admin.deliveries.packing-slips', compact('deliveries', 'slipsPerPage', 'companyInfo'));
+            
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Error generating packing slips: ' . $e->getMessage());
         }
     }
 }

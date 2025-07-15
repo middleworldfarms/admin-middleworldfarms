@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 @extends('layouts.app')
 
 @section('title', 'Delivery Schedule Management')
@@ -1007,3 +1008,5 @@ function printCollections() {
 }
 </script>
 @endsection
+=======
+>>>>>>> Stashed changes

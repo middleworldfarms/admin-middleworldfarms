@@ -292,6 +292,82 @@
     </div>
 </div>
 
+<!-- WordPress Integration -->
+<div class="row">
+    <div class="col-md-8 mb-4">
+        <div class="card border-success">
+            <div class="card-header bg-success text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fab fa-wordpress me-2"></i>WordPress Integration
+                </h5>
+            </div>
+            <div class="card-body">
+                @if(session('wp_authenticated'))
+                    <div class="alert alert-success mb-3">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>WordPress Access Integrated!</strong> 
+                        You're automatically logged into WordPress admin.
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <a href="{{ session('wp_admin_url') }}" target="_blank" class="btn btn-success w-100 p-3">
+                                <i class="fab fa-wordpress mb-2 d-block fa-2x"></i>
+                                <h6>WordPress Admin</h6>
+                                <small class="text-white-50">Manage WordPress backend</small>
+                            </a>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <a href="{{ str_replace('/wp-admin/', '/wp-admin/edit.php?post_type=product', session('wp_admin_url')) }}" target="_blank" class="btn btn-outline-success w-100 p-3">
+                                <i class="fas fa-shopping-cart mb-2 d-block fa-2x"></i>
+                                <h6>WooCommerce Products</h6>
+                                <small class="text-muted">Manage products & orders</small>
+                            </a>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <a href="{{ str_replace('/wp-admin/', '/wp-admin/users.php', session('wp_admin_url')) }}" target="_blank" class="btn btn-outline-success w-100 p-3">
+                                <i class="fas fa-users mb-2 d-block fa-2x"></i>
+                                <h6>WordPress Users</h6>
+                                <small class="text-muted">Manage WordPress users</small>
+                            </a>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <a href="{{ str_replace('/wp-admin/', '/wp-admin/plugins.php', session('wp_admin_url')) }}" target="_blank" class="btn btn-outline-success w-100 p-3">
+                                <i class="fas fa-plug mb-2 d-block fa-2x"></i>
+                                <h6>Plugins</h6>
+                                <small class="text-muted">Manage WordPress plugins</small>
+                            </a>
+                        </div>
+                    </div>
+                @else
+                    <div class="alert alert-warning mb-3">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>WordPress Integration Unavailable</strong><br>
+                        WordPress authentication failed during login. You can still access WordPress manually.
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <a href="{{ config('services.wp_api.url') ? str_replace('/wp-json', '/wp-admin/', config('services.wp_api.url')) : '#' }}" target="_blank" class="btn btn-outline-secondary w-100 p-3">
+                                <i class="fab fa-wordpress mb-2 d-block fa-2x"></i>
+                                <h6>WordPress Admin</h6>
+                                <small class="text-muted">Manual login required</small>
+                            </a>
+                        </div>
+                        <div class="col-md-6">
+                            <button class="btn btn-info w-100 p-3" onclick="retryWordPressAuth()">
+                                <i class="fas fa-sync mb-2 d-block fa-2x"></i>
+                                <h6>Retry Integration</h6>
+                                <small class="text-white-50">Attempt WordPress login again</small>
+                            </button>
+                        </div>
+                    </div>
+                @endif
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
     .activity-icon {
         width: 35px;
@@ -302,4 +378,54 @@
         font-size: 0.9rem;
     }
 </style>
+@endsection
+
+@section('scripts')
+<script>
+// Retry WordPress authentication
+function retryWordPressAuth() {
+    // Show loading state
+    const button = event.target.closest('button');
+    const originalHTML = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin mb-2 d-block fa-2x"></i><h6>Connecting...</h6><small class="text-white-50">Please wait...</small>';
+    
+    // Make request to retry WordPress authentication
+    fetch('/admin/auth/retry-wordpress', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Reload page to show updated status
+            location.reload();
+        } else {
+            // Show error message
+            alert('WordPress authentication failed: ' + (data.error || 'Unknown error'));
+            // Restore button
+            button.disabled = false;
+            button.innerHTML = originalHTML;
+        }
+    })
+    .catch(error => {
+        console.error('WordPress auth retry error:', error);
+        alert('Connection failed. Please try again.');
+        // Restore button
+        button.disabled = false;
+        button.innerHTML = originalHTML;
+    });
+}
+
+// Show WordPress integration status in console
+@if(session('wp_authenticated'))
+console.log('✅ WordPress Integration: Active');
+console.log('🔗 WordPress Admin URL:', '{{ session('wp_admin_url') }}');
+@else
+console.log('⚠️ WordPress Integration: Not Available');
+@endif
+</script>
 @endsection

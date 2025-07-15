@@ -7,6 +7,7 @@
     <title>@yield('title', 'MWF Admin')</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    @yield('styles')
     <style>
         :root {
             --sidebar-width: 250px;
@@ -41,10 +42,54 @@
             background: #1a252f;
             text-align: center;
             border-bottom: 1px solid #34495e;
+            position: relative;
         }
         
         .sidebar.collapsed .sidebar-header {
             padding: 20px 10px;
+        }
+        
+        .sidebar-toggle-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            z-index: 1060;
+        }
+        
+        .sidebar-toggle-btn:hover {
+            background: rgba(255,255,255,0.2);
+            transform: scale(1.1);
+        }
+        
+        .sidebar-toggle-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .sidebar.collapsed .sidebar-toggle-btn {
+            position: fixed;
+            top: 20px;
+            left: 15px;
+            width: 30px;
+            height: 30px;
+            background: rgba(44,62,80,0.9);
+            border-radius: 50%;
+        }
+        
+        .sidebar.collapsed .sidebar-toggle-btn:hover {
+            background: rgba(44,62,80,1);
+            transform: scale(1.1);
         }
         
         .sidebar .sidebar-header h4 {
@@ -97,13 +142,15 @@
         }
         
         .main-content {
-            margin-left: var(--sidebar-width);
+            margin-left: var(--sidebar-width) !important;
             transition: all 0.3s ease;
             min-height: 100vh;
+            position: relative;
+            z-index: 1;
         }
         
         .main-content.expanded {
-            margin-left: 60px;
+            margin-left: 60px !important;
         }
         
         .top-navbar {
@@ -153,7 +200,7 @@
             }
             
             .main-content {
-                margin-left: 0;
+                margin-left: 0 !important;
             }
             
             .sidebar-overlay {
@@ -174,6 +221,10 @@
         
         .content-wrapper {
             padding: 30px;
+            width: 100%;
+            box-sizing: border-box;
+            margin-left: 0;
+            transition: all 0.3s ease;
         }
         
         .badge-notification {
@@ -186,10 +237,13 @@
         }
     </style>
 </head>
-<body>
+<body class="has-sidebar">
     <!-- Sidebar -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
+            <button class="sidebar-toggle-btn" id="sidebarToggleBtn" title="Toggle Sidebar">
+                <i class="fas fa-bars"></i>
+            </button>
             <h4><i class="fas fa-leaf me-2"></i>MWF Admin</h4>
             @php
                 $adminUser = \App\Http\Controllers\Auth\LoginController::getAdminUser();
@@ -301,32 +355,91 @@
             const sidebar = document.getElementById('sidebar');
             const mainContent = document.getElementById('mainContent');
             const sidebarToggle = document.getElementById('sidebarToggle');
+            const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
             const sidebarOverlay = document.getElementById('sidebarOverlay');
+            const body = document.body;
             
-            // Toggle sidebar
-            sidebarToggle.addEventListener('click', function() {
+            // Ensure all elements exist before proceeding
+            if (!sidebar || !mainContent) {
+                console.error('Sidebar or main content element not found');
+                return;
+            }
+            
+            // Load saved sidebar state
+            const sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+            if (sidebarCollapsed && window.innerWidth > 768) {
+                sidebar.classList.add('collapsed');
+                mainContent.classList.add('expanded');
+                body.classList.add('sidebar-collapsed');
+            }
+            
+            // Function to toggle sidebar
+            function toggleSidebar() {
+                console.log('Toggle sidebar called'); // Debug log
                 if (window.innerWidth <= 768) {
                     // Mobile toggle
                     sidebar.classList.toggle('mobile-open');
-                    sidebarOverlay.classList.toggle('show');
+                    if (sidebarOverlay) {
+                        sidebarOverlay.classList.toggle('show');
+                    }
                 } else {
                     // Desktop toggle
                     sidebar.classList.toggle('collapsed');
                     mainContent.classList.toggle('expanded');
+                    body.classList.toggle('sidebar-collapsed');
+                    
+                    // Save state to localStorage
+                    localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+                    console.log('Sidebar collapsed:', sidebar.classList.contains('collapsed')); // Debug log
                 }
-            });
+            }
+            
+            // Toggle sidebar from top navbar
+            if (sidebarToggle) {
+                sidebarToggle.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleSidebar();
+                });
+            }
+            
+            // Toggle sidebar from sidebar button
+            if (sidebarToggleBtn) {
+                sidebarToggleBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleSidebar();
+                });
+            }
             
             // Close sidebar on overlay click (mobile)
-            sidebarOverlay.addEventListener('click', function() {
-                sidebar.classList.remove('mobile-open');
-                sidebarOverlay.classList.remove('show');
-            });
+            if (sidebarOverlay) {
+                sidebarOverlay.addEventListener('click', function() {
+                    sidebar.classList.remove('mobile-open');
+                    sidebarOverlay.classList.remove('show');
+                });
+            }
             
             // Handle window resize
             window.addEventListener('resize', function() {
                 if (window.innerWidth > 768) {
                     sidebar.classList.remove('mobile-open');
-                    sidebarOverlay.classList.remove('show');
+                    if (sidebarOverlay) {
+                        sidebarOverlay.classList.remove('show');
+                    }
+                    
+                    // Restore collapsed state on desktop
+                    const sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+                    if (sidebarCollapsed) {
+                        sidebar.classList.add('collapsed');
+                        mainContent.classList.add('expanded');
+                        body.classList.add('sidebar-collapsed');
+                    }
+                } else {
+                    // Remove collapsed state on mobile
+                    sidebar.classList.remove('collapsed');
+                    mainContent.classList.remove('expanded');
+                    body.classList.remove('sidebar-collapsed');
                 }
             });
         });
