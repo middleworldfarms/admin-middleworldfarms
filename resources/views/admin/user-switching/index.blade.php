@@ -23,7 +23,7 @@
             </h5>
         </div>
         <div class="card-body">
-            <form method="GET" action="{{ route('admin.user-switching.index') }}" class="mb-3">
+            <form method="GET" action="{{ route('admin.users.index') }}" class="mb-3">
                 <div class="input-group">
                     <input type="text" 
                            name="search" 
@@ -35,7 +35,7 @@
                         <i class="fas fa-search"></i> Search
                     </button>
                     @if($searchQuery)
-                        <a href="{{ route('admin.user-switching.index') }}" class="btn btn-outline-secondary">
+                        <a href="{{ route('admin.users.index') }}" class="btn btn-outline-secondary">
                             <i class="fas fa-times"></i> Clear
                         </a>
                     @endif
@@ -185,6 +185,28 @@
             @endif
         </div>
     </div>
+
+    <!-- Debug Info -->
+    @if(isset($debug) && !empty($debug))
+        <div class="alert alert-info mt-3">
+            <h6>Debug Info:</h6>
+            @if(isset($debug['endpoint']))
+                <p><strong>Endpoint:</strong> {{ $debug['endpoint'] }}</p>
+            @endif
+            @if(isset($debug['total_users_from_api']))
+                <p><strong>Total users from API:</strong> {{ $debug['total_users_from_api'] }}</p>
+            @endif
+            @if(isset($debug['filtered_users_count']))
+                <p><strong>Filtered users count:</strong> {{ $debug['filtered_users_count'] }}</p>
+            @endif
+            @if(isset($debug['error']))
+                <p class="text-danger"><strong>Error:</strong> {{ $debug['error'] }}</p>
+            @endif
+            @if(isset($debug['exception']))
+                <p class="text-danger"><strong>Exception:</strong> {{ $debug['exception'] }}</p>
+            @endif
+        </div>
+    @endif
 </div>
 
 <!-- User Details Modal -->

@@ -57,6 +57,13 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         Route::get('/redirect/{userId}', [App\Http\Controllers\Admin\UserSwitchingController::class, 'redirect'])->name('redirect');
     });
 
+    // Customer Management routes (actual customer management, not user switching)
+    Route::prefix('customers')->name('admin.customers.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Admin\CustomerManagementController::class, 'index'])->name('index');
+        Route::post('/switch/{userId}', [App\Http\Controllers\Admin\CustomerManagementController::class, 'switchToUser'])->name('switch');
+        Route::get('/details/{userId}', [App\Http\Controllers\Admin\CustomerManagementController::class, 'details'])->name('details');
+    });
+
     // Analytics and Reports routes (placeholders for future implementation)
     Route::get('/reports', function () {
         return view('admin.placeholder', ['title' => 'Reports', 'description' => 'Delivery and sales reports coming soon']);

@@ -302,7 +302,7 @@
                 @endif
             </a>
             
-            <a href="/admin/users" class="nav-link {{ request()->is('admin/users*') ? 'active' : '' }}">
+            <a href="/admin/customers" class="nav-link {{ request()->is('admin/customers*') ? 'active' : '' }}">
                 <i class="fas fa-users"></i>
                 <span>Customer Management</span>
             </a>

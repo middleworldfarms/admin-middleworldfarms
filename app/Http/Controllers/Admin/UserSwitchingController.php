@@ -21,21 +21,117 @@ class UserSwitchingController extends Controller
      */
     public function index(Request $request)
     {
-        $recentUsers = $this->wpApi->getRecentUsers(20);
+        // Use the same logic as CustomerManagementController for better spam filtering
+        $recentUsers = [];
         $searchResults = [];
         $searchQuery = '';
+        $debug = [];
+        
+        try {
+            $baseUrl = config('services.wordpress.api_base');
+            $apiKey = config('services.wordpress.api_key');
+            $page = $request->input('page', 1);
+            $perPage = $request->input('per_page', 20);
+            $search = $request->input('search', '');
+            $searchQuery = $search;
+            
+            if (!$baseUrl || !$apiKey) {
+                $debug['error'] = 'Missing MWF API configuration';
+                return view('admin.user-switching.index', [
+                    'recentUsers' => $recentUsers,
+                    'searchResults' => $searchResults,
+                    'searchQuery' => $searchQuery,
+                    'debug' => $debug
+                ]);
+            }
+            
+            $endpoint = $baseUrl . '/users/list';
+            
+            $response = \Illuminate\Support\Facades\Http::withHeaders([
+                'X-API-Key' => $apiKey,
+            ])->get($endpoint, [
+                'q' => $search,
+                'role' => 'customer', // Back to 'customer' - WooCommerce customers
+                'page' => $page,
+                'per_page' => $perPage,
+            ]);
 
-        // Handle search
-        if ($request->has('search') && !empty($request->search)) {
-            $searchQuery = $request->search;
-            $searchResults = $this->wpApi->searchUsers($searchQuery, 50);
+            $data = $response->json();
+            $debug['endpoint'] = $endpoint;
+            $debug['total_users_from_api'] = isset($data['users']) ? count($data['users']) : 0;
+            
+            if ($data && isset($data['success']) && $data['success'] && isset($data['users']) && is_array($data['users'])) {
+                $filteredUsers = [];
+                $spamCount = 0;
+                $noOrdersCount = 0;
+                
+                foreach ($data['users'] as $user) {
+                    // Filter out spam/test accounts using the same logic as CustomerManagementController
+                    $email = $user['email'] ?? '';
+                    $name = $user['display_name'] ?? '';
+                    $isSpam = false;
+                    
+                    if (
+                        empty($email) ||
+                        preg_match('/@(qq|emaily\.pro|vtext\.com|txt\.att\.net|vzwpix\.com|att\.net|hotmail\.com)$/i', $email) ||
+                        preg_match('/^\d+@/', $email) ||
+                        preg_match('/^\./', $email) ||
+                        stripos($email, 'test') !== false ||
+                        stripos($name, 'test') !== false
+                    ) {
+                        $isSpam = true;
+                        $spamCount++;
+                    }
+                    
+                    $orderCount = $user['wc_data']['order_count'] ?? 0;
+                    $subscribed = false;
+                    if (isset($user['subscriptions']) && is_array($user['subscriptions'])) {
+                        foreach ($user['subscriptions'] as $sub) {
+                            if (isset($sub['status']) && $sub['status'] === 'active') {
+                                $subscribed = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Only include customers who have actually bought something or have active subscriptions
+                    if (!$isSpam && ($orderCount > 0 || $subscribed)) {
+                        $filteredUsers[] = [
+                            'id' => $user['id'],
+                            'display_name' => $name,
+                            'user_login' => $user['username'] ?? $name,
+                            'user_email' => $email,
+                            'last_activity' => $user['recent_orders'][0]['date'] ?? 'Unknown',
+                            'subscribed' => $subscribed,
+                            'order_count' => $orderCount,
+                        ];
+                    } elseif (!$isSpam && $orderCount == 0 && !$subscribed) {
+                        $noOrdersCount++;
+                    }
+                }
+                
+                $debug['filtered_users_count'] = count($filteredUsers);
+                $debug['spam_filtered_out'] = $spamCount;
+                $debug['no_orders_filtered_out'] = $noOrdersCount;
+                $debug['filter_criteria'] = 'Only showing users with orders > 0 OR active subscriptions';
+                
+                if ($search) {
+                    $searchResults = $filteredUsers;
+                } else {
+                    $recentUsers = $filteredUsers;
+                }
+            } else {
+                $debug['error'] = 'Invalid response from MWF endpoint.';
+            }
+        } catch (\Exception $e) {
+            $debug['exception'] = $e->getMessage();
         }
 
         return view('admin.user-switching.index', compact(
             'recentUsers',
             'searchResults', 
             'searchQuery'
-        ));
+        ))->with('debug', $debug ?? []);
     }
 
     /**
