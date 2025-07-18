@@ -117,6 +117,18 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
     Route::post('/deliveries/mark-complete', [App\Http\Controllers\Admin\DeliveryController::class, 'markComplete'])->name('admin.deliveries.mark-complete');
     Route::post('/deliveries/unmark-complete', [App\Http\Controllers\Admin\DeliveryController::class, 'unmarkComplete'])->name('admin.deliveries.unmark-complete');
 
+    // FarmOS Integration routes
+    Route::prefix('farmos')->name('admin.farmos.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Admin\FarmOSDataController::class, 'index'])->name('dashboard');
+        Route::get('/harvests', [App\Http\Controllers\Admin\FarmOSDataController::class, 'harvests'])->name('harvests');
+        Route::get('/stock', [App\Http\Controllers\Admin\FarmOSDataController::class, 'stock'])->name('stock');
+        Route::post('/stock', [App\Http\Controllers\Admin\FarmOSDataController::class, 'storeStock'])->name('stock.store');
+        Route::get('/crop-plans', [App\Http\Controllers\Admin\FarmOSDataController::class, 'cropPlans'])->name('crop-plans');
+        Route::post('/crop-plans', [App\Http\Controllers\Admin\FarmOSDataController::class, 'storeCropPlan'])->name('crop-plans.store');
+        Route::post('/sync-harvests', [App\Http\Controllers\Admin\FarmOSDataController::class, 'syncHarvests'])->name('sync-harvests');
+        Route::post('/sync-to-stock', [App\Http\Controllers\Admin\FarmOSDataController::class, 'syncToStock'])->name('sync-to-stock');
+    });
+
     // Debug endpoint for delivery/collection classification verification
     Route::get('/debug-classification', [DeliveryController::class, 'debugClassification'])->name('debug.classification');
 
