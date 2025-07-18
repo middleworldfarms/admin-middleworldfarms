@@ -374,13 +374,13 @@ body {
                                         {{-- Active Deliveries for this date --}}
                                         @if(count($activeDeliveriesForDate) > 0)
                                             <h5 class="text-primary">🚚 Active Deliveries ({{ count($activeDeliveriesForDate) }})</h5>
-                                            @include('admin.deliveries.partials.delivery-table', ['items' => $activeDeliveriesForDate, 'type' => 'delivery', 'showDeliveryActions' => true])
+                                            @include('admin.deliveries.partials.delivery-table', ['items' => $activeDeliveriesForDate, 'type' => 'delivery', 'showDeliveryActions' => true, 'currentDate' => $date])
                                         @endif
                                         
                                         {{-- Active Collections for this date --}}
                                         @if(count($activeCollectionsForDate) > 0)
                                             <h5 class="text-success">📦 Active Collections ({{ count($activeCollectionsForDate) }})</h5>
-                                            @include('admin.deliveries.partials.collection-table', ['items' => $activeCollectionsForDate, 'type' => 'collection', 'showCollectionActions' => true])
+                                            @include('admin.deliveries.partials.collection-table', ['items' => $activeCollectionsForDate, 'type' => 'collection', 'showCollectionActions' => true, 'currentDate' => $date])
                                         @endif
                                     @endif
                                 @endforeach
@@ -473,7 +473,7 @@ body {
                                                     @if(count($dateData['deliveries'] ?? []) > 0)
                                                         <h4 class="mt-3 mb-3">{{ $dateData['date_formatted'] ?? $date }}</h4>
                                                         <h5 class="text-primary">🚚 Deliveries ({{ count($dateData['deliveries']) }})</h5>
-                                                        @include('admin.deliveries.partials.delivery-table', ['items' => $dateData['deliveries'], 'type' => 'delivery', 'showDeliveryActions' => true])
+                                                        @include('admin.deliveries.partials.delivery-table', ['items' => $dateData['deliveries'], 'type' => 'delivery', 'showDeliveryActions' => true, 'currentDate' => $date])
                                                     @endif
                                                 @endforeach
                                             </div>
@@ -490,7 +490,7 @@ body {
                                                         @if(count($activeDeliveries) > 0)
                                                             <h4 class="mt-3 mb-3">{{ $dateData['date_formatted'] ?? $date }}</h4>
                                                             <h5 class="text-primary">🚚 Active Deliveries ({{ count($activeDeliveries) }})</h5>
-                                                            @include('admin.deliveries.partials.delivery-table', ['items' => $activeDeliveries, 'type' => 'delivery', 'showDeliveryActions' => true])
+                                                            @include('admin.deliveries.partials.delivery-table', ['items' => $activeDeliveries, 'type' => 'delivery', 'showDeliveryActions' => true, 'currentDate' => $date])
                                                         @endif
                                                     @endif
                                                 @endforeach
@@ -508,7 +508,7 @@ body {
                                                         @if(count($processingDeliveries) > 0)
                                                             <h4 class="mt-3 mb-3">{{ $dateData['date_formatted'] ?? $date }}</h4>
                                                             <h5 class="text-primary">🚚 Processing Deliveries ({{ count($processingDeliveries) }})</h5>
-                                                            @include('admin.deliveries.partials.delivery-table', ['items' => $processingDeliveries, 'type' => 'delivery', 'showDeliveryActions' => true])
+                                                            @include('admin.deliveries.partials.delivery-table', ['items' => $processingDeliveries, 'type' => 'delivery', 'showDeliveryActions' => true, 'currentDate' => $date])
                                                         @endif
                                                     @endif
                                                 @endforeach
@@ -526,7 +526,7 @@ body {
                                                         @if(count($pendingDeliveries) > 0)
                                                             <h4 class="mt-3 mb-3">{{ $dateData['date_formatted'] ?? $date }}</h4>
                                                             <h5 class="text-primary">🚚 Pending Deliveries ({{ count($pendingDeliveries) }})</h5>
-                                                            @include('admin.deliveries.partials.delivery-table', ['items' => $pendingDeliveries, 'type' => 'delivery', 'showDeliveryActions' => true])
+                                                            @include('admin.deliveries.partials.delivery-table', ['items' => $pendingDeliveries, 'type' => 'delivery', 'showDeliveryActions' => true, 'currentDate' => $date])
                                                         @endif
                                                     @endif
                                                 @endforeach
@@ -544,7 +544,7 @@ body {
                                                         @if(count($completedDeliveries) > 0)
                                                             <h4 class="mt-3 mb-3">{{ $dateData['date_formatted'] ?? $date }}</h4>
                                                             <h5 class="text-primary">🚚 Completed Deliveries ({{ count($completedDeliveries) }})</h5>
-                                                            @include('admin.deliveries.partials.delivery-table', ['items' => $completedDeliveries, 'type' => 'delivery', 'showDeliveryActions' => true])
+                                                            @include('admin.deliveries.partials.delivery-table', ['items' => $completedDeliveries, 'type' => 'delivery', 'showDeliveryActions' => true, 'currentDate' => $date])
                                                         @endif
                                                     @endif
                                                 @endforeach
@@ -562,7 +562,7 @@ body {
                                                         @if(count($onHoldDeliveries) > 0)
                                                             <h4 class="mt-3 mb-3">{{ $dateData['date_formatted'] ?? $date }}</h4>
                                                             <h5 class="text-primary">🚚 On Hold Deliveries ({{ count($onHoldDeliveries) }})</h5>
-                                                            @include('admin.deliveries.partials.delivery-table', ['items' => $onHoldDeliveries, 'type' => 'delivery', 'showDeliveryActions' => true])
+                                                            @include('admin.deliveries.partials.delivery-table', ['items' => $onHoldDeliveries, 'type' => 'delivery', 'showDeliveryActions' => true, 'currentDate' => $date])
                                                         @endif
                                                     @endif
                                                 @endforeach
@@ -580,7 +580,7 @@ body {
                                                         @if(count($cancelledDeliveries) > 0)
                                                             <h4 class="mt-3 mb-3">{{ $dateData['date_formatted'] ?? $date }}</h4>
                                                             <h5 class="text-primary">🚚 Cancelled Deliveries ({{ count($cancelledDeliveries) }})</h5>
-                                                            @include('admin.deliveries.partials.delivery-table', ['items' => $cancelledDeliveries, 'type' => 'delivery', 'showDeliveryActions' => true])
+                                                            @include('admin.deliveries.partials.delivery-table', ['items' => $cancelledDeliveries, 'type' => 'delivery', 'showDeliveryActions' => true, 'currentDate' => $date])
                                                         @endif
                                                     @endif
                                                 @endforeach
@@ -598,7 +598,7 @@ body {
                                                         @if(count($refundedDeliveries) > 0)
                                                             <h4 class="mt-3 mb-3">{{ $dateData['date_formatted'] ?? $date }}</h4>
                                                             <h5 class="text-primary">🚚 Refunded Deliveries ({{ count($refundedDeliveries) }})</h5>
-                                                            @include('admin.deliveries.partials.delivery-table', ['items' => $refundedDeliveries, 'type' => 'delivery', 'showDeliveryActions' => true])
+                                                            @include('admin.deliveries.partials.delivery-table', ['items' => $refundedDeliveries, 'type' => 'delivery', 'showDeliveryActions' => true, 'currentDate' => $date])
                                                         @endif
                                                     @endif
                                                 @endforeach
@@ -617,7 +617,7 @@ body {
                                                         @if(count($otherDeliveries) > 0)
                                                             <h4 class="mt-3 mb-3">{{ $dateData['date_formatted'] ?? $date }}</h4>
                                                             <h5 class="text-primary">🚚 Other Status Deliveries ({{ count($otherDeliveries) }})</h5>
-                                                            @include('admin.deliveries.partials.delivery-table', ['items' => $otherDeliveries, 'type' => 'delivery', 'showDeliveryActions' => true])
+                                                            @include('admin.deliveries.partials.delivery-table', ['items' => $otherDeliveries, 'type' => 'delivery', 'showDeliveryActions' => true, 'currentDate' => $date])
                                                         @endif
                                                     @endif
                                                 @endforeach
@@ -713,7 +713,7 @@ body {
                                                 @foreach($scheduleData['data'] as $date => $dateData)
                                                     @if(count($dateData['collections'] ?? []) > 0)
                                                         <h4 class="mt-3 mb-3">{{ $dateData['date_formatted'] ?? $date }}</h4>
-                                                        @include('admin.deliveries.partials.collection-table', ['items' => $dateData['collections'], 'type' => 'collection', 'showCollectionActions' => true])
+                                                        @include('admin.deliveries.partials.collection-table', ['items' => $dateData['collections'], 'type' => 'collection', 'showCollectionActions' => true, 'currentDate' => $date])
                                                     @endif
                                                 @endforeach
                                             </div>
@@ -730,7 +730,7 @@ body {
                                                         @if(count($activeCollections) > 0)
                                                             <h4 class="mt-3 mb-3">{{ $dateData['date_formatted'] ?? $date }}</h4>
                                                             <h5 class="text-success">📦 Active Collections ({{ count($activeCollections) }})</h5>
-                                                            @include('admin.deliveries.partials.collection-table', ['items' => $activeCollections, 'type' => 'collection', 'showCollectionActions' => true])
+                                                            @include('admin.deliveries.partials.collection-table', ['items' => $activeCollections, 'type' => 'collection', 'showCollectionActions' => true, 'currentDate' => $date])
                                                         @endif
                                                     @endif
                                                 @endforeach
@@ -747,7 +747,7 @@ body {
                                                         @endphp
                                                         @if(count($processingCollections) > 0)
                                                             <h4 class="mt-3 mb-3">{{ $dateData['date_formatted'] ?? $date }}</h4>
-                                                            @include('admin.deliveries.partials.collection-table', ['items' => $processingCollections, 'type' => 'collection', 'showCollectionActions' => true])
+                                                            @include('admin.deliveries.partials.collection-table', ['items' => $processingCollections, 'type' => 'collection', 'showCollectionActions' => true, 'currentDate' => $date])
                                                         @endif
                                                     @endif
                                                 @endforeach
@@ -764,7 +764,7 @@ body {
                                                         @endphp
                                                         @if(count($onHoldCollections) > 0)
                                                             <h4 class="mt-3 mb-3">{{ $dateData['date_formatted'] ?? $date }}</h4>
-                                                            @include('admin.deliveries.partials.collection-table', ['items' => $onHoldCollections, 'type' => 'collection', 'showCollectionActions' => true])
+                                                            @include('admin.deliveries.partials.collection-table', ['items' => $onHoldCollections, 'type' => 'collection', 'showCollectionActions' => true, 'currentDate' => $date])
                                                         @endif
                                                     @endif
                                                 @endforeach
@@ -781,7 +781,7 @@ body {
                                                         @endphp
                                                         @if(count($pendingCollections) > 0)
                                                             <h4 class="mt-3 mb-3">{{ $dateData['date_formatted'] ?? $date }}</h4>
-                                                            @include('admin.deliveries.partials.collection-table', ['items' => $pendingCollections, 'type' => 'collection', 'showCollectionActions' => true])
+                                                            @include('admin.deliveries.partials.collection-table', ['items' => $pendingCollections, 'type' => 'collection', 'showCollectionActions' => true, 'currentDate' => $date])
                                                         @endif
                                                     @endif
                                                 @endforeach
@@ -798,7 +798,7 @@ body {
                                                         @endphp
                                                         @if(count($completedCollections) > 0)
                                                             <h4 class="mt-3 mb-3">{{ $dateData['date_formatted'] ?? $date }}</h4>
-                                                            @include('admin.deliveries.partials.collection-table', ['items' => $completedCollections, 'type' => 'collection', 'showCollectionActions' => true])
+                                                            @include('admin.deliveries.partials.collection-table', ['items' => $completedCollections, 'type' => 'collection', 'showCollectionActions' => true, 'currentDate' => $date])
                                                         @endif
                                                     @endif
                                                 @endforeach
@@ -815,7 +815,7 @@ body {
                                                         @endphp
                                                         @if(count($cancelledCollections) > 0)
                                                             <h4 class="mt-3 mb-3">{{ $dateData['date_formatted'] ?? $date }}</h4>
-                                                            @include('admin.deliveries.partials.collection-table', ['items' => $cancelledCollections, 'type' => 'collection', 'showCollectionActions' => true])
+                                                            @include('admin.deliveries.partials.collection-table', ['items' => $cancelledCollections, 'type' => 'collection', 'showCollectionActions' => true, 'currentDate' => $date])
                                                         @endif
                                                     @endif
                                                 @endforeach
@@ -832,7 +832,7 @@ body {
                                                         @endphp
                                                         @if(count($refundedCollections) > 0)
                                                             <h4 class="mt-3 mb-3">{{ $dateData['date_formatted'] ?? $date }}</h4>
-                                                            @include('admin.deliveries.partials.collection-table', ['items' => $refundedCollections, 'type' => 'collection', 'showCollectionActions' => true])
+                                                            @include('admin.deliveries.partials.collection-table', ['items' => $refundedCollections, 'type' => 'collection', 'showCollectionActions' => true, 'currentDate' => $date])
                                                         @endif
                                                     @endif
                                                 @endforeach
@@ -850,7 +850,7 @@ body {
                                                         @endphp
                                                         @if(count($otherCollections) > 0)
                                                             <h4 class="mt-3 mb-3">{{ $dateData['date_formatted'] ?? $date }}</h4>
-                                                            @include('admin.deliveries.partials.collection-table', ['items' => $otherCollections, 'type' => 'collection', 'showCollectionActions' => true])
+                                                            @include('admin.deliveries.partials.collection-table', ['items' => $otherCollections, 'type' => 'collection', 'showCollectionActions' => true, 'currentDate' => $date])
                                                         @endif
                                                     @endif
                                                 @endforeach
@@ -930,6 +930,138 @@ document.addEventListener('DOMContentLoaded', function() {
             if (selectAllCollectionCheckbox) selectAllCollectionCheckbox.checked = false;
             updateCollectionBulkButtonStates();
         }
+        
+        // Print Schedule buttons (for both deliveries and collections)
+        if (e.target.id === 'printScheduleBtn' || e.target.closest('#printScheduleBtn')) {
+            e.preventDefault();
+            const selectedIds = getSelectedDeliveryIds();
+            if (selectedIds.length === 0) {
+                alert('Please select at least one delivery to print schedule.');
+                return;
+            }
+            
+            const printUrl = '{{ route("admin.deliveries.print") }}?ids=' + selectedIds.join(',');
+            window.open(printUrl, '_blank');
+        }
+        
+        // Print Collection Schedule button
+        if (e.target.id === 'printCollectionScheduleBtn' || e.target.closest('#printCollectionScheduleBtn')) {
+            e.preventDefault();
+            const selectedIds = getSelectedCollectionIds();
+            if (selectedIds.length === 0) {
+                alert('Please select at least one collection to print schedule.');
+                return;
+            }
+            
+            const printUrl = '{{ route("admin.deliveries.print") }}?ids=' + selectedIds.join(',') + '&type=collection';
+            window.open(printUrl, '_blank');
+        }
+        
+        // Print Packing Slips buttons
+        if (e.target.id === 'printPackingSlipsBtn' || e.target.closest('#printPackingSlipsBtn')) {
+            e.preventDefault();
+            const selectedIds = getSelectedDeliveryIds();
+            if (selectedIds.length === 0) {
+                alert('Please select at least one delivery to print packing slips.');
+                return;
+            }
+            
+            const printUrl = '{{ route("admin.deliveries.print-slips") }}?ids=' + selectedIds.join(',');
+            window.open(printUrl, '_blank');
+        }
+        
+        // Print Collection Slips button
+        if (e.target.id === 'printCollectionSlipsBtn' || e.target.closest('#printCollectionSlipsBtn')) {
+            e.preventDefault();
+            const selectedIds = getSelectedCollectionIds();
+            if (selectedIds.length === 0) {
+                alert('Please select at least one collection to print slips.');
+                return;
+            }
+            
+            const printUrl = '{{ route("admin.deliveries.print-slips") }}?ids=' + selectedIds.join(',') + '&type=collection';
+            window.open(printUrl, '_blank');
+        }
+        
+        // Add to Route Planner button
+        if (e.target.id === 'addToRouteBtn' || e.target.closest('#addToRouteBtn')) {
+            e.preventDefault();
+            const selectedIds = getSelectedDeliveryIds();
+            if (selectedIds.length === 0) {
+                alert('Please select at least one delivery to add to route planner.');
+                return;
+            }
+            
+            const routeUrl = '{{ route("admin.route-planner") }}?delivery_ids=' + selectedIds.join(',');
+            window.location.href = routeUrl;
+        }
+        
+        // Handle completion button clicks
+        if (e.target.classList.contains('mark-complete-btn') || e.target.closest('.mark-complete-btn')) {
+            e.preventDefault();
+            const button = e.target.classList.contains('mark-complete-btn') ? e.target : e.target.closest('.mark-complete-btn');
+            const deliveryId = button.getAttribute('data-delivery-id');
+            const customerName = button.getAttribute('data-customer-name');
+            const deliveryDate = button.getAttribute('data-delivery-date');
+            
+            // Confirm action
+            if (confirm(`Mark ${customerName}'s order as completed for ${deliveryDate}?`)) {
+                // Disable button and show loading
+                button.disabled = true;
+                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Completing...';
+                
+                // Send completion request
+                fetch('{{ route("admin.deliveries.mark-complete") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify({
+                        delivery_id: deliveryId,
+                        delivery_date: deliveryDate,
+                        type: button.closest('table').querySelector('.delivery-checkbox') ? 'delivery' : 'collection'
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update button to show completion
+                        button.className = 'btn btn-success btn-sm';
+                        button.disabled = true;
+                        button.innerHTML = '<i class="fas fa-check-circle"></i> Done';
+                        
+                        // Add timestamp below button using server timestamp
+                        const timestamp = data.completed_at || new Date().toLocaleString();
+                        const timestampElement = document.createElement('br');
+                        const timestampText = document.createElement('small');
+                        timestampText.className = 'text-muted';
+                        timestampText.textContent = timestamp;
+                        
+                        button.parentNode.appendChild(timestampElement);
+                        button.parentNode.appendChild(timestampText);
+                        
+                        // Show success message
+                        if (typeof window.showAlert === 'function') {
+                            window.showAlert('success', `${customerName}'s order marked as completed for ${deliveryDate} at ${timestamp}`);
+                        } else {
+                            alert(`${customerName}'s order marked as completed for ${deliveryDate} at ${timestamp}`);
+                        }
+                    } else {
+                        // Handle error
+                        button.disabled = false;
+                        button.innerHTML = '<i class="fas fa-check"></i> Complete';
+                        alert('Error marking order as complete: ' + (data.message || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    button.disabled = false;
+                    button.innerHTML = '<i class="fas fa-check"></i> Complete';
+                    alert('Error marking order as complete. Please try again.');
+                });
+            }
+        }
     });
 
     const selectAllBtn = document.getElementById('selectAllDeliveries');
@@ -962,50 +1094,65 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Print schedule button
-    if (printScheduleBtn) {
-        printScheduleBtn.addEventListener('click', function() {
-            const selectedIds = getSelectedDeliveryIds();
-            if (selectedIds.length === 0) {
-                alert('Please select at least one delivery to print schedule.');
+    // Use event delegation for buttons to work across all tabs
+    document.addEventListener('click', function(e) {
+        // Print Schedule buttons (for both deliveries and collections)
+        if (e.target.id === 'printScheduleBtn' || e.target.closest('#printScheduleBtn')) {
+            e.preventDefault();
+            
+            const selectedDeliveryIds = getSelectedDeliveryIds();
+            const selectedCollectionIds = getSelectedCollectionIds();
+            
+            // Check if we have both types selected
+            if (selectedDeliveryIds.length > 0 && selectedCollectionIds.length > 0) {
+                alert('Please select either deliveries OR collections, not both. Use separate print buttons for each type.');
                 return;
             }
             
-            // Open print schedule page in new window
-            const printUrl = '{{ route("admin.deliveries.print") }}?ids=' + selectedIds.join(',');
-            window.open(printUrl, '_blank');
-        });
-    }
-
-    // Print packing slips button
-    if (printPackingSlipsBtn) {
-        printPackingSlipsBtn.addEventListener('click', function() {
-            const selectedIds = getSelectedDeliveryIds();
-            if (selectedIds.length === 0) {
-                alert('Please select at least one delivery to print packing slips.');
+            // Check if we have deliveries selected
+            if (selectedDeliveryIds.length > 0) {
+                const printUrl = '{{ route("admin.deliveries.print") }}?ids=' + selectedDeliveryIds.join(',');
+                window.open(printUrl, '_blank');
                 return;
             }
             
-            // Open print packing slips page in new window
-            const printUrl = '{{ route("admin.deliveries.print-slips") }}?ids=' + selectedIds.join(',');
+            // Check if we have collections selected
+            if (selectedCollectionIds.length > 0) {
+                const printUrl = '{{ route("admin.deliveries.print") }}?ids=' + selectedCollectionIds.join(',') + '&type=collection';
+                window.open(printUrl, '_blank');
+                return;
+            }
+            
+            // Nothing selected
+            alert('Please select at least one delivery or collection to print schedule.');
+        }
+        
+        // Print Collection Schedule button
+        if (e.target.id === 'printCollectionScheduleBtn' || e.target.closest('#printCollectionScheduleBtn')) {
+            e.preventDefault();
+            const selectedIds = getSelectedCollectionIds();
+            if (selectedIds.length === 0) {
+                alert('Please select at least one collection to print schedule.');
+                return;
+            }
+            
+            const printUrl = '{{ route("admin.deliveries.print") }}?ids=' + selectedIds.join(',') + '&type=collection';
             window.open(printUrl, '_blank');
-        });
-    }
-
-    // Add to route planner button
-    if (addToRouteBtn) {
-        addToRouteBtn.addEventListener('click', function() {
+        }
+        
+        // Add to Route Planner button
+        if (e.target.id === 'addToRouteBtn' || e.target.closest('#addToRouteBtn')) {
+            e.preventDefault();
             const selectedIds = getSelectedDeliveryIds();
             if (selectedIds.length === 0) {
                 alert('Please select at least one delivery to add to route planner.');
                 return;
             }
             
-            // Redirect to route planner with selected deliveries
             const routeUrl = '{{ route("admin.route-planner") }}?delivery_ids=' + selectedIds.join(',');
             window.location.href = routeUrl;
-        });
-    }
+        }
+    });
 
     function getSelectedDeliveryIds() {
         const checkboxes = document.querySelectorAll('.delivery-checkbox:checked');
@@ -1013,22 +1160,51 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateBulkButtonStates() {
-        const selectedCount = document.querySelectorAll('.delivery-checkbox:checked').length;
+        const selectedDeliveryCount = document.querySelectorAll('.delivery-checkbox:checked').length;
+        const selectedCollectionCount = document.querySelectorAll('.collection-checkbox:checked').length;
         
-        if (printScheduleBtn) {
-            printScheduleBtn.disabled = selectedCount === 0;
-            printScheduleBtn.title = selectedCount === 0 ? 'Select deliveries to print schedule' : `Print schedule for ${selectedCount} delivery(s)`;
-        }
+        // Update all delivery print schedule buttons (now works for both deliveries and collections on "All" tab)
+        document.querySelectorAll('#printScheduleBtn').forEach(btn => {
+            const hasSelection = selectedDeliveryCount > 0 || selectedCollectionCount > 0;
+            const hasBothTypes = selectedDeliveryCount > 0 && selectedCollectionCount > 0;
+            
+            btn.disabled = !hasSelection;
+            
+            if (!hasSelection) {
+                btn.title = 'Select deliveries or collections to print schedule';
+            } else if (hasBothTypes) {
+                btn.title = 'Cannot print both deliveries and collections together - select one type only';
+                btn.disabled = true;
+            } else if (selectedDeliveryCount > 0) {
+                btn.title = `Print schedule for ${selectedDeliveryCount} delivery(s)`;
+            } else {
+                btn.title = `Print schedule for ${selectedCollectionCount} collection(s)`;
+            }
+        });
         
-        if (printPackingSlipsBtn) {
-            printPackingSlipsBtn.disabled = selectedCount === 0;
-            printPackingSlipsBtn.title = selectedCount === 0 ? 'Select deliveries to print packing slips' : `Print ${selectedCount} packing slip(s)`;
-        }
+        // Update all delivery packing slip buttons
+        document.querySelectorAll('#printPackingSlipsBtn').forEach(btn => {
+            btn.disabled = selectedDeliveryCount === 0;
+            btn.title = selectedDeliveryCount === 0 ? 'Select deliveries to print packing slips' : `Print ${selectedDeliveryCount} packing slip(s)`;
+        });
         
-        if (addToRouteBtn) {
-            addToRouteBtn.disabled = selectedCount === 0;
-            addToRouteBtn.title = selectedCount === 0 ? 'Select deliveries to add to route planner' : `Add ${selectedCount} delivery(s) to route planner`;
-        }
+        // Update all route planner buttons
+        document.querySelectorAll('#addToRouteBtn').forEach(btn => {
+            btn.disabled = selectedDeliveryCount === 0;
+            btn.title = selectedDeliveryCount === 0 ? 'Select deliveries to add to route planner' : `Add ${selectedDeliveryCount} delivery(s) to route planner`;
+        });
+        
+        // Update all collection print schedule buttons
+        document.querySelectorAll('#printCollectionScheduleBtn').forEach(btn => {
+            btn.disabled = selectedCollectionCount === 0;
+            btn.title = selectedCollectionCount === 0 ? 'Select collections to print schedule' : `Print schedule for ${selectedCollectionCount} collection(s)`;
+        });
+        
+        // Update all collection slip buttons
+        document.querySelectorAll('#printCollectionSlipsBtn').forEach(btn => {
+            btn.disabled = selectedCollectionCount === 0;
+            btn.title = selectedCollectionCount === 0 ? 'Select collections to print slips' : `Print ${selectedCollectionCount} collection slip(s)`;
+        });
     }
 
     function updateSelectAllCheckbox() {

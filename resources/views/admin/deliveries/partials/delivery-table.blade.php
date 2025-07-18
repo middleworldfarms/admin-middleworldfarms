@@ -41,6 +41,7 @@
                 <th>Frequency</th>
                 <th>Week</th>
                 <th>Status</th>
+                <th>Complete</th>
                 <th>Next Payment</th>
                 <th>Actions</th>
             </tr>
@@ -51,7 +52,7 @@
                     @if(isset($type) && ($type === 'delivery' || $type === 'collection'))
                     <td>
                         <input type="checkbox" class="form-check-input {{ $type === 'delivery' ? 'delivery-checkbox' : 'collection-checkbox' }}" 
-                               value="{{ json_encode($delivery) }}"
+                               value="{{ $delivery['id'] ?? $delivery['order_number'] ?? $loop->index }}"
                                data-delivery-id="{{ $delivery['id'] ?? $delivery['order_number'] ?? $loop->index }}"
                                data-collection-id="{{ $delivery['id'] ?? $delivery['order_number'] ?? $loop->index }}"
                                data-order-id="{{ $delivery['order_number'] ?? '' }}"
@@ -197,6 +198,28 @@
                         <span class="badge bg-{{ isset($delivery['status']) && $delivery['status'] === 'active' ? 'success' : 'warning' }}">
                             {{ ucfirst($delivery['status'] ?? 'pending') }}
                         </span>
+                    </td>
+                    <td>
+                        {{-- Completion Status Button --}}
+                        @php
+                            $isCompleted = isset($delivery['completed']) && $delivery['completed'];
+                            $completionStatus = $delivery['completion_status'] ?? 'pending';
+                        @endphp
+                        
+                        @if($isCompleted || $completionStatus === 'completed')
+                            <button class="btn btn-success btn-sm" disabled>
+                                <i class="fas fa-check-circle"></i> Done
+                            </button>
+                            <br><small class="text-muted">{{ $delivery['completed_at'] ?? 'Today' }}</small>
+                        @else
+                            <button class="btn btn-outline-success btn-sm mark-complete-btn" 
+                                    data-delivery-id="{{ $delivery['id'] ?? $delivery['order_number'] ?? $loop->index }}"
+                                    data-customer-name="{{ $delivery['customer_name'] ?? 'N/A' }}"
+                                    data-delivery-date="{{ $currentDate ?? $delivery['delivery_date'] ?? $delivery['date'] ?? date('Y-m-d') }}"
+                                    title="Mark this delivery as complete">
+                                <i class="fas fa-check"></i> Complete
+                            </button>
+                        @endif
                     </td>
                     <td>
                         @if(isset($delivery['next_payment']))

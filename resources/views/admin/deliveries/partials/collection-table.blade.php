@@ -29,15 +29,15 @@
                     <input type="checkbox" class="form-check-input {{ $type === 'delivery' ? 'select-all-checkbox' : 'select-all-collection-checkbox' }} table-select-all" title="Select all {{ $type === 'delivery' ? 'deliveries' : 'collections' }}" data-type="{{ $type }}">
                 </th>
                 @endif
-                <th>Customer</th>
-                <th>Customer Notes</th>
-                <th>Address</th>
+                <th>Collection Point</th>
+                <th>Collection Notes</th>
+                <th>Location</th>
                 <th>Products</th>
                 <th>Last Paid</th>
                 <th>Contact</th>
                 <th>Frequency</th>
                 <th>Week</th>
-                <th>Status</th>
+                <th>Complete</th>
                 <th>Next Payment</th>
                 <th>Actions</th>
             </tr>
@@ -48,7 +48,7 @@
                     @if(isset($type) && ($type === 'delivery' || $type === 'collection'))
                     <td>
                         <input type="checkbox" class="form-check-input {{ $type === 'delivery' ? 'delivery-checkbox' : 'collection-checkbox' }}" 
-                               value="{{ json_encode($collection) }}"
+                               value="{{ $collection['id'] ?? $collection['order_number'] ?? $loop->index }}"
                                data-delivery-id="{{ $collection['id'] ?? $collection['order_number'] ?? $loop->index }}"
                                data-collection-id="{{ $collection['id'] ?? $collection['order_number'] ?? $loop->index }}"
                                data-order-id="{{ $collection['order_number'] ?? '' }}"
@@ -66,11 +66,11 @@
                         @endif
                     </td>
                     <td>
-                        {{-- Customer Notes - Dedicated Column --}}
+                        {{-- Collection Notes - Dedicated Column --}}
                         @if(!empty($collection['special_instructions']) || !empty($collection['delivery_notes']))
-                            <div class="customer-notes p-2 bg-warning-subtle border border-warning rounded">
-                                <i class="fas fa-exclamation-triangle text-warning"></i>
-                                <strong>Note:</strong> {{ $collection['special_instructions'] ?? $collection['delivery_notes'] }}
+                            <div class="customer-notes p-2 bg-info-subtle border border-info rounded">
+                                <i class="fas fa-info-circle text-info"></i>
+                                <strong>Collection Note:</strong> {{ $collection['special_instructions'] ?? $collection['delivery_notes'] }}
                             </div>
                         @else
                             <span class="text-muted">-</span>
@@ -148,8 +148,8 @@
                                 </small>
                             @endif
                         @else
-                            <span class="badge bg-{{ isset($collection['subscription_id']) ? 'success' : 'info' }}">
-                                {{ isset($collection['subscription_id']) ? 'Weekly Collection' : 'One-time' }}
+                            <span class="badge bg-{{ isset($collection['subscription_id']) ? 'info' : 'success' }}">
+                                {{ isset($collection['subscription_id']) ? 'Weekly Collection' : 'One-time Collection' }}
                             </span>
                         @endif
                     </td>
@@ -194,6 +194,28 @@
                         <span class="badge bg-{{ isset($collection['status']) && $collection['status'] === 'active' ? 'success' : 'warning' }}">
                             {{ ucfirst($collection['status'] ?? 'pending') }}
                         </span>
+                    </td>
+                    <td>
+                        {{-- Completion Status Button --}}
+                        @php
+                            $isCompleted = isset($collection['completed']) && $collection['completed'];
+                            $completionStatus = $collection['completion_status'] ?? 'pending';
+                        @endphp
+                        
+                        @if($isCompleted || $completionStatus === 'completed')
+                            <button class="btn btn-success btn-sm" disabled>
+                                <i class="fas fa-check-circle"></i> Done
+                            </button>
+                            <br><small class="text-muted">{{ $collection['completed_at'] ?? 'Today' }}</small>
+                        @else
+                            <button class="btn btn-outline-success btn-sm mark-complete-btn" 
+                                    data-delivery-id="{{ $collection['id'] ?? $collection['order_number'] ?? $loop->index }}"
+                                    data-customer-name="{{ $collection['customer_name'] ?? 'N/A' }}"
+                                    data-delivery-date="{{ $currentDate ?? $collection['delivery_date'] ?? $collection['date'] ?? date('Y-m-d') }}"
+                                    title="Mark this collection as complete">
+                                <i class="fas fa-check"></i> Complete
+                            </button>
+                        @endif
                     </td>
                     <td>
                         @if(isset($collection['next_payment']))

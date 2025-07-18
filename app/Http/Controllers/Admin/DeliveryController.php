@@ -35,6 +35,9 @@ class DeliveryController extends Controller
             // Transform data to match view expectations
             $scheduleData = $this->transformScheduleData($rawData, $selectedWeek);
             
+            // Add completion data to schedule data
+            $scheduleData = $this->addCompletionData($scheduleData);
+            
             // Calculate actual totals from transformed data (after duplicate removal)
             $totalDeliveries = 0;
             $totalCollections = 0;
@@ -2276,8 +2279,10 @@ class DeliveryController extends Controller
         try {
             // Get the IDs from the request
             $ids = $request->get('ids');
+            $type = $request->get('type', 'delivery'); // Default to delivery, but allow collections
+            
             if (empty($ids)) {
-                return redirect()->back()->with('error', 'No delivery IDs provided for printing.');
+                return redirect()->back()->with('error', 'No IDs provided for printing.');
             }
             
             // Convert comma-separated string to array if needed
@@ -2286,48 +2291,72 @@ class DeliveryController extends Controller
             }
             
             // Get delivery data for the selected IDs
-            $deliveries = [];
+            $items = [];
             $currentWeek = date('W');
             
-            // Get schedule data to find the selected deliveries
+            // Get schedule data to find the selected items
             $rawData = $wpApi->getDeliveryScheduleData(500);
             $scheduleData = $this->transformScheduleData($rawData, $currentWeek);
             
-            // Find deliveries matching the selected IDs
+            // Find items matching the selected IDs (search both deliveries and collections)
             foreach ($scheduleData['data'] as $dateData) {
+                // Search in deliveries
                 if (isset($dateData['deliveries'])) {
                     foreach ($dateData['deliveries'] as $delivery) {
                         $deliveryId = $delivery['id'] ?? $delivery['order_number'] ?? null;
                         if (in_array($deliveryId, $ids)) {
-                            $deliveries[] = $delivery;
+                            // Only include active deliveries in schedule prints
+                            $status = strtolower($delivery['status'] ?? 'pending');
+                            if ($status === 'active' || $status === 'processing' || $status === 'pending') {
+                                $items[] = $delivery;
+                            }
+                        }
+                    }
+                }
+                
+                // Search in collections
+                if (isset($dateData['collections'])) {
+                    foreach ($dateData['collections'] as $collection) {
+                        $collectionId = $collection['id'] ?? $collection['order_number'] ?? null;
+                        if (in_array($collectionId, $ids)) {
+                            // Only include active collections in schedule prints
+                            $status = strtolower($collection['status'] ?? 'pending');
+                            if ($status === 'active' || $status === 'processing' || $status === 'pending') {
+                                $items[] = $collection;
+                            }
                         }
                     }
                 }
             }
             
-            // Group deliveries by date for print view
+            // Group items by date for print view
             $printData = [];
-            foreach ($deliveries as $delivery) {
-                $date = $delivery['delivery_date'] ?? date('Y-m-d');
+            foreach ($items as $item) {
+                $date = $item['delivery_date'] ?? $item['collection_date'] ?? $item['date'] ?? date('Y-m-d');
                 if (!isset($printData[$date])) {
                     $printData[$date] = [
                         'date_formatted' => date('l, F j, Y', strtotime($date)),
                         'items' => []
                     ];
                 }
-                $printData[$date]['items'][] = $delivery;
+                $printData[$date]['items'][] = $item;
             }
             
-            $title = 'Packing Slips';
+            $title = $type === 'collection' ? 'Collection Schedule' : 'Delivery Schedule';
             $selectedWeek = $currentWeek;
-            $type = 'deliveries'; // Set the type for styling in the print view
-            $dayInfo = 'Selected Deliveries'; // Day information for the header
-            $totalItems = count($deliveries); // Total number of deliveries being printed
+            $dayInfo = $type === 'collection' ? 'Selected Collections' : 'Selected Deliveries';
+            $totalItems = count($items);
             
-            return view('admin.deliveries.print', compact('deliveries', 'title', 'selectedWeek', 'type', 'dayInfo', 'totalItems', 'printData'));
+            // Use appropriate template based on type
+            if ($type === 'collection') {
+                $collections = $items; // Rename for clarity in collection template
+                return view('admin.deliveries.collection-schedule', compact('collections', 'title', 'selectedWeek', 'type', 'dayInfo', 'totalItems', 'printData'));
+            } else {
+                return view('admin.deliveries.print', compact('items', 'title', 'selectedWeek', 'type', 'dayInfo', 'totalItems', 'printData'));
+            }
             
         } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Error generating packing slips: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Error generating schedule: ' . $e->getMessage());
         }
     }
 
@@ -2339,8 +2368,10 @@ class DeliveryController extends Controller
         try {
             // Get the IDs from the request
             $ids = $request->get('ids');
+            $type = $request->get('type', 'delivery'); // Default to delivery, but allow collections
+            
             if (empty($ids)) {
-                return redirect()->back()->with('error', 'No delivery IDs provided for printing packing slips.');
+                return redirect()->back()->with('error', 'No IDs provided for printing slips.');
             }
             
             // Convert comma-separated string to array if needed
@@ -2352,38 +2383,215 @@ class DeliveryController extends Controller
             $settings = \App\Models\Setting::getAll();
             $slipsPerPage = $settings['packing_slips_per_page'] ?? 4;
             
-            // Get delivery data for the selected IDs
-            $deliveries = [];
+            // Get data for the selected IDs
+            $deliveries = []; // Keep same variable name for template compatibility
             $currentWeek = date('W');
             
-            // Get schedule data to find the selected deliveries
+            // Get schedule data to find the selected items
             $rawData = $wpApi->getDeliveryScheduleData(500);
             $scheduleData = $this->transformScheduleData($rawData, $currentWeek);
             
-            // Find deliveries matching the selected IDs
+            // Find items matching the selected IDs (search both deliveries and collections)
             foreach ($scheduleData['data'] as $dateData) {
+                // Search in deliveries
                 if (isset($dateData['deliveries'])) {
                     foreach ($dateData['deliveries'] as $delivery) {
                         $deliveryId = $delivery['id'] ?? $delivery['order_number'] ?? null;
                         if (in_array($deliveryId, $ids)) {
-                            $deliveries[] = $delivery;
+                            // Only include active deliveries in slip prints
+                            $status = strtolower($delivery['status'] ?? 'pending');
+                            if ($status === 'active' || $status === 'processing' || $status === 'pending') {
+                                $deliveries[] = $delivery;
+                            }
+                        }
+                    }
+                }
+                
+                // Search in collections
+                if (isset($dateData['collections'])) {
+                    foreach ($dateData['collections'] as $collection) {
+                        $collectionId = $collection['id'] ?? $collection['order_number'] ?? null;
+                        if (in_array($collectionId, $ids)) {
+                            // Only include active collections in slip prints
+                            $status = strtolower($collection['status'] ?? 'pending');
+                            if ($status === 'active' || $status === 'processing' || $status === 'pending') {
+                                $deliveries[] = $collection;
+                            }
                         }
                     }
                 }
             }
-            
-            // Company information for slips
+             // Company information for slips
             $companyInfo = [
                 'name' => 'Middle World Farms',
                 'address' => 'Your Farm Address', // You can update this
                 'phone' => 'Your Phone Number',   // You can update this
                 'logo_url' => asset('images/logo.png') // You can update this path
             ];
-            
-            return view('admin.deliveries.packing-slips', compact('deliveries', 'slipsPerPage', 'companyInfo'));
+
+            // Use appropriate template based on type
+            if ($type === 'collection') {
+                // For collections, use the collection-slips template
+                $collections = $deliveries; // Rename for clarity in collection template
+                return view('admin.deliveries.collection-slips', compact('collections', 'slipsPerPage', 'companyInfo'));
+            } else {
+                // For deliveries, use the packing-slips template
+                return view('admin.deliveries.packing-slips', compact('deliveries', 'slipsPerPage', 'companyInfo', 'type'));
+            }
             
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Error generating packing slips: ' . $e->getMessage());
         }
+    }
+    
+    /**
+     * Mark a delivery or collection as complete
+     */
+    public function markComplete(Request $request)
+    {
+        try {
+            $request->validate([
+                'delivery_id' => 'required|string',
+                'type' => 'required|in:delivery,collection',
+                'delivery_date' => 'required|date',
+                'customer_name' => 'nullable|string',
+                'customer_email' => 'nullable|email',
+                'notes' => 'nullable|string|max:500'
+            ]);
+            
+            $completion = \App\Models\DeliveryCompletion::markCompleted(
+                $request->delivery_id,
+                $request->type,
+                $request->delivery_date,
+                $request->customer_name,
+                $request->customer_email,
+                auth()->user()->name ?? 'Staff' // Get current user if available
+            );
+            
+            return response()->json([
+                'success' => true,
+                'message' => ucfirst($request->type) . ' marked as complete for ' . date('M j, Y', strtotime($request->delivery_date)),
+                'completed_at' => $completion->completed_at->format('M j, Y g:i A'),
+                'completed_by' => $completion->completed_by,
+                'delivery_date' => $completion->delivery_date->format('Y-m-d')
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error marking item as complete: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
+     * Unmark a delivery or collection as complete
+     */
+    public function unmarkComplete(Request $request)
+    {
+        try {
+            $request->validate([
+                'delivery_id' => 'required|string',
+                'type' => 'required|in:delivery,collection',
+                'delivery_date' => 'required|date'
+            ]);
+            
+            \App\Models\DeliveryCompletion::where('external_id', $request->delivery_id)
+                ->where('type', $request->type)
+                ->where('delivery_date', $request->delivery_date)
+                ->delete();
+            
+            return response()->json([
+                'success' => true,
+                'message' => ucfirst($request->type) . ' unmarked as complete for ' . date('M j, Y', strtotime($request->delivery_date))
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error unmarking item: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Add completion data to schedule data
+     */
+    private function addCompletionData($scheduleData)
+    {
+        // Get all completion records to avoid N+1 queries
+        $completions = \App\Models\DeliveryCompletion::all()->keyBy(function ($item) {
+            return $item->external_id . '_' . $item->type . '_' . $item->delivery_date->format('Y-m-d');
+        });
+
+        // Add completion data to deliveries
+        foreach ($scheduleData['data'] as $date => &$dateData) {
+            if (isset($dateData['deliveries'])) {
+                foreach ($dateData['deliveries'] as &$delivery) {
+                    $deliveryId = $delivery['id'] ?? $delivery['order_number'] ?? null;
+                    if ($deliveryId) {
+                        $key = $deliveryId . '_delivery_' . $date;
+                        if (isset($completions[$key])) {
+                            $completion = $completions[$key];
+                            $delivery['completion_status'] = 'completed';
+                            $delivery['completed'] = true;
+                            $delivery['completed_at'] = $completion->completed_at->format('M j, Y g:i A');
+                            $delivery['completed_by'] = $completion->completed_by;
+                        } else {
+                            $delivery['completion_status'] = 'pending';
+                            $delivery['completed'] = false;
+                        }
+                    }
+                }
+            }
+
+            // Add completion data to collections
+            if (isset($dateData['collections'])) {
+                foreach ($dateData['collections'] as &$collection) {
+                    $collectionId = $collection['id'] ?? $collection['order_number'] ?? null;
+                    if ($collectionId) {
+                        $key = $collectionId . '_collection_' . $date;
+                        if (isset($completions[$key])) {
+                            $completion = $completions[$key];
+                            $collection['completion_status'] = 'completed';
+                            $collection['completed'] = true;
+                            $collection['completed_at'] = $completion->completed_at->format('M j, Y g:i A');
+                            $collection['completed_by'] = $completion->completed_by;
+                        } else {
+                            $collection['completion_status'] = 'pending';
+                            $collection['completed'] = false;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Add completion data to collections by status
+        if (isset($scheduleData['collectionsByStatus'])) {
+            foreach ($scheduleData['collectionsByStatus'] as &$statusData) {
+                foreach ($statusData as $date => &$dateData) {
+                    if (isset($dateData['collections'])) {
+                        foreach ($dateData['collections'] as &$collection) {
+                            $collectionId = $collection['id'] ?? $collection['order_number'] ?? null;
+                            if ($collectionId) {
+                                $key = $collectionId . '_collection_' . $date;
+                                if (isset($completions[$key])) {
+                                    $completion = $completions[$key];
+                                    $collection['completion_status'] = 'completed';
+                                    $collection['completed'] = true;
+                                    $collection['completed_at'] = $completion->completed_at->format('M j, Y g:i A');
+                                    $collection['completed_by'] = $completion->completed_by;
+                                } else {
+                                    $collection['completion_status'] = 'pending';
+                                    $collection['completed'] = false;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return $scheduleData;
     }
 }

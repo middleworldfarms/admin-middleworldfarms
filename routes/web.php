@@ -113,6 +113,10 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
     // Print actual packing slips (multiple per sheet)
     Route::get('/deliveries/print-slips', [App\Http\Controllers\Admin\DeliveryController::class, 'printSlips'])->name('admin.deliveries.print-slips');
 
+    // Completion tracking routes
+    Route::post('/deliveries/mark-complete', [App\Http\Controllers\Admin\DeliveryController::class, 'markComplete'])->name('admin.deliveries.mark-complete');
+    Route::post('/deliveries/unmark-complete', [App\Http\Controllers\Admin\DeliveryController::class, 'unmarkComplete'])->name('admin.deliveries.unmark-complete');
+
     // Debug endpoint for delivery/collection classification verification
     Route::get('/debug-classification', [DeliveryController::class, 'debugClassification'])->name('debug.classification');
 
