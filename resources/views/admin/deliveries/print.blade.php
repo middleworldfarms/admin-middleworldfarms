@@ -221,10 +221,17 @@
     </div>
 
     <script>
-        // Auto-print when page loads (optional)
-        // window.addEventListener('load', function() {
-        //     window.print();
-        // });
+        // Auto-print when page loads
+        window.onload = function() {
+            setTimeout(function() {
+                window.print();
+            }, 500);
+        };
+        
+        // Print function for manual printing
+        function printPage() {
+            window.print();
+        }
     </script>
 </body>
 </html>

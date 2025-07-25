@@ -1,19 +1,28 @@
 {{-- Collection Table Partial --}}
 
+@php
+    // Create unique IDs for buttons to avoid conflicts when partial is included multiple times
+    $uniqueId = $uniqueId ?? uniqid();
+    $selectAllId = "selectAllCollections_{$uniqueId}";
+    $deselectAllId = "deselectAllCollections_{$uniqueId}";
+    $printScheduleId = "printCollectionScheduleBtn_{$uniqueId}";
+    $printSlipsId = "printCollectionSlipsBtn_{$uniqueId}";
+@endphp
+
 {{-- Action Buttons for Collections --}}
 @if(isset($showCollectionActions) && $showCollectionActions)
 <div class="mb-3">
     <div class="btn-group" role="group">
-        <button type="button" class="btn btn-outline-primary btn-sm" id="selectAllCollections">
+        <button type="button" class="btn btn-outline-primary btn-sm select-all-collections-btn" id="{{ $selectAllId }}">
             <i class="fas fa-check-square"></i> Select All
         </button>
-        <button type="button" class="btn btn-outline-secondary btn-sm" id="deselectAllCollections">
+        <button type="button" class="btn btn-outline-secondary btn-sm deselect-all-collections-btn" id="{{ $deselectAllId }}">
             <i class="fas fa-square"></i> Deselect All
         </button>
-        <button type="button" class="btn btn-success btn-sm" id="printCollectionScheduleBtn">
+        <button type="button" class="btn btn-success btn-sm print-collection-schedule-btn" id="{{ $printScheduleId }}" disabled>
             <i class="fas fa-print"></i> Print Schedule
         </button>
-        <button type="button" class="btn btn-warning btn-sm" id="printCollectionSlipsBtn">
+        <button type="button" class="btn btn-warning btn-sm print-collection-slips-btn" id="{{ $printSlipsId }}" disabled>
             <i class="fas fa-tags"></i> Print Collection Slips
         </button>
     </div>

@@ -91,7 +91,43 @@
     </div>
 </div>
 
+
+<!-- FarmOS Map Section -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-map me-2"></i>FarmOS Farm Map
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="farmos-map-error" class="alert alert-warning d-none" role="alert"></div>
+                <div id="farmos-map" style="height: 400px; width: 100%;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row">
+
+<!-- FarmOS Map Section -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-map me-2"></i>FarmOS Farm Map
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="farmos-map-error" class="alert alert-warning d-none" role="alert"></div>
+                <div id="farmos-map" style="height: 400px; width: 100%;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
     <!-- Quick Actions -->
     <div class="col-md-8 mb-4">
         <div class="card">
@@ -292,23 +328,6 @@
     </div>
 </div>
 
-<!-- FarmOS Map Integration -->
-<div class="row">
-    <div class="col-md-12 mb-4">
-        <div class="card border-success">
-            <div class="card-header bg-success text-white">
-                <h5 class="card-title mb-0">
-                    <i class="fas fa-map me-2"></i>FarmOS Map
-                </h5>
-            </div>
-            <div class="card-body">
-                <div id="farmos-map-error" class="alert alert-warning d-none"></div>
-                <div id="farmos-map" style="height: 400px; width: 100%;"></div>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- WordPress Integration -->
 <div class="row">
     <div class="col-md-8 mb-4">
@@ -444,63 +463,5 @@ console.log('🔗 WordPress Admin URL:', '{{ session('wp_admin_url') }}');
 @else
 console.log('⚠️ WordPress Integration: Not Available');
 @endif
-
-// --- FarmOS Map Integration ---
-document.addEventListener('DOMContentLoaded', function() {
-    function loadLeafletAssets(callback) {
-        if (window.L && window.L.map) { callback(); return; }
-        var leafletCss = document.createElement('link');
-        leafletCss.rel = 'stylesheet';
-        leafletCss.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-        document.head.appendChild(leafletCss);
-        var leafletJs = document.createElement('script');
-        leafletJs.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-        leafletJs.onload = callback;
-        document.body.appendChild(leafletJs);
-    }
-
-    function showMapError(msg) {
-        var err = document.getElementById('farmos-map-error');
-        if (err) { err.textContent = msg; err.classList.remove('d-none'); }
-    }
-
-    function initFarmOSMap() {
-        var map = L.map('farmos-map').setView([52.5, -0.5], 12);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
-
-        fetch('/admin/farmos-map-data')
-            .then(function(response) { return response.json(); })
-            .then(function(data) {
-                if (!data || !data.features || !Array.isArray(data.features)) {
-                    showMapError('No geometry data received from FarmOS.');
-                    return;
-                }
-                var geojson = L.geoJSON(data, {
-                    style: function(feature) {
-                        return { color: '#27ae60', weight: 2, fillOpacity: 0.2 };
-                    },
-                    onEachFeature: function(feature, layer) {
-                        if (feature.properties && feature.properties.name) {
-                            layer.bindPopup(feature.properties.name);
-                        }
-                    }
-                }).addTo(map);
-                if (geojson.getBounds && geojson.getBounds().isValid()) {
-                    map.fitBounds(geojson.getBounds());
-                }
-            })
-            .catch(function(err) {
-                console.error('FarmOS Map Error:', err);
-                showMapError('Failed to load map data: ' + err.message);
-            });
-    }
-
-    if (document.getElementById('farmos-map')) {
-        loadLeafletAssets(initFarmOSMap);
-    }
-});
 </script>
 @endsection

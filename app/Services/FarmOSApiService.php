@@ -45,7 +45,7 @@ class FarmOSApiService
 
         try {
             $response = $this->client->post('/oauth/token', [
-                'json' => [
+                'form_params' => [
                     'grant_type' => 'password',
                     'username' => $this->username,
                     'password' => $this->password,
@@ -216,5 +216,60 @@ class FarmOSApiService
     private function isTokenValid()
     {
         return Cache::has('farmos_token');
+    }
+    /**
+     * Get geometry assets (land/fields) for mapping
+     */
+    public function getGeometryAssets()
+    {
+        try {
+            $token = $this->authenticate();
+            if (!$token) {
+                throw new \Exception('Authentication failed');
+            }
+
+            $response = $this->client->get('/api/asset/land', [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $token,
+                ],
+                'query' => [
+                    'filter[status]' => 'active',
+                    'include' => 'geometry'
+                ]
+            ]);
+
+            $data = json_decode($response->getBody(), true);
+            
+            // Convert to GeoJSON format
+            $features = [];
+            if (isset($data['data']) && is_array($data['data'])) {
+                foreach ($data['data'] as $asset) {
+                    if (isset($asset['attributes']['geometry'])) {
+                        $features[] = [
+                            'type' => 'Feature',
+                            'properties' => [
+                                'name' => $asset['attributes']['name'] ?? 'Unnamed Area',
+                                'id' => $asset['id'],
+                                'status' => $asset['attributes']['status'] ?? 'unknown'
+                            ],
+                            'geometry' => $asset['attributes']['geometry']
+                        ];
+                    }
+                }
+            }
+
+            return [
+                'type' => 'FeatureCollection',
+                'features' => $features
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('FarmOS geometry fetch failed: ' . $e->getMessage());
+            return [
+                'type' => 'FeatureCollection',
+                'features' => [],
+                'error' => $e->getMessage()
+            ];
+        }
     }
 }

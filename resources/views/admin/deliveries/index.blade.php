@@ -867,11 +867,6 @@ body {
                     </div>
                 </div>
             </div>
-        @else
-            <div class="alert alert-warning">
-                <strong>Schedule Data Debug:</strong> 
-                <pre>{{ json_encode($scheduleData, JSON_PRETTY_PRINT) }}</pre>
-            </div>
         @endif
     @else
         <div class="alert alert-info">
@@ -909,8 +904,8 @@ document.addEventListener('DOMContentLoaded', function() {
             updateBulkButtonStates();
         }
         
-        // Select All Collections
-        if (e.target.id === 'selectAllCollections' || e.target.closest('[id="selectAllCollections"]')) {
+        // Select All Collections (now using class)
+        if (e.target.classList.contains('select-all-collections-btn') || e.target.closest('.select-all-collections-btn')) {
             const checkboxes = document.querySelectorAll('.collection-checkbox');
             checkboxes.forEach(checkbox => {
                 checkbox.checked = true;
@@ -920,8 +915,8 @@ document.addEventListener('DOMContentLoaded', function() {
             updateCollectionBulkButtonStates();
         }
         
-        // Deselect All Collections
-        if (e.target.id === 'deselectAllCollections' || e.target.closest('[id="deselectAllCollections"]')) {
+        // Deselect All Collections (now using class)
+        if (e.target.classList.contains('deselect-all-collections-btn') || e.target.closest('.deselect-all-collections-btn')) {
             const checkboxes = document.querySelectorAll('.collection-checkbox');
             checkboxes.forEach(checkbox => {
                 checkbox.checked = false;
@@ -944,8 +939,8 @@ document.addEventListener('DOMContentLoaded', function() {
             window.open(printUrl, '_blank');
         }
         
-        // Print Collection Schedule button
-        if (e.target.id === 'printCollectionScheduleBtn' || e.target.closest('#printCollectionScheduleBtn')) {
+        // Print Collection Schedule button (now using class)
+        if (e.target.classList.contains('print-collection-schedule-btn') || e.target.closest('.print-collection-schedule-btn')) {
             e.preventDefault();
             const selectedIds = getSelectedCollectionIds();
             if (selectedIds.length === 0) {
@@ -970,8 +965,8 @@ document.addEventListener('DOMContentLoaded', function() {
             window.open(printUrl, '_blank');
         }
         
-        // Print Collection Slips button
-        if (e.target.id === 'printCollectionSlipsBtn' || e.target.closest('#printCollectionSlipsBtn')) {
+        // Print Collection Slips button (now using class)
+        if (e.target.classList.contains('print-collection-slips-btn') || e.target.closest('.print-collection-slips-btn')) {
             e.preventDefault();
             const selectedIds = getSelectedCollectionIds();
             if (selectedIds.length === 0) {
@@ -1094,66 +1089,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Use event delegation for buttons to work across all tabs
-    document.addEventListener('click', function(e) {
-        // Print Schedule buttons (for both deliveries and collections)
-        if (e.target.id === 'printScheduleBtn' || e.target.closest('#printScheduleBtn')) {
-            e.preventDefault();
-            
-            const selectedDeliveryIds = getSelectedDeliveryIds();
-            const selectedCollectionIds = getSelectedCollectionIds();
-            
-            // Check if we have both types selected
-            if (selectedDeliveryIds.length > 0 && selectedCollectionIds.length > 0) {
-                alert('Please select either deliveries OR collections, not both. Use separate print buttons for each type.');
-                return;
-            }
-            
-            // Check if we have deliveries selected
-            if (selectedDeliveryIds.length > 0) {
-                const printUrl = '{{ route("admin.deliveries.print") }}?ids=' + selectedDeliveryIds.join(',');
-                window.open(printUrl, '_blank');
-                return;
-            }
-            
-            // Check if we have collections selected
-            if (selectedCollectionIds.length > 0) {
-                const printUrl = '{{ route("admin.deliveries.print") }}?ids=' + selectedCollectionIds.join(',') + '&type=collection';
-                window.open(printUrl, '_blank');
-                return;
-            }
-            
-            // Nothing selected
-            alert('Please select at least one delivery or collection to print schedule.');
-        }
-        
-        // Print Collection Schedule button
-        if (e.target.id === 'printCollectionScheduleBtn' || e.target.closest('#printCollectionScheduleBtn')) {
-            e.preventDefault();
-            const selectedIds = getSelectedCollectionIds();
-            if (selectedIds.length === 0) {
-                alert('Please select at least one collection to print schedule.');
-                return;
-            }
-            
-            const printUrl = '{{ route("admin.deliveries.print") }}?ids=' + selectedIds.join(',') + '&type=collection';
-            window.open(printUrl, '_blank');
-        }
-        
-        // Add to Route Planner button
-        if (e.target.id === 'addToRouteBtn' || e.target.closest('#addToRouteBtn')) {
-            e.preventDefault();
-            const selectedIds = getSelectedDeliveryIds();
-            if (selectedIds.length === 0) {
-                alert('Please select at least one delivery to add to route planner.');
-                return;
-            }
-            
-            const routeUrl = '{{ route("admin.route-planner") }}?delivery_ids=' + selectedIds.join(',');
-            window.location.href = routeUrl;
-        }
-    });
-
     function getSelectedDeliveryIds() {
         const checkboxes = document.querySelectorAll('.delivery-checkbox:checked');
         return Array.from(checkboxes).map(checkbox => checkbox.value);
@@ -1163,23 +1098,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const selectedDeliveryCount = document.querySelectorAll('.delivery-checkbox:checked').length;
         const selectedCollectionCount = document.querySelectorAll('.collection-checkbox:checked').length;
         
-        // Update all delivery print schedule buttons (now works for both deliveries and collections on "All" tab)
+        // Update delivery print schedule buttons (only for deliveries)
         document.querySelectorAll('#printScheduleBtn').forEach(btn => {
-            const hasSelection = selectedDeliveryCount > 0 || selectedCollectionCount > 0;
-            const hasBothTypes = selectedDeliveryCount > 0 && selectedCollectionCount > 0;
-            
-            btn.disabled = !hasSelection;
-            
-            if (!hasSelection) {
-                btn.title = 'Select deliveries or collections to print schedule';
-            } else if (hasBothTypes) {
-                btn.title = 'Cannot print both deliveries and collections together - select one type only';
-                btn.disabled = true;
-            } else if (selectedDeliveryCount > 0) {
-                btn.title = `Print schedule for ${selectedDeliveryCount} delivery(s)`;
-            } else {
-                btn.title = `Print schedule for ${selectedCollectionCount} collection(s)`;
-            }
+            btn.disabled = selectedDeliveryCount === 0;
+            btn.title = selectedDeliveryCount === 0 ? 'Select deliveries to print schedule' : `Print schedule for ${selectedDeliveryCount} delivery(s)`;
         });
         
         // Update all delivery packing slip buttons
@@ -1192,18 +1114,6 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('#addToRouteBtn').forEach(btn => {
             btn.disabled = selectedDeliveryCount === 0;
             btn.title = selectedDeliveryCount === 0 ? 'Select deliveries to add to route planner' : `Add ${selectedDeliveryCount} delivery(s) to route planner`;
-        });
-        
-        // Update all collection print schedule buttons
-        document.querySelectorAll('#printCollectionScheduleBtn').forEach(btn => {
-            btn.disabled = selectedCollectionCount === 0;
-            btn.title = selectedCollectionCount === 0 ? 'Select collections to print schedule' : `Print schedule for ${selectedCollectionCount} collection(s)`;
-        });
-        
-        // Update all collection slip buttons
-        document.querySelectorAll('#printCollectionSlipsBtn').forEach(btn => {
-            btn.disabled = selectedCollectionCount === 0;
-            btn.title = selectedCollectionCount === 0 ? 'Select collections to print slips' : `Print ${selectedCollectionCount} collection slip(s)`;
         });
     }
 
@@ -1234,18 +1144,17 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateCollectionBulkButtonStates() {
         const selectedCount = document.querySelectorAll('.collection-checkbox:checked').length;
         
-        const printCollectionScheduleBtn = document.getElementById('printCollectionScheduleBtn');
-        const printCollectionSlipsBtn = document.getElementById('printCollectionSlipsBtn');
+        // Update all collection print schedule buttons (now using class instead of ID)
+        document.querySelectorAll('.print-collection-schedule-btn').forEach(btn => {
+            btn.disabled = selectedCount === 0;
+            btn.title = selectedCount === 0 ? 'Select collections to print schedule' : `Print schedule for ${selectedCount} collection(s)`;
+        });
         
-        if (printCollectionScheduleBtn) {
-            printCollectionScheduleBtn.disabled = selectedCount === 0;
-            printCollectionScheduleBtn.title = selectedCount === 0 ? 'Select collections to print schedule' : `Print schedule for ${selectedCount} collection(s)`;
-        }
-        
-        if (printCollectionSlipsBtn) {
-            printCollectionSlipsBtn.disabled = selectedCount === 0;
-            printCollectionSlipsBtn.title = selectedCount === 0 ? 'Select collections to print slips' : `Print ${selectedCount} collection slip(s)`;
-        }
+        // Update all collection slip buttons (now using class instead of ID)
+        document.querySelectorAll('.print-collection-slips-btn').forEach(btn => {
+            btn.disabled = selectedCount === 0;
+            btn.title = selectedCount === 0 ? 'Select collections to print slips' : `Print ${selectedCount} collection slip(s)`;
+        });
     }
 
     function updateSelectAllCollectionCheckbox() {
@@ -1398,6 +1307,85 @@ document.addEventListener('DOMContentLoaded', function() {
             alert(`Customer Profile\n\nName: ${customerName}\nEmail: ${email}\n\nProfile management coming soon!`);
         });
     });
+});
+
+// Print Deliveries Button Handler
+function printDeliveries() {
+    var printWindow = window.open('', '_blank');
+    var today = new Date();
+    var tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    var dateStr = tomorrow.toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    var printContent = `<!DOCTYPE html><html><head><title>Delivery Schedule - ${dateStr}</title><style>body{margin:30px;font-family:Arial,sans-serif;font-size:12px;}@page{margin:25mm;size:A4;}h1{text-align:center;margin-bottom:20px;font-size:18px;}h2{color:#0066cc;border-bottom:2px solid #0066cc;padding-bottom:5px;font-size:16px;}table{width:100%;border-collapse:collapse;margin-bottom:20px;}th,td{border:1px solid #000;padding:8px;text-align:left;vertical-align:top;}th{background-color:#f8f9fa;font-weight:bold;}.badge{border:1px solid #000;padding:2px 6px;font-size:10px;border-radius:3px;}.page-break{page-break-before:always;}.date-header{background-color:#f8f9fa;padding:10px;margin:20px 0 10px 0;border:1px solid #000;font-weight:bold;}</style></head><body><h1>🚚 DELIVERY SCHEDULE - ${dateStr}</h1>`;
+    var dayCards = document.querySelectorAll('.card.mb-3');
+    var hasDeliveries = false;
+    dayCards.forEach(function(card, index) {
+        var dateHeader = card.querySelector('.card-header h5');
+        var deliverySection = card.querySelector('.col-md-6:first-child');
+        if (deliverySection && deliverySection.querySelector('h6.text-primary')) {
+            hasDeliveries = true;
+            if (index > 0) { printContent += '<div class="page-break"></div>'; }
+            var dateText = dateHeader ? dateHeader.textContent.replace('📅', '').trim() : 'Unknown Date';
+            printContent += `<div class="date-header">📅 ${dateText}</div>`;
+            var deliveryTable = deliverySection.querySelector('table');
+            if (deliveryTable) {
+                var deliveryCount = deliverySection.querySelector('h6.text-primary').textContent.match(/\((\d+)\)/);
+                printContent += `<h2>🚚 Deliveries${deliveryCount ? ' (' + deliveryCount[1] + ')' : ''}</h2>`;
+                printContent += deliveryTable.outerHTML;
+            }
+        }
+    });
+    if (!hasDeliveries) {
+        printContent += '<p style="text-align: center; font-size: 16px; margin-top: 50px;">No deliveries scheduled for tomorrow.</p>';
+    }
+    printContent += `<div style="margin-top: 30px; text-align: center; font-size: 10px; color: #666;">Generated on ${new Date().toLocaleString()} | Middleworld Farms Admin</div></body></html>`;
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(function() { printWindow.print(); printWindow.close(); }, 500);
+}
+
+// Print Collections Button Handler
+function printCollections() {
+    var printWindow = window.open('', '_blank');
+    var today = new Date();
+    var tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    var dateStr = tomorrow.toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    var printContent = `<!DOCTYPE html><html><head><title>Collection Schedule - ${dateStr}</title><style>body{margin:30px;font-family:Arial,sans-serif;font-size:12px;}@page{margin:25mm;size:A4;}h1{text-align:center;margin-bottom:20px;font-size:18px;}h2{color:#28a745;border-bottom:2px solid #28a745;padding-bottom:5px;font-size:16px;}table{width:100%;border-collapse:collapse;margin-bottom:20px;}th,td{border:1px solid #000;padding:8px;text-align:left;vertical-align:top;}th{background-color:#f8f9fa;font-weight:bold;}.badge{border:1px solid #000;padding:2px 6px;font-size:10px;border-radius:3px;}.page-break{page-break-before:always;}.date-header{background-color:#f8f9fa;padding:10px;margin:20px 0 10px 0;border:1px solid #000;font-weight:bold;}</style></head><body><h1>🏪 COLLECTION SCHEDULE - ${dateStr}</h1>`;
+    var dayCards = document.querySelectorAll('.card.mb-3');
+    var hasCollections = false;
+    dayCards.forEach(function(card, index) {
+        var dateHeader = card.querySelector('.card-header h5');
+        var collectionSection = card.querySelector('.col-md-6:last-child');
+        if (!collectionSection) { collectionSection = card.querySelector('.col-md-12'); }
+        if (collectionSection && collectionSection.querySelector('h6.text-success')) {
+            hasCollections = true;
+            if (index > 0) { printContent += '<div class="page-break"></div>'; }
+            var dateText = dateHeader ? dateHeader.textContent.replace('📅', '').trim() : 'Unknown Date';
+            printContent += `<div class="date-header">📅 ${dateText}</div>`;
+            var collectionTable = collectionSection.querySelector('table');
+            if (collectionTable) {
+                var collectionCount = collectionSection.querySelector('h6.text-success').textContent.match(/\((\d+)\)/);
+                printContent += `<h2>🏪 Collections${collectionCount ? ' (' + collectionCount[1] + ')' : ''}</h2>`;
+                printContent += collectionTable.outerHTML;
+            }
+        }
+    });
+    if (!hasCollections) {
+        printContent += '<p style="text-align: center; font-size: 16px; margin-top: 50px;">No collections scheduled for tomorrow.</p>';
+    }
+    printContent += `<div style="margin-top: 30px; text-align: center; font-size: 10px; color: #666;">Generated on ${new Date().toLocaleString()} | Middleworld Farms Admin</div></body></html>`;
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(function() { printWindow.print(); printWindow.close(); }, 500);
+}
+
+// Attach event listeners to print buttons
+$(document).ready(function() {
+    $('#printScheduleBtn').on('click', printDeliveries);
+    $('#printCollectionScheduleBtn').on('click', printCollections);
 });
 </script>
 @endsection

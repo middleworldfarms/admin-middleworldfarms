@@ -182,4 +182,23 @@ class DashboardController extends Controller
             ];
         }
     }
+
+    /**
+     * Get FarmOS map data for the dashboard
+     */
+    public function farmosMapData()
+    {
+        try {
+            $farmosService = app(\App\Services\FarmOSApiService::class);
+            $geometryData = $farmosService->getGeometryAssets();
+            return response()->json($geometryData);
+        } catch (\Exception $e) {
+            \Log::error("FarmOS map data error: " . $e->getMessage());
+            return response()->json([
+                "type" => "FeatureCollection",
+                "features" => [],
+                "error" => $e->getMessage()
+            ], 500);
+        }
+    }
 }

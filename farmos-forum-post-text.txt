@@ -1,0 +1,92 @@
+**Title:** Unable to Generate OAuth2 Private Keys - "Directory is not a valid directory" Error
+
+Hi FarmOS team,
+
+I'm having trouble configuring OAuth2 authentication for API access and could really use your help. I'm trying to integrate our FarmOS instance with a Laravel admin dashboard but getting stuck on the OAuth2 private key generation.
+
+### Our Setup:
+- **FarmOS URL**: https://farmos.middleworldfarms.org
+- **Environment**: Plesk hosting environment on Linux
+- **Web Server**: Nginx with www-data user
+- **OAuth Consumer**: Already created successfully with client_id `Qw7!pZ2rT9@xL6vB1#eF4sG8uJ0mN5cD`
+- **Goal**: Authenticate with farmOS API to retrieve land asset geometry data
+
+### The Problem:
+When trying to generate OAuth2 private keys in **Configuration > Web Services > Consumers > Settings**, FarmOS rejects every directory path I try with the error:
+
+```
+Directory "/path/to/directory" is not a valid directory.
+```
+
+### Directories I've Tested:
+All of these directories exist, have proper www-data ownership (755/644 permissions), and are writable:
+
+1. `/tmp/oauth-keys`
+2. `/tmp/farmos-oauth-keys` 
+3. `/opt/sites/keys`
+4. `/var/oauth-keys`
+5. `/opt/sites/farmos.middleworldfarms.org/sites/default/files/private/oauth`
+
+I've verified each directory exists and is writable by the web server:
+```bash
+# All directories created with:
+sudo mkdir -p /path/to/directory
+sudo chown www-data:www-data /path/to/directory
+sudo chmod 755 /path/to/directory
+
+# Tested write access:
+sudo -u www-data touch /path/to/directory/test.txt  # Works fine
+```
+
+### Current API Status:
+Interestingly, our OAuth consumer IS being recognized by the API:
+
+```bash
+curl "https://farmos.middleworldfarms.org/api/asset/land"
+```
+
+Returns:
+- ✅ HTTP 200 OK
+- ✅ `X-Consumer-ID: Qw7!pZ2rT9@xL6vB1#eF4sG8uJ0mN5cD` header present
+- ✅ Land assets detected but "insufficient authorization" (expected without OAuth token)
+
+However, OAuth token requests fail:
+```bash
+curl -X POST "https://farmos.middleworldfarms.org/oauth/token" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d 'grant_type=password&username=martin@middleworldfarms.org&password=PASSWORD&client_id=Qw7!pZ2rT9@xL6vB1#eF4sG8uJ0mN5cD&client_secret=SECRET'
+```
+
+Returns:
+```json
+{
+  "error": "server_error",
+  "error_description": "You need to set the OAuth2 private key."
+}
+```
+
+### Questions:
+1. **What directory path format does FarmOS expect?** Is there a specific structure or naming convention?
+
+2. **Are there file system permissions beyond standard www-data ownership** that FarmOS requires?
+
+3. **Is there a way to manually configure the OAuth2 private key paths** in configuration files rather than through the UI?
+
+4. **Could this be related to Plesk hosting environment** or any PHP security settings?
+
+5. **Are there any logs** I can check to see why the directory validation is failing?
+
+### Environment Details:
+- PHP version: 8.2.28
+- Drupal version: 10
+- Simple OAuth module (latest version)
+- FarmOS (latest version)
+
+Any guidance would be greatly appreciated! The OAuth consumer setup is working, but we're blocked on the private key generation step.
+
+Thanks in advance for your help!
+
+---
+
+### Additional Context:
+This is for integrating farmOS with a Laravel admin dashboard to display farm geometry on interactive maps for delivery route planning. We've successfully connected to other APIs but farmOS's OAuth setup is proving challenging.
