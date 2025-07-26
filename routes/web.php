@@ -138,6 +138,39 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
     // Debug endpoint for Pauline Moore's duplicate order analysis
     Route::get('/debug-pauline', [DeliveryController::class, 'debugPauline'])->name('debug.pauline');
 
+    // Debug route addresses for route planner
+    Route::get('/debug-route-addresses', function() {
+        $wpApi = app(\App\Services\WpApiService::class);
+        $controller = new \App\Http\Controllers\Admin\RouteController(
+            app('App\Services\RouteOptimizationService'),
+            app('App\Services\DeliveryScheduleService'), 
+            app('App\Services\DriverNotificationService'),
+            app('App\Services\WPGoMapsService')
+        );
+        
+        // The 4 correct delivery IDs for this week
+        $correctIds = ['227748', '227726', '227673', '227581'];
+        
+        // Use reflection to access the private getDeliveriesByIds method
+        $reflection = new ReflectionClass($controller);
+        $method = $reflection->getMethod('getDeliveriesByIds');
+        $method->setAccessible(true);
+        
+        $result = $method->invoke($controller, $correctIds);
+        
+        return response()->json([
+            'correct_ids' => $correctIds,
+            'found_deliveries' => count($result),
+            'addresses' => array_map(function($delivery) {
+                return [
+                    'id' => $delivery['id'],
+                    'name' => $delivery['name'],
+                    'address' => $delivery['address']
+                ];
+            }, $result)
+        ]);
+    })->name('debug.route-addresses');
+
     // Subscription management endpoint
     Route::get('/manage-subscription/{email}', [DeliveryController::class, 'manageSubscription'])->name('manage.subscription');
 });

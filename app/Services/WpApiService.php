@@ -348,7 +348,7 @@ class WpApiService
             $perPage = min($limit, 100);
             
             // Fetch active subscriptions via WooCommerce REST with full context to get billing/shipping data
-            // Use shorter timeout to prevent 504 Gateway timeout
+            // Use shorter timeout to prevent 504 Gateway timeout and filter for only active subscriptions
             $response = Http::timeout(15)
                 ->withBasicAuth($this->wcConsumerKey, $this->wcConsumerSecret)
                 ->get("{$this->wcApiUrl}/wp-json/wc/v3/subscriptions", [
@@ -356,6 +356,7 @@ class WpApiService
                     'orderby'  => 'date',
                     'order'    => 'desc',
                     'context'  => 'edit', // This should include billing and shipping data
+                    'status'   => 'active', // Only fetch active subscriptions
                 ]);
              
             $data = $response->json();

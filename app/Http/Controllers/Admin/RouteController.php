@@ -46,7 +46,13 @@ class RouteController extends Controller
                 $deliveries = $request->get('deliveries', []);
             }
             
-            // Method 2: Check if we're in bulk selection mode
+            // Method 2: Check if delivery IDs are passed from delivery schedule page
+            if ($request->has('delivery_ids') && !empty($request->get('delivery_ids'))) {
+                $deliveryIds = explode(',', $request->get('delivery_ids'));
+                $deliveries = $this->getDeliveriesByIds($deliveryIds);
+            }
+            
+            // Method 3: Check if we're in bulk selection mode
             if ($request->get('selected') === 'bulk') {
                 // Deliveries will be loaded from localStorage by JavaScript
                 return view('admin.routes.index', [
@@ -57,26 +63,15 @@ class RouteController extends Controller
                 ]);
             }
             
-            // Method 3: If no deliveries passed, get all deliveries for today using WpApiService
+            // Method 4: If no deliveries passed, show empty route planner with helpful message
             if (empty($deliveries)) {
-                $wpApi = app(\App\Services\WpApiService::class);
-                $scheduleData = $wpApi->getDeliveryScheduleData(100);
-                
-                // Extract deliveries only (not collections) and format them for routing
-                $allDeliveries = $scheduleData['deliveries'] ?? [];
-                
-                // Filter and format deliveries for routing
-                foreach ($allDeliveries as $delivery) {
-                    $deliveries[] = [
-                        'id' => $delivery['id'] ?? '',
-                        'name' => $delivery['customer_name'] ?? 'Unknown Customer',
-                        'address' => $this->formatDeliveryAddressForRouting($delivery),
-                        'phone' => $delivery['customer_phone'] ?? '',
-                        'email' => $delivery['customer_email'] ?? '',
-                        'products' => $delivery['products'] ?? [],
-                        'notes' => $delivery['notes'] ?? ''
-                    ];
-                }
+                return view('admin.routes.index', [
+                    'deliveries' => [],
+                    'delivery_date' => $deliveryDate,
+                    'google_maps_key' => config('services.google_maps.api_key'),
+                    'bulk_mode' => false,
+                    'message' => 'No deliveries selected. Please go to the delivery schedule page and select deliveries to add to the route planner.'
+                ]);
             }
             
             return view('admin.routes.index', [
@@ -406,24 +401,7 @@ class RouteController extends Controller
      */
     private function formatDeliveryAddressForRouting($delivery)
     {
-        // Try billing address first
-        if (isset($delivery['billing']) && is_array($delivery['billing'])) {
-            $address = $delivery['billing'];
-            $parts = array_filter([
-                $address['address_1'] ?? '',
-                $address['address_2'] ?? '',
-                $address['city'] ?? '',
-                $address['state'] ?? '',
-                $address['postcode'] ?? '',
-                $address['country'] ?? ''
-            ]);
-            
-            if (!empty($parts)) {
-                return implode(', ', $parts);
-            }
-        }
-        
-        // Try shipping address as fallback
+        // For deliveries, prioritize shipping address (where we actually deliver to)
         if (isset($delivery['shipping']) && is_array($delivery['shipping'])) {
             $address = $delivery['shipping'];
             $parts = array_filter([
@@ -432,23 +410,156 @@ class RouteController extends Controller
                 $address['city'] ?? '',
                 $address['state'] ?? '',
                 $address['postcode'] ?? '',
-                $address['country'] ?? ''
+                // Default to UK if no country specified
+                $address['country'] ?? 'GB'
             ]);
             
             if (!empty($parts)) {
-                return implode(', ', $parts);
+                $addressString = implode(', ', $parts);
+                // Ensure UK addresses include country for proper geocoding
+                if (stripos($addressString, 'UK') === false && stripos($addressString, 'United Kingdom') === false && stripos($addressString, 'GB') === false) {
+                    $addressString .= ', UK';
+                }
+                return $addressString;
             }
         }
         
-        // Try direct address field
+        // Fallback to billing address if shipping not available
+        if (isset($delivery['billing']) && is_array($delivery['billing'])) {
+            $address = $delivery['billing'];
+            $parts = array_filter([
+                $address['address_1'] ?? '',
+                $address['address_2'] ?? '',
+                $address['city'] ?? '',
+                $address['state'] ?? '',
+                $address['postcode'] ?? '',
+                $address['country'] ?? 'GB'
+            ]);
+            
+            if (!empty($parts)) {
+                $addressString = implode(', ', $parts);
+                // Ensure UK addresses include country for proper geocoding
+                if (stripos($addressString, 'UK') === false && stripos($addressString, 'United Kingdom') === false && stripos($addressString, 'GB') === false) {
+                    $addressString .= ', UK';
+                }
+                return $addressString;
+            }
+        }
+        
+        // Try direct address field as last resort
         if (isset($delivery['address'])) {
             if (is_string($delivery['address'])) {
-                return $delivery['address'];
+                $addressString = $delivery['address'];
+                // Ensure UK addresses include country for proper geocoding
+                if (stripos($addressString, 'UK') === false && stripos($addressString, 'United Kingdom') === false && stripos($addressString, 'GB') === false) {
+                    $addressString .= ', UK';
+                }
+                return $addressString;
             } elseif (is_array($delivery['address'])) {
-                return implode(', ', array_filter($delivery['address']));
+                $addressString = implode(', ', array_filter($delivery['address']));
+                // Ensure UK addresses include country for proper geocoding
+                if (stripos($addressString, 'UK') === false && stripos($addressString, 'United Kingdom') === false && stripos($addressString, 'GB') === false) {
+                    $addressString .= ', UK';
+                }
+                return $addressString;
             }
         }
         
         return 'Address not available';
+    }
+
+    /**
+     * Get specific deliveries by their IDs from WooCommerce API
+     */
+    private function getDeliveriesByIds($deliveryIds)
+    {
+        $deliveries = [];
+        $wpApi = app(\App\Services\WpApiService::class);
+        
+        try {
+            // Get all subscription data
+            $allSubscriptions = $wpApi->getDeliveryScheduleData(100);
+            
+            // Filter to only the requested IDs and format for routing
+            foreach ($allSubscriptions as $subscription) {
+                $subscriptionId = $subscription['id'] ?? '';
+                
+                if (in_array($subscriptionId, $deliveryIds)) {
+                    $deliveries[] = [
+                        'id' => $subscriptionId,
+                        'name' => $this->extractCustomerName($subscription),
+                        'address' => $this->formatDeliveryAddressForRouting($subscription),
+                        'phone' => $this->extractCustomerPhone($subscription),
+                        'email' => $this->extractCustomerEmail($subscription),
+                        'products' => $this->extractProducts($subscription),
+                        'notes' => $subscription['customer_note'] ?? ''
+                    ];
+                }
+            }
+            
+            Log::info('Route planner - fetched deliveries by IDs', [
+                'requested_ids' => $deliveryIds,
+                'found_count' => count($deliveries),
+                'found_ids' => array_column($deliveries, 'id')
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch deliveries by IDs: ' . $e->getMessage());
+        }
+        
+        return $deliveries;
+    }
+
+    /**
+     * Extract customer name from WooCommerce subscription data
+     */
+    private function extractCustomerName($delivery)
+    {
+        // Try billing first, then shipping
+        if (isset($delivery['billing']['first_name']) || isset($delivery['billing']['last_name'])) {
+            return trim(($delivery['billing']['first_name'] ?? '') . ' ' . ($delivery['billing']['last_name'] ?? ''));
+        }
+        
+        if (isset($delivery['shipping']['first_name']) || isset($delivery['shipping']['last_name'])) {
+            return trim(($delivery['shipping']['first_name'] ?? '') . ' ' . ($delivery['shipping']['last_name'] ?? ''));
+        }
+        
+        return 'Unknown Customer';
+    }
+
+    /**
+     * Extract customer phone from WooCommerce subscription data
+     */
+    private function extractCustomerPhone($delivery)
+    {
+        return $delivery['billing']['phone'] ?? $delivery['shipping']['phone'] ?? '';
+    }
+
+    /**
+     * Extract customer email from WooCommerce subscription data
+     */
+    private function extractCustomerEmail($delivery)
+    {
+        return $delivery['billing']['email'] ?? '';
+    }
+
+    /**
+     * Extract products from WooCommerce subscription data
+     */
+    private function extractProducts($delivery)
+    {
+        $products = [];
+        
+        if (isset($delivery['line_items']) && is_array($delivery['line_items'])) {
+            foreach ($delivery['line_items'] as $item) {
+                $products[] = [
+                    'name' => $item['name'] ?? 'Unknown Product',
+                    'quantity' => $item['quantity'] ?? 1,
+                    'total' => $item['total'] ?? '0.00'
+                ];
+            }
+        }
+        
+        return $products;
     }
 }

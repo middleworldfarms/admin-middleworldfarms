@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('layouts.app')
 
 @section('title', 'Route Planning & Optimization')
 
@@ -186,8 +186,8 @@ let optimizedRoute = null;
 // Initialize Google Map
 function initMap() {
     map = new google.maps.Map(document.getElementById('map'), {
-        zoom: 8,
-        center: { lat: 52.3676, lng: -4.0976 } // Wales center
+        zoom: 11,
+        center: { lat: 53.2307, lng: -0.5406 } // Lincoln, Lincolnshire center
     });
 
     directionsService = new google.maps.DirectionsService();
@@ -209,9 +209,9 @@ function loadMapMarkers() {
         return;
     }
 
-    // Add depot marker
+    // Add depot marker (Middleworld Farms location - adjust coordinates as needed)
     const depotMarker = new google.maps.Marker({
-        position: { lat: 52.3676, lng: -4.0976 }, // Default position
+        position: { lat: 53.2307, lng: -0.5406 }, // Lincoln area - adjust to your farm location
         map: map,
         title: 'Middleworld Farms (Depot)',
         icon: {
@@ -227,43 +227,83 @@ function loadMapMarkers() {
     });
     markers.push(depotMarker);
 
-    // Add delivery markers
+    // Geocode delivery addresses and add markers
+    const geocoder = new google.maps.Geocoder();
+    const bounds = new google.maps.LatLngBounds();
+    
+    let geocodedCount = 0;
+    
     window.deliveriesData.forEach((delivery, index) => {
-        // In a real implementation, you'd geocode these addresses
-        // For now, we'll use approximate positions around Wales
-        const lat = 52.3676 + (Math.random() - 0.5) * 2;
-        const lng = -4.0976 + (Math.random() - 0.5) * 2;
-        
-        const marker = new google.maps.Marker({
-            position: { lat: lat, lng: lng },
-            map: map,
-            title: delivery.name || 'Customer',
-            icon: {
-                url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-                    <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="16" cy="16" r="14" fill="#007bff" stroke="white" stroke-width="2"/>
-                        <text x="16" y="21" text-anchor="middle" fill="white" font-size="10" font-weight="bold">${index + 1}</text>
-                    </svg>
-                `),
-                scaledSize: new google.maps.Size(32, 32),
-                anchor: new google.maps.Point(16, 16)
-            }
-        });
-
-        const infoWindow = new google.maps.InfoWindow({
-            content: `
-                <div>
-                    <strong>${delivery.name || 'Customer'}</strong><br>
-                    <small>${Array.isArray(delivery.address) ? delivery.address.join(', ') : (delivery.address || 'No address')}</small>
-                </div>
-            `
-        });
-
-        marker.addListener('click', () => {
-            infoWindow.open(map, marker);
-        });
-
-        markers.push(marker);
+        if (delivery.address) {
+            geocoder.geocode({ address: delivery.address }, (results, status) => {
+                if (status === 'OK' && results[0]) {
+                    const position = results[0].geometry.location;
+                    
+                    const marker = new google.maps.Marker({
+                        position: position,
+                        map: map,
+                        title: `${delivery.name || 'Customer'} - ${delivery.address}`,
+                        icon: {
+                            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                                <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="16" cy="16" r="14" fill="#007bff" stroke="white" stroke-width="2"/>
+                                    <text x="16" y="21" text-anchor="middle" fill="white" font-size="10" font-weight="bold">${index + 1}</text>
+                                </svg>
+                            `),
+                            scaledSize: new google.maps.Size(32, 32),
+                            anchor: new google.maps.Point(16, 16)
+                        }
+                    });
+                    
+                    markers.push(marker);
+                    bounds.extend(position);
+                    
+                    // Add info window
+                    const infoWindow = new google.maps.InfoWindow({
+                        content: `
+                            <div>
+                                <strong>${delivery.name || 'Customer'}</strong><br>
+                                <small>${delivery.address}</small><br>
+                                Phone: ${delivery.phone || 'N/A'}<br>
+                                ${delivery.products ? delivery.products.map(p => `${p.quantity}x ${p.name}`).join('<br>') : ''}
+                            </div>
+                        `
+                    });
+                    
+                    marker.addListener('click', () => {
+                        infoWindow.open(map, marker);
+                    });
+                    
+                    geocodedCount++;
+                    
+                    // Fit map to show all markers after all geocoding is complete
+                    if (geocodedCount === window.deliveriesData.length) {
+                        bounds.extend(depotMarker.getPosition());
+                        map.fitBounds(bounds);
+                        
+                        // Ensure minimum zoom level
+                        const listener = google.maps.event.addListener(map, "idle", function() {
+                            if (map.getZoom() > 15) map.setZoom(15);
+                            google.maps.event.removeListener(listener);
+                        });
+                    }
+                } else {
+                    console.error('Geocoding failed for address: ' + delivery.address + ', Status: ' + status);
+                    
+                    // Still count failed geocodes to complete the bounds fitting
+                    geocodedCount++;
+                    if (geocodedCount === window.deliveriesData.length) {
+                        bounds.extend(depotMarker.getPosition());
+                        if (!bounds.isEmpty()) {
+                            map.fitBounds(bounds);
+                        }
+                    }
+                }
+            });
+        } else {
+            console.warn('No address provided for delivery:', delivery);
+            geocodedCount++;
+        }
     });
 }
 
