@@ -110,6 +110,20 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
     // New route planner page
     Route::get('/deliveries/route-planner', [\App\Http\Controllers\Admin\RouteController::class, 'index'])->name('admin.route-planner');
     
+    // Backup management routes
+    Route::prefix('backups')->name('admin.backups.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Admin\BackupController::class, 'index'])->name('index');
+        Route::post('/create', [App\Http\Controllers\Admin\BackupController::class, 'create'])->name('create');
+        Route::post('/rename/{filename}', [App\Http\Controllers\Admin\BackupController::class, 'rename'])->name('rename');
+        Route::delete('/delete/{filename}', [App\Http\Controllers\Admin\BackupController::class, 'delete'])->name('delete');
+        Route::get('/download/{filename}', [App\Http\Controllers\Admin\BackupController::class, 'download'])->name('download');
+        Route::post('/schedule', [App\Http\Controllers\Admin\BackupController::class, 'updateSchedule'])->name('schedule');
+        Route::get('/status', [App\Http\Controllers\Admin\BackupController::class, 'status'])->name('status');
+        Route::post('/upload', [App\Http\Controllers\Admin\BackupController::class, 'upload'])->name('upload');
+        Route::get('/preview/{filename}', [App\Http\Controllers\Admin\BackupController::class, 'preview'])->name('preview');
+        Route::post('/restore/{filename}', [App\Http\Controllers\Admin\BackupController::class, 'restore'])->name('restore');
+    });
+    
     // Print packing slips
     Route::get('/deliveries/print', [App\Http\Controllers\Admin\DeliveryController::class, 'print'])->name('admin.deliveries.print');
     
@@ -179,6 +193,33 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         // Redirect to route planner with the delivery IDs
         return redirect()->route('admin.routes.index', ['delivery_ids' => $correctIds]);
     })->name('test.route-planner');
+
+    // Debug backup list
+    Route::get('/debug-backup-list', function() {
+        $controller = new \App\Http\Controllers\Admin\BackupController();
+        
+        try {
+            $reflection = new ReflectionClass($controller);
+            $method = $reflection->getMethod('getBackupList');
+            $method->setAccessible(true);
+            
+            $backups = $method->invoke($controller);
+            
+            return response()->json([
+                'success' => true,
+                'backup_count' => count($backups),
+                'backups' => $backups,
+                'storage_path' => storage_path('app/backups'),
+                'files_in_directory' => \Illuminate\Support\Facades\Storage::disk('local')->files('backups')
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    })->name('debug.backup-list');
 
     // Subscription management endpoint
     Route::get('/manage-subscription/{email}', [DeliveryController::class, 'manageSubscription'])->name('manage.subscription');

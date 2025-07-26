@@ -307,6 +307,11 @@
                 <span>Customer Management</span>
             </a>
             
+            <a href="/admin/routes" class="nav-link {{ request()->is('admin/routes*') ? 'active' : '' }}">
+                <i class="fas fa-route"></i>
+                <span>Route Planner</span>
+            </a>
+            
             <div class="nav-section">Analytics</div>
             <a href="/admin/reports" class="nav-link {{ request()->is('admin/reports*') ? 'active' : '' }}">
                 <i class="fas fa-chart-bar"></i>
@@ -327,6 +332,11 @@
             <a href="/admin/logs" class="nav-link {{ request()->is('admin/logs*') ? 'active' : '' }}">
                 <i class="fas fa-file-alt"></i>
                 <span>System Logs</span>
+            </a>
+            
+            <a href="/admin/backups" class="nav-link {{ request()->is('admin/backups*') ? 'active' : '' }}">
+                <i class="fas fa-database"></i>
+                <span>Backup Management</span>
             </a>
             
             <div class="nav-section">External</div>

@@ -14,6 +14,8 @@ class Kernel extends ConsoleKernel
      */
     protected $commands = [
         Commands\ManageSubscription::class,
+        Commands\RunScheduledBackup::class,
+        Commands\AutoBackup::class,
     ];
 
     /**
@@ -24,7 +26,17 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        // $schedule->command('inspire')->hourly();
+        // Run backup check every hour to catch scheduled times
+        $schedule->command('backup:run')
+                 ->hourly()
+                 ->withoutOverlapping()
+                 ->runInBackground();
+                 
+        // Run automatic backups daily at 2 AM (configurable)
+        $schedule->command('backup:auto')
+                 ->dailyAt('02:00')
+                 ->withoutOverlapping()
+                 ->runInBackground();
     }
 
     /**
