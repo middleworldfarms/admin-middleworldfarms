@@ -36,11 +36,21 @@
                                 <div class="card">
                                     <div class="card-header">
                                         <h5><i class="fas fa-truck"></i> Deliveries ({{ count($deliveries) }})</h5>
-                                        <button type="button" class="btn btn-primary btn-sm" onclick="optimizeRouteEnhanced()">
-                                            <i class="fas fa-magic"></i> Optimize Route (WP Go Maps Pro)
+                                        <button type="button" id="btn-optimize-enhanced" class="btn btn-primary btn-sm" onclick="optimizeRouteEnhanced()">
+                                            <span class="btn-text">
+                                                <i class="fas fa-magic"></i> Optimize Route (WP Go Maps Pro)
+                                            </span>
+                                            <span class="btn-loading" style="display: none;">
+                                                <i class="fas fa-spinner fa-spin"></i> Optimizing...
+                                            </span>
                                         </button>
-                                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="optimizeRoute()">
-                                            <i class="fas fa-route"></i> Standard Optimize
+                                        <button type="button" id="btn-optimize-standard" class="btn btn-outline-primary btn-sm" onclick="optimizeRoute()">
+                                            <span class="btn-text">
+                                                <i class="fas fa-route"></i> Standard Optimize
+                                            </span>
+                                            <span class="btn-loading" style="display: none;">
+                                                <i class="fas fa-spinner fa-spin"></i> Optimizing...
+                                            </span>
                                         </button>
                                     </div>
                                     <div class="card-body" style="max-height: 400px; overflow-y: auto;">
@@ -96,6 +106,20 @@
                                             <button type="button" class="btn btn-info" onclick="sendToDriverSMS()">
                                                 <i class="fas fa-sms"></i> Send SMS
                                             </button>
+                                        </div>
+                                        
+                                        <!-- Google Maps Actions -->
+                                        <div class="mt-3">
+                                            <hr>
+                                            <h6><i class="fab fa-google"></i> Google Maps Actions</h6>
+                                            <div class="btn-group w-100">
+                                                <button type="button" class="btn btn-outline-primary" onclick="openInGoogleMaps()">
+                                                    <i class="fas fa-external-link-alt"></i> Open in Google Maps
+                                                </button>
+                                                <button type="button" class="btn btn-outline-secondary" onclick="shareRouteLink()">
+                                                    <i class="fas fa-share"></i> Share Route Link
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -165,11 +189,38 @@
     </div>
 </div>
 
+<style>
+/* Loading button animations */
+.btn-loading .fa-spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Additional pulse effect for the button when loading */
+.btn:disabled .btn-loading {
+    animation: pulse 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.6; }
+    100% { opacity: 1; }
+}
+</style>
+
 <!-- Hidden data -->
 <script>
 window.deliveriesData = @json($deliveries ?? []);
 window.googleMapsKey = '{{ $google_maps_key ?? '' }}';
 window.deliveryDate = '{{ $delivery_date }}';
+
+// Debug CSRF token
+console.log('CSRF Token available:', !!document.querySelector('meta[name="csrf-token"]'));
+console.log('CSRF Token value:', document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'));
+console.log('Deliveries data loaded:', window.deliveriesData?.length || 0, 'deliveries');
 </script>
 @endsection
 
@@ -187,7 +238,7 @@ let optimizedRoute = null;
 function initMap() {
     map = new google.maps.Map(document.getElementById('map'), {
         zoom: 11,
-        center: { lat: 53.2307, lng: -0.5406 } // Lincoln, Lincolnshire center
+        center: { lat: 53.214542, lng: -0.421672 } // Middle World Farms driveway
     });
 
     directionsService = new google.maps.DirectionsService();
@@ -209,11 +260,11 @@ function loadMapMarkers() {
         return;
     }
 
-    // Add depot marker (Middleworld Farms location - adjust coordinates as needed)
+    // Add depot marker (Middle World Farms location)
     const depotMarker = new google.maps.Marker({
-        position: { lat: 53.2307, lng: -0.5406 }, // Lincoln area - adjust to your farm location
+        position: { lat: 53.214542, lng: -0.421672 }, // Middle World Farms driveway
         map: map,
-        title: 'Middleworld Farms (Depot)',
+        title: 'Middle World Farms (Depot)',
         icon: {
             url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
                 <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
@@ -315,25 +366,36 @@ function clearMarkers() {
 
 // Optimize route
 function optimizeRoute() {
+    console.log('optimizeRoute() called');
+    
     if (!window.deliveriesData || window.deliveriesData.length === 0) {
+        console.log('No deliveries data available');
         alert('No deliveries to optimize');
         return;
     }
 
-    showLoading('Optimizing route...');
+    console.log('Starting optimization with', window.deliveriesData.length, 'deliveries');
+    showLoading('Optimizing route...', 'btn-optimize-standard');
+
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    console.log('CSRF token for request:', csrfToken);
 
     fetch('/admin/routes/optimize', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            'X-CSRF-TOKEN': csrfToken
         },
         body: JSON.stringify({
             deliveries: window.deliveriesData
         })
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('Response status:', response.status);
+        return response.json();
+    })
     .then(data => {
+        console.log('Optimization response:', data);
         hideLoading();
         
         if (data.success) {
@@ -385,9 +447,90 @@ function updateDeliveriesList(optimizedDeliveries) {
 
 // Update route on map
 function updateRouteMap(routeData) {
-    // This would show the optimized route on the map
-    // For now, we'll just update the summary
-    console.log('Route data:', routeData);
+    console.log('Updating map with route data:', routeData);
+    
+    if (!routeData || !routeData.optimized_deliveries || !map) {
+        console.log('Missing route data or map not initialized');
+        return;
+    }
+
+    // Clear existing route
+    if (directionsRenderer) {
+        directionsRenderer.setMap(null);
+    }
+    
+    // Create new directions renderer for the optimized route
+    directionsRenderer = new google.maps.DirectionsRenderer({
+        draggable: false,
+        suppressMarkers: false,
+        polylineOptions: {
+            strokeColor: '#007bff',
+            strokeWeight: 4,
+            strokeOpacity: 0.8
+        }
+    });
+    directionsRenderer.setMap(map);
+
+    // Build waypoints for the route
+    const deliveries = routeData.optimized_deliveries;
+    if (deliveries.length < 2) {
+        console.log('Need at least 2 deliveries for route');
+        return;
+    }
+
+    // Start from depot (Middle World Farms)
+    const origin = { lat: 53.214542, lng: -0.421672 }; // Middle World Farms driveway
+    const destination = origin; // Return to depot
+    
+    // Create waypoints from delivery addresses
+    const waypoints = [];
+    
+    // Use the geocoded positions from our markers, or geocode if needed
+    deliveries.forEach((delivery, index) => {
+        if (delivery.address) {
+            // For now, we'll use geocoding service for each address
+            // In a real implementation, you might want to cache these coordinates
+            waypoints.push({
+                location: delivery.address,
+                stopover: true
+            });
+        }
+    });
+
+    if (waypoints.length === 0) {
+        console.log('No valid waypoints found');
+        return;
+    }
+
+    // Calculate and display route
+    directionsService.route({
+        origin: origin,
+        destination: destination,
+        waypoints: waypoints,
+        optimizeWaypoints: false, // We already optimized the order
+        travelMode: google.maps.TravelMode.DRIVING,
+        avoidTolls: true,
+        avoidHighways: false
+    }, (result, status) => {
+        if (status === 'OK') {
+            directionsRenderer.setDirections(result);
+            
+            // Store route for Google Maps integration
+            window.currentRoute = {
+                directions: result,
+                deliveries: deliveries,
+                routeData: routeData
+            };
+            
+            console.log('Route displayed successfully');
+        } else {
+            console.error('Directions request failed due to ' + status);
+            
+            // Fallback: just show markers without route line
+            console.log('Falling back to marker-only display');
+            loadMapMarkers();
+        }
+    });
 }
 
 // Show route actions panel
@@ -498,14 +641,37 @@ function loadDeliveriesForDate(date) {
 }
 
 // Loading helpers
-function showLoading(message) {
-    // You can implement a loading overlay here
+function showLoading(message, buttonId) {
     console.log('Loading:', message);
+    
+    // Disable and show loading state for the specific button
+    if (buttonId) {
+        const button = document.getElementById(buttonId);
+        if (button) {
+            button.disabled = true;
+            button.querySelector('.btn-text').style.display = 'none';
+            button.querySelector('.btn-loading').style.display = 'inline';
+        }
+    }
+    
+    // Also disable both buttons to prevent multiple requests
+    document.getElementById('btn-optimize-enhanced').disabled = true;
+    document.getElementById('btn-optimize-standard').disabled = true;
 }
 
 function hideLoading() {
-    // Hide loading overlay
     console.log('Loading complete');
+    
+    // Re-enable and hide loading state for both buttons
+    const buttons = ['btn-optimize-enhanced', 'btn-optimize-standard'];
+    buttons.forEach(buttonId => {
+        const button = document.getElementById(buttonId);
+        if (button) {
+            button.disabled = false;
+            button.querySelector('.btn-text').style.display = 'inline';
+            button.querySelector('.btn-loading').style.display = 'none';
+        }
+    });
 }
 
 // Create shareable WP Go Maps map
@@ -553,12 +719,16 @@ function createShareableMap() {
 
 // Enhanced route optimization with WP Go Maps data
 function optimizeRouteEnhanced() {
+    console.log('optimizeRouteEnhanced() called');
+    
     if (!window.deliveriesData || window.deliveriesData.length === 0) {
+        console.log('No deliveries data available for enhanced optimization');
         alert('No deliveries to optimize');
         return;
     }
 
-    showLoading('Optimizing route with WP Go Maps Pro...');
+    console.log('Starting enhanced optimization with', window.deliveriesData.length, 'deliveries');
+    showLoading('Optimizing route with WP Go Maps Pro...', 'btn-optimize-enhanced');
 
     // First, get WP Go Maps data for customers
     const customerEmails = window.deliveriesData
@@ -624,6 +794,71 @@ function optimizeRouteEnhanced() {
         console.log('Falling back to standard optimization...');
         optimizeRoute();
     });
+}
+
+// Google Maps Integration Functions
+function openInGoogleMaps() {
+    if (!window.currentRoute || !window.currentRoute.deliveries) {
+        alert('Please optimize route first');
+        return;
+    }
+
+    const deliveries = window.currentRoute.deliveries;
+    const depot = "Middle World Farms, LN4 1AQ, UK";
+    
+    // Build Google Maps URL with waypoints
+    let url = "https://www.google.com/maps/dir/";
+    
+    // Start from depot
+    url += encodeURIComponent(depot);
+    
+    // Add each delivery address as waypoint
+    deliveries.forEach(delivery => {
+        if (delivery.address) {
+            url += "/" + encodeURIComponent(delivery.address);
+        }
+    });
+    
+    // Return to depot
+    url += "/" + encodeURIComponent(depot);
+    
+    // Open in new tab
+    window.open(url, '_blank');
+}
+
+function shareRouteLink() {
+    if (!window.currentRoute || !window.currentRoute.deliveries) {
+        alert('Please optimize route first');
+        return;
+    }
+
+    const deliveries = window.currentRoute.deliveries;
+    const depot = "Middle World Farms, LN4 1AQ, UK";
+    
+    // Build shareable Google Maps URL
+    let url = "https://www.google.com/maps/dir/";
+    url += encodeURIComponent(depot);
+    
+    deliveries.forEach(delivery => {
+        if (delivery.address) {
+            url += "/" + encodeURIComponent(delivery.address);
+        }
+    });
+    
+    url += "/" + encodeURIComponent(depot);
+    
+    // Copy to clipboard
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(() => {
+            alert('Route link copied to clipboard!');
+        }).catch(() => {
+            // Fallback - show in prompt
+            prompt('Copy this route link:', url);
+        });
+    } else {
+        // Fallback for older browsers
+        prompt('Copy this route link:', url);
+    }
 }
 
 // ...existing functions...

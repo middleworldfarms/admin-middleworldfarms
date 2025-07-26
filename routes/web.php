@@ -171,6 +171,15 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         ]);
     })->name('debug.route-addresses');
 
+    // Test route planner with this week's deliveries
+    Route::get('/test-route-planner', function() {
+        // The 4 correct delivery IDs for this week
+        $correctIds = '227748,227726,227673,227581';
+        
+        // Redirect to route planner with the delivery IDs
+        return redirect()->route('admin.routes.index', ['delivery_ids' => $correctIds]);
+    })->name('test.route-planner');
+
     // Subscription management endpoint
     Route::get('/manage-subscription/{email}', [DeliveryController::class, 'manageSubscription'])->name('manage.subscription');
 });
