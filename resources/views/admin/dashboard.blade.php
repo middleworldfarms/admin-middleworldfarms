@@ -465,31 +465,50 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function initFarmOSMap() {
-        var map = L.map('farmos-map').setView([52.5, -0.5], 12);
+        var map = L.map('farmos-map').setView([53.215252, -0.419950], 15); // Middle World Farms front gates
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
         fetch('/admin/farmos-map-data')
-            .then(function(response) { return response.json(); })
+            .then(function(response) { 
+                console.log('farmOS map response status:', response.status);
+                return response.json(); 
+            })
             .then(function(data) {
+                console.log('farmOS map data received:', data);
                 if (!data || !data.features || !Array.isArray(data.features)) {
-                    showMapError('No geometry data received from FarmOS.');
+                    console.warn('Invalid or empty features data:', data);
+                    if (data && data.warning) {
+                        showMapError('Warning: ' + data.warning);
+                    } else if (data && data.error) {
+                        showMapError('Error: ' + data.error);
+                    } else {
+                        showMapError('No geometry data received from FarmOS.');
+                    }
                     return;
                 }
+                console.log('Adding', data.features.length, 'features to map');
                 var geojson = L.geoJSON(data, {
                     style: function(feature) {
                         return { color: '#27ae60', weight: 2, fillOpacity: 0.2 };
                     },
                     onEachFeature: function(feature, layer) {
                         if (feature.properties && feature.properties.name) {
-                            layer.bindPopup(feature.properties.name);
+                            var popupContent = feature.properties.name;
+                            if (feature.properties.note) {
+                                popupContent += '<br><small>' + feature.properties.note + '</small>';
+                            }
+                            layer.bindPopup(popupContent);
                         }
                     }
                 }).addTo(map);
                 if (geojson.getBounds && geojson.getBounds().isValid()) {
                     map.fitBounds(geojson.getBounds());
+                } else {
+                    console.log('Using default zoom for Lincoln area');
+                    map.setView([53.215252, -0.419950], 15); // Middle World Farms front gates
                 }
             })
             .catch(function(err) {

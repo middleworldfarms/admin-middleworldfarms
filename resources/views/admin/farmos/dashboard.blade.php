@@ -126,6 +126,9 @@
                         <a href="{{ route('admin.farmos.crop-plans') }}" class="btn btn-outline-warning">
                             <i class="fas fa-calendar-alt"></i> Crop Planning
                         </a>
+                        <a href="{{ route('admin.farmos.gantt-chart') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-chart-gantt"></i> Timeline View
+                        </a>
                     </div>
                 </div>
             </div>
