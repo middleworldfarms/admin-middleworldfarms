@@ -323,6 +323,27 @@
                 <span>Analytics</span>
             </a>
             
+            <div class="nav-section">Farm Management</div>
+            <a href="/admin/farmos" class="nav-link {{ request()->is('admin/farmos') ? 'active' : '' }}">
+                <i class="fas fa-seedling"></i>
+                <span>farmOS Dashboard</span>
+            </a>
+            
+            <a href="/admin/farmos/planting-chart" class="nav-link {{ request()->is('admin/farmos/planting-chart*') ? 'active' : '' }}">
+                <i class="fas fa-calendar-alt"></i>
+                <span>Planting Chart</span>
+            </a>
+            
+            <a href="/admin/farmos/crop-plans" class="nav-link {{ request()->is('admin/farmos/crop-plans*') ? 'active' : '' }}">
+                <i class="fas fa-tasks"></i>
+                <span>Crop Plans</span>
+            </a>
+            
+            <a href="/admin/farmos/harvests" class="nav-link {{ request()->is('admin/farmos/harvests*') ? 'active' : '' }}">
+                <i class="fas fa-apple-alt"></i>
+                <span>Harvest Logs</span>
+            </a>
+            
             <div class="nav-section">System</div>
             <a href="/admin/settings" class="nav-link {{ request()->is('admin/settings*') ? 'active' : '' }}">
                 <i class="fas fa-cog"></i>
