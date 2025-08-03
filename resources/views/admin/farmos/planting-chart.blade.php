@@ -193,8 +193,8 @@
         <div class="col-md-3">
             <div class="card">
                 <div class="card-body text-center">
-                    <h5 class="card-title text-warning" id="availableBeds">-</h5>
-                    <p class="card-text text-muted">Available Beds</p>
+                    <h5 class="card-title text-warning" id="totalPlans">-</h5>
+                    <p class="card-text text-muted">Total Plans</p>
                 </div>
             </div>
         </div>
@@ -238,14 +238,14 @@ document.addEventListener('DOMContentLoaded', function() {
 function showTestDataWithoutGantt() {
     document.getElementById('chartContainer').innerHTML = `
         <div class="alert alert-info">
-            <h5>Demo Timeline Data</h5>
-            <p>Frappe Gantt library couldn't load, but here's what your timeline would show:</p>
+            <h5>Demo Planting Timeline Data</h5>
+            <p>Chart library couldn't load, but here's what your planting timeline would show:</p>
             <ul>
-                <li><strong>Block 1:</strong> Lettuce (Seeding: Jul 20 - Aug 5, Growing: Aug 5 - Sep 10)</li>
-                <li><strong>Block 2:</strong> Tomato (Growing: Jul 1 - Sep 30)</li>
-                <li><strong>Block 3:</strong> Carrot (Seeding: Aug 5 - Aug 12, Growing: Aug 12 - Oct 15)</li>
+                <li><strong>Block 1 - Lettuce:</strong> Seeding: Jul 20, Transplant: Aug 5, Harvest: Sep 10-20</li>
+                <li><strong>Block 2 - Tomato:</strong> Seeding: Jul 1, Transplant: Jul 15, Harvest: Sep 1-30</li>
+                <li><strong>Block 3 - Carrot:</strong> Seeding: Aug 15, Harvest: Nov 1-15</li>
             </ul>
-            <p><small>Try refreshing the page or check your internet connection.</small></p>
+            <p><small>Try refreshing the page or check your internet connection to load the interactive timeline.</small></p>
         </div>
     `;
     document.getElementById('chartContainer').style.display = 'block';
@@ -271,83 +271,97 @@ function setupEventListeners() {
 
 function initializeChart() {
     showLoading(true);
-    const params = new URLSearchParams({
-        location: document.getElementById('locationFilter').value,
-        crop_type: document.getElementById('cropTypeFilter').value,
-        start_date: document.getElementById('startDate').value,
-        end_date: document.getElementById('endDate').value
-    });
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-    fetch(`{{ route('admin.farmos.gantt-data') }}?${params}`, {
-        method: 'GET',
-        headers: {
-            'Accept': 'application/json',
-            'X-CSRF-TOKEN': '{{ csrf_token() }}',
-            'X-Requested-With': 'XMLHttpRequest'
-        },
-        credentials: 'same-origin',
-        signal: controller.signal
-    })
-    .then(response => {
-        clearTimeout(timeoutId);
-        if (response.url.includes('/login') || response.status === 302) {
-            throw new Error('Authentication required. Please refresh the page and log in.');
-        }
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        return response.json();
-    })
-    .then(data => {
-        currentData = data;
-        if (data.data && Object.keys(data.data).length > 0) {
-            renderGanttChart(data.data);
-            updateStats(data.data);
+    
+    try {
+        // Use the crop plans data passed from the controller instead of fetching
+        const cropPlansData = @json($cropPlans ?? []);
+        
+        if (cropPlansData && cropPlansData.length > 0) {
+            renderPlantingChart(cropPlansData);
+            updateStats(cropPlansData);
             showChart();
         } else {
             showNoData();
         }
-    })
-    .catch(error => {
+    } catch (error) {
         showError(`Failed to load chart data: ${error.message}`);
-    })
-    .finally(() => {
+    } finally {
         showLoading(false);
-    });
+    }
 }
 
-function renderGanttChart(data) {
+function renderPlantingChart(cropPlans) {
     const chartContainer = document.getElementById('plantingChart');
     chartContainer.innerHTML = '';
+    
+    if (!cropPlans || cropPlans.length === 0) {
+        showNoData();
+        return;
+    }
+    
+    // Create a simple timeline chart using crop plans data
     const tasks = [];
     let taskId = 1;
-    Object.keys(data).forEach(location => {
-        const activities = data[location] || [];
-        activities.forEach(activity => {
-            const task = {
+    
+    cropPlans.forEach(plan => {
+        // Create tasks for different phases of the crop plan
+        if (plan.planned_seed_date) {
+            tasks.push({
                 id: `task-${taskId++}`,
-                name: `${activity.crop} (${activity.type})`,
-                start: activity.start,
-                end: activity.end,
-                progress: activity.type === 'harvest' ? 100 : activity.type === 'growing' ? 50 : 25,
-                custom_class: `gantt-bar-${activity.type}`,
-                location: location,
-                crop: activity.crop,
-                variety: activity.variety || 'N/A',
-                phase: activity.type
-            };
-            tasks.push(task);
-        });
+                name: `${plan.crop_type || plan.crop_name || 'Unknown'} - Seeding`,
+                start: plan.planned_seed_date,
+                end: plan.planned_transplant_date || plan.planned_seed_date,
+                progress: 25,
+                custom_class: 'gantt-bar-seeding',
+                location: plan.location || 'Unknown',
+                crop: plan.crop_type || plan.crop_name || 'Unknown',
+                variety: plan.variety || 'N/A',
+                phase: 'seeding'
+            });
+        }
+        
+        if (plan.planned_transplant_date) {
+            tasks.push({
+                id: `task-${taskId++}`,
+                name: `${plan.crop_type || plan.crop_name || 'Unknown'} - Transplanting`,
+                start: plan.planned_transplant_date,
+                end: plan.planned_harvest_start || plan.planned_transplant_date,
+                progress: 50,
+                custom_class: 'gantt-bar-transplant',
+                location: plan.location || 'Unknown',
+                crop: plan.crop_type || plan.crop_name || 'Unknown',
+                variety: plan.variety || 'N/A',
+                phase: 'transplanting'
+            });
+        }
+        
+        if (plan.planned_harvest_start) {
+            tasks.push({
+                id: `task-${taskId++}`,
+                name: `${plan.crop_type || plan.crop_name || 'Unknown'} - Harvest`,
+                start: plan.planned_harvest_start,
+                end: plan.planned_harvest_end || plan.planned_harvest_start,
+                progress: 100,
+                custom_class: 'gantt-bar-harvest',
+                location: plan.location || 'Unknown',
+                crop: plan.crop_type || plan.crop_name || 'Unknown',
+                variety: plan.variety || 'N/A',
+                phase: 'harvest'
+            });
+        }
     });
+    
     if (tasks.length === 0) {
         showNoData();
         return;
     }
-    gantt = new Gantt('#plantingChart', tasks, {
-        view_mode: 'Month',
-        date_format: 'YYYY-MM-DD',
-        language: 'en',
+    
+    // Use Frappe Gantt to display the timeline
+    try {
+        gantt = new Gantt('#plantingChart', tasks, {
+            view_mode: 'Month',
+            date_format: 'YYYY-MM-DD',
+            language: 'en',
         custom_popup_html: function(task) {
             const startDate = new Date(task.start).toLocaleDateString();
             const endDate = new Date(task.end).toLocaleDateString();
@@ -394,34 +408,40 @@ function changeView(view) {
     }
 }
 
-function updateStats(data) {
+function updateStats(cropPlans) {
     let activePlantings = 0;
     let upcomingHarvests = 0;
-    let availableBeds = 0;
+    let totalPlans = 0;
     const now = new Date();
     const twoWeeksFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
-    Object.keys(data).forEach(location => {
-        const activities = data[location] || [];
-        let hasActivity = false;
-        activities.forEach(activity => {
-            const startDate = new Date(activity.start);
-            const endDate = new Date(activity.end);
-            if (activity.type === 'growing' && startDate <= now && endDate >= now) {
+    
+    if (cropPlans && Array.isArray(cropPlans)) {
+        totalPlans = cropPlans.length;
+        
+        cropPlans.forEach(plan => {
+            // Count active plantings (those currently growing)
+            if (plan.status === 'growing' || plan.status === 'active' || plan.status === 'in_progress') {
                 activePlantings++;
-                hasActivity = true;
             }
-            if (activity.type === 'harvest' && startDate >= now && startDate <= twoWeeksFromNow) {
-                upcomingHarvests++;
-                hasActivity = true;
+            
+            // Count upcoming harvests (planned within 2 weeks)
+            if (plan.planned_harvest_start) {
+                const harvestDate = new Date(plan.planned_harvest_start);
+                if (harvestDate >= now && harvestDate <= twoWeeksFromNow) {
+                    upcomingHarvests++;
+                }
             }
         });
-        if (!hasActivity) {
-            availableBeds++;
-        }
-    });
+    }
+    
+    // Update stats display
     document.getElementById('activePlantings').textContent = activePlantings;
     document.getElementById('upcomingHarvests').textContent = upcomingHarvests;
-    document.getElementById('availableBeds').textContent = availableBeds;
+    document.getElementById('totalPlans').textContent = totalPlans;
+    
+    // Update total blocks (locations) from the locations data
+    const totalLocations = @json(count($locations ?? []));
+    document.getElementById('totalBlocks').textContent = totalLocations;
 }
 
 function showCropDetails(task) {
@@ -456,43 +476,44 @@ function showError(message) {
 }
 
 function showTestData() {
-    const testData = {
-        'Block 1': [
-            {
-                id: 'test_lettuce_seeding',
-                type: 'seeding',
-                crop: 'lettuce',
-                variety: 'Butter Lettuce',
-                start: '2025-07-20',
-                end: '2025-08-05',
-                color: '#28a745',
-                label: 'Lettuce (Seeding)'
-            },
-            {
-                id: 'test_lettuce_growing',
-                type: 'growing', 
-                crop: 'lettuce',
-                variety: 'Butter Lettuce',
-                start: '2025-08-05',
-                end: '2025-09-10',
-                color: '#007bff',
-                label: 'Lettuce (Growing)'
-            }
-        ],
-        'Block 2': [
-            {
-                id: 'test_tomato_growing',
-                type: 'growing',
-                crop: 'tomato',
-                variety: 'Cherry Tomato',
-                start: '2025-07-01',
-                end: '2025-09-30',
-                color: '#007bff',
-                label: 'Tomato (Growing)'
-            }
-        ]
-    };
-    renderGanttChart(testData);
+    const testData = [
+        {
+            id: 1,
+            crop_type: 'lettuce',
+            crop_name: 'Butter Lettuce',
+            variety: 'Butter Lettuce',
+            location: 'Block 1',
+            status: 'growing',
+            planned_seed_date: '2025-07-20',
+            planned_transplant_date: '2025-08-05',
+            planned_harvest_start: '2025-09-10',
+            planned_harvest_end: '2025-09-20'
+        },
+        {
+            id: 2,
+            crop_type: 'tomato',
+            crop_name: 'Cherry Tomato',
+            variety: 'Cherry Tomato',
+            location: 'Block 2',
+            status: 'active',
+            planned_seed_date: '2025-07-01',
+            planned_transplant_date: '2025-07-15',
+            planned_harvest_start: '2025-09-01',
+            planned_harvest_end: '2025-09-30'
+        },
+        {
+            id: 3,
+            crop_type: 'carrot',
+            crop_name: 'Rainbow Carrots',
+            variety: 'Rainbow Mix',
+            location: 'Block 3',
+            status: 'planned',
+            planned_seed_date: '2025-08-15',
+            planned_harvest_start: '2025-11-01',
+            planned_harvest_end: '2025-11-15'
+        }
+    ];
+    renderPlantingChart(testData);
     updateStats(testData);
     showChart();
 }

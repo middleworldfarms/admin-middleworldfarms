@@ -830,13 +830,13 @@ class FarmOSDataController extends Controller
             
             $usingFarmOSData = true;
             
-            return view('admin.farmos.planting-chart', compact(
-                'cropPlans',
-                'planningStats',
-                'farmOSCropTypes',
-                'farmOSLocations',
-                'usingFarmOSData'
-            ));
+            return view('admin.farmos.planting-chart')->with([
+                'cropPlans' => $cropPlans,
+                'planningStats' => $planningStats,
+                'cropTypes' => $farmOSCropTypes,
+                'locations' => $farmOSLocations,
+                'usingFarmOSData' => $usingFarmOSData
+            ]);
             
         } catch (\Exception $e) {
             Log::error('Failed to load planting chart: ' . $e->getMessage());
@@ -855,13 +855,13 @@ class FarmOSDataController extends Controller
             
             $usingFarmOSData = false;
             
-            return view('admin.farmos.planting-chart', compact(
-                'cropPlans',
-                'planningStats',
-                'farmOSCropTypes',
-                'farmOSLocations',
-                'usingFarmOSData'
-            ));
+            return view('admin.farmos.planting-chart')->with([
+                'cropPlans' => $cropPlans,
+                'planningStats' => $planningStats,
+                'cropTypes' => $farmOSCropTypes,
+                'locations' => $farmOSLocations,
+                'usingFarmOSData' => $usingFarmOSData
+            ]);
         }
     }
 }
