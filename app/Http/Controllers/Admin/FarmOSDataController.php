@@ -60,8 +60,24 @@ class FarmOSDataController extends Controller
                        strtotime($plan['planned_harvest_start']) <= strtotime('+14 days');
             })->take(10);
 
-            // Use farmOS data
-            $recentHarvests = collect($farmOSHarvests)->take(10);
+            // Use farmOS data but format it for the dashboard
+            $recentHarvests = collect($farmOSHarvests)->map(function($harvest) {
+                // Convert farmOS harvest data to expected format
+                if (is_array($harvest)) {
+                    return (object) [
+                        'crop_name' => $harvest['crop_name'] ?? $harvest['name'] ?? 'Unknown Crop',
+                        'crop_type' => $harvest['crop_type'] ?? null,
+                        'formatted_quantity' => $harvest['formatted_quantity'] ?? $harvest['quantity'] ?? 'N/A',
+                        'harvest_date' => isset($harvest['harvest_date']) ? 
+                            (is_string($harvest['harvest_date']) ? date('Y-m-d', strtotime($harvest['harvest_date'])) : $harvest['harvest_date']) :
+                            date('Y-m-d'),
+                        'is_today' => isset($harvest['harvest_date']) ? 
+                            date('Y-m-d', strtotime($harvest['harvest_date'])) === date('Y-m-d') : false,
+                        'synced_to_stock' => $harvest['synced_to_stock'] ?? false
+                    ];
+                }
+                return $harvest; // If already an object, return as-is
+            })->take(10);
             $lowStockItems = collect([]);
 
             // Check if we have live farmOS data

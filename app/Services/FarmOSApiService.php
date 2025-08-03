@@ -131,34 +131,84 @@ class FarmOSApiService
      */
     public function getHarvestLogs($since = null)
     {
-        $token = $this->authenticate();
-        if (!$token) {
-            return [];
-        }
-        
-        $url = '/api/log/harvest';
-        $params = [
-            'filter[status]' => 'done',
-            'include' => 'asset,quantity,quantity.units',
-            'sort' => '-timestamp'
-        ];
-
-        if ($since) {
-            $params['filter[timestamp][value]'] = $since;
-            $params['filter[timestamp][operator]'] = '>=';
-        }
-
         try {
-            $response = $this->client->get($url, [
-                'auth' => [$this->username, $this->password],
-                'query' => $params
-            ]);
+            $authSuccess = $this->authenticate();
+            if (!$authSuccess) {
+                Log::warning('FarmOS authentication failed for harvest logs');
+                return [];
+            }
+            
+            $headers = ['Accept' => 'application/vnd.api+json'];
+            $requestOptions = ['headers' => $headers];
+            
+            // Use OAuth2 token if available, otherwise fall back to basic auth
+            if ($this->token) {
+                $headers['Authorization'] = 'Bearer ' . $this->token;
+                $requestOptions['headers'] = $headers;
+            } else {
+                $requestOptions['auth'] = [$this->username, $this->password];
+            }
+            
+            $params = [
+                'filter[status]' => 'done',
+                'sort' => '-timestamp'
+            ];
 
-            return json_decode($response->getBody(), true);
+            if ($since) {
+                $params['filter[timestamp][value]'] = $since;
+                $params['filter[timestamp][operator]'] = '>=';
+            }
+            
+            $requestOptions['query'] = $params;
+
+            $response = $this->client->get('/api/log/harvest', $requestOptions);
+            $data = json_decode($response->getBody(), true);
+            
+            // Extract and format harvest data from JSON:API response
+            $harvestLogs = [];
+            if (isset($data['data']) && is_array($data['data'])) {
+                foreach ($data['data'] as $log) {
+                    $attributes = $log['attributes'] ?? [];
+                    
+                    $harvestLogs[] = [
+                        'id' => $log['id'] ?? '',
+                        'crop_name' => $attributes['name'] ?? 'Unknown Crop',
+                        'crop_type' => $this->extractCropTypeFromLog($log),
+                        'formatted_quantity' => $this->formatQuantityFromLog($log),
+                        'harvest_date' => $attributes['timestamp'] ?? date('c'),
+                        'synced_to_stock' => false, // farmOS logs don't have this concept
+                        'notes' => $attributes['notes']['value'] ?? '',
+                        'status' => $attributes['status'] ?? 'done'
+                    ];
+                }
+            }
+            
+            Log::info('FarmOS harvest logs loaded', [
+                'count' => count($harvestLogs),
+                'auth_method' => $this->token ? 'OAuth2' : 'Basic Auth'
+            ]);
+            
+            return $harvestLogs;
+
         } catch (\Exception $e) {
             Log::error('Failed to fetch harvest logs: ' . $e->getMessage());
             return [];
         }
+    }
+    
+    /**
+     * Format quantity information from harvest log
+     */
+    private function formatQuantityFromLog($log)
+    {
+        if (isset($log['relationships']['quantity']['data'])) {
+            $quantities = $log['relationships']['quantity']['data'];
+            if (!empty($quantities)) {
+                // For now, return a simple format - could be enhanced with actual quantity data
+                return count($quantities) . ' item(s)';
+            }
+        }
+        return 'N/A';
     }
 
     /**

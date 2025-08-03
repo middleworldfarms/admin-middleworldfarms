@@ -160,27 +160,68 @@
                                     @foreach($recentHarvests as $harvest)
                                     <tr>
                                         <td>
-                                            <strong>{{ $harvest->crop_name }}</strong>
-                                            @if($harvest->crop_type)
-                                                <br><small class="text-muted">{{ $harvest->crop_type }}</small>
-                                            @endif
-                                        </td>
-                                        <td>{{ $harvest->formatted_quantity }}</td>
-                                        <td>
-                                            {{ $harvest->harvest_date->format('M j') }}
-                                            @if($harvest->is_today)
-                                                <span class="badge bg-success">Today</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            @if($harvest->synced_to_stock)
-                                                <span class="badge bg-success">
-                                                    <i class="fas fa-check"></i> Synced
-                                                </span>
+                                            <strong>
+                                                @if(is_array($harvest))
+                                                    {{ $harvest['crop_name'] ?? $harvest['name'] ?? 'Unknown Crop' }}
+                                                @else
+                                                    {{ $harvest->crop_name ?? 'Unknown Crop' }}
+                                                @endif
+                                            </strong>
+                                            @if(is_array($harvest))
+                                                @if(isset($harvest['crop_type']) && $harvest['crop_type'])
+                                                    <br><small class="text-muted">{{ $harvest['crop_type'] }}</small>
+                                                @endif
                                             @else
-                                                <span class="badge bg-warning">
-                                                    <i class="fas fa-clock"></i> Pending
-                                                </span>
+                                                @if($harvest->crop_type)
+                                                    <br><small class="text-muted">{{ $harvest->crop_type }}</small>
+                                                @endif
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if(is_array($harvest))
+                                                {{ $harvest['formatted_quantity'] ?? $harvest['quantity'] ?? 'N/A' }}
+                                            @else
+                                                {{ $harvest->formatted_quantity ?? 'N/A' }}
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if(is_array($harvest))
+                                                @php
+                                                    $date = $harvest['harvest_date'] ?? $harvest['timestamp'] ?? $harvest['date'] ?? null;
+                                                    $dateObj = $date ? (is_string($date) ? \Carbon\Carbon::parse($date) : $date) : null;
+                                                @endphp
+                                                {{ $dateObj ? $dateObj->format('M j') : 'N/A' }}
+                                                @if($dateObj && $dateObj->isToday())
+                                                    <span class="badge bg-success">Today</span>
+                                                @endif
+                                            @else
+                                                {{ $harvest->harvest_date ? $harvest->harvest_date->format('M j') : 'N/A' }}
+                                                @if($harvest->is_today ?? false)
+                                                    <span class="badge bg-success">Today</span>
+                                                @endif
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if(is_array($harvest))
+                                                @if(isset($harvest['synced_to_stock']) && $harvest['synced_to_stock'])
+                                                    <span class="badge bg-success">
+                                                        <i class="fas fa-check"></i> Synced
+                                                    </span>
+                                                @else
+                                                    <span class="badge bg-warning">
+                                                        <i class="fas fa-clock"></i> Pending
+                                                    </span>
+                                                @endif
+                                            @else
+                                                @if($harvest->synced_to_stock ?? false)
+                                                    <span class="badge bg-success">
+                                                        <i class="fas fa-check"></i> Synced
+                                                    </span>
+                                                @else
+                                                    <span class="badge bg-warning">
+                                                        <i class="fas fa-clock"></i> Pending
+                                                    </span>
+                                                @endif
                                             @endif
                                         </td>
                                     </tr>
