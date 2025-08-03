@@ -362,28 +362,32 @@ function renderPlantingChart(cropPlans) {
             view_mode: 'Month',
             date_format: 'YYYY-MM-DD',
             language: 'en',
-        custom_popup_html: function(task) {
-            const startDate = new Date(task.start).toLocaleDateString();
-            const endDate = new Date(task.end).toLocaleDateString();
-            const duration = Math.ceil((new Date(task.end) - new Date(task.start)) / (1000 * 60 * 60 * 24));
-            return `
-                <div class="gantt-popup">
-                    <h6>${task.crop} - ${task.phase}</h6>
-                    <p><strong>Location:</strong> ${task.location}</p>
-                    <p><strong>Variety:</strong> ${task.variety}</p>
-                    <p><strong>Start:</strong> ${startDate}</p>
-                    <p><strong>End:</strong> ${endDate}</p>
-                    <p><strong>Duration:</strong> ${duration} days</p>
-                </div>
-            `;
-        },
-        on_click: function(task) {
-            showCropDetails(task);
-        },
-        on_date_change: function(task, start, end) {},
-        on_progress_change: function(task, progress) {},
-        on_view_change: function(mode) {}
-    });
+            custom_popup_html: function(task) {
+                const startDate = new Date(task.start).toLocaleDateString();
+                const endDate = new Date(task.end).toLocaleDateString();
+                const duration = Math.ceil((new Date(task.end) - new Date(task.start)) / (1000 * 60 * 60 * 24));
+                return `
+                    <div class="gantt-popup">
+                        <h6>${task.crop} - ${task.phase}</h6>
+                        <p><strong>Location:</strong> ${task.location}</p>
+                        <p><strong>Variety:</strong> ${task.variety}</p>
+                        <p><strong>Start:</strong> ${startDate}</p>
+                        <p><strong>End:</strong> ${endDate}</p>
+                        <p><strong>Duration:</strong> ${duration} days</p>
+                    </div>
+                `;
+            },
+            on_click: function(task) {
+                showCropDetails(task);
+            },
+            on_date_change: function(task, start, end) {},
+            on_progress_change: function(task, progress) {},
+            on_view_change: function(mode) {}
+        });
+    } catch (error) {
+        console.error('Error creating Gantt chart:', error);
+        showError('Failed to create chart visualization');
+    }
 }
 
 function applyFilters() {

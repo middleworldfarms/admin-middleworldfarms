@@ -143,6 +143,8 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         Route::post('/stock', [App\Http\Controllers\Admin\FarmOSDataController::class, 'storeStock'])->name('stock.store');
         Route::get('/crop-plans', [App\Http\Controllers\Admin\FarmOSDataController::class, 'cropPlans'])->name('crop-plans');
         Route::post('/crop-plans', [App\Http\Controllers\Admin\FarmOSDataController::class, 'storeCropPlan'])->name('crop-plans.store');
+        Route::get('/gantt-chart', [App\Http\Controllers\Admin\FarmOSDataController::class, 'ganttChart'])->name('gantt-chart');
+        Route::get('/gantt-data', [App\Http\Controllers\Admin\FarmOSDataController::class, 'ganttData'])->name('gantt-data');
         Route::post('/sync-harvests', [App\Http\Controllers\Admin\FarmOSDataController::class, 'syncHarvests'])->name('sync-harvests');
         Route::post('/sync-to-stock', [App\Http\Controllers\Admin\FarmOSDataController::class, 'syncToStock'])->name('sync-to-stock');
         Route::delete('/clear-test-data', [App\Http\Controllers\Admin\FarmOSDataController::class, 'clearTestData'])->name('clear-test-data');

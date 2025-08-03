@@ -830,13 +830,13 @@ class FarmOSDataController extends Controller
             
             $usingFarmOSData = true;
             
-            return view('admin.farmos.planting-chart')->with([
-                'cropPlans' => $cropPlans,
-                'planningStats' => $planningStats,
-                'cropTypes' => $farmOSCropTypes,
-                'locations' => $farmOSLocations,
-                'usingFarmOSData' => $usingFarmOSData
-            ]);
+            return view('admin.farmos.planting-chart', compact(
+                'cropPlans',
+                'planningStats',
+                'farmOSCropTypes',
+                'farmOSLocations',
+                'usingFarmOSData'
+            ));
             
         } catch (\Exception $e) {
             Log::error('Failed to load planting chart: ' . $e->getMessage());
@@ -855,13 +855,144 @@ class FarmOSDataController extends Controller
             
             $usingFarmOSData = false;
             
-            return view('admin.farmos.planting-chart')->with([
-                'cropPlans' => $cropPlans,
-                'planningStats' => $planningStats,
-                'cropTypes' => $farmOSCropTypes,
-                'locations' => $farmOSLocations,
-                'usingFarmOSData' => $usingFarmOSData
-            ]);
+            return view('admin.farmos.planting-chart', compact(
+                'cropPlans',
+                'planningStats',
+                'farmOSCropTypes',
+                'farmOSLocations',
+                'usingFarmOSData'
+            ));
         }
+    }   } catch (\Exception $e) {
+            Log::error('Failed to load planting chart: ' . $e->getMessage());
+            
+            // Fallback to local database
+            $cropPlans = CropPlan::orderBy('planned_harvest_start', 'asc')->get();
+            $farmOSCropTypes = ['lettuce', 'tomato', 'carrot', 'cabbage', 'potato'];
+            $farmOSLocations = ['Block 1', 'Block 2', 'Block 3', 'Block 4', 'Block 5'];
+            
+            $planningStats = [
+                'total_plans' => CropPlan::count(),
+                'planned' => CropPlan::where('status', 'planned')->count(),
+                'in_progress' => CropPlan::whereIn('status', ['seeded', 'transplanted', 'growing'])->count(),
+                'completed' => CropPlan::where('status', 'completed')->count(),
+            ];
+            
+            $usingFarmOSData = false;
+            
+            return view('admin.farmos.planting-chart', compact(
+                'cropPlans',
+                'planningStats',
+                'farmOSCropTypes',
+                'farmOSLocations',
+                'usingFarmOSData'
+            ));
+        }
+    }
+
+    /**
+     * Display the planting chart page (main timeline/planning view)
+     */
+    public function plantingChart(Request $request)
+    {
+        try {
+            // Get farmOS data for the planting chart
+            $cropPlans = $this->farmOSApi->getCropPlanningData();
+            $locations = $this->farmOSApi->getAvailableLocations();
+            $cropTypes = $this->farmOSApi->getAvailableCropTypes();
+            
+            // Transform farmOS data for the planting chart
+            $chartData = $this->transformPlantingChartData($cropPlans);
+            
+            $usingFarmOSData = true;
+            
+            return view('admin.farmos.planting-chart', compact(
+                'chartData',
+                'locations',
+                'cropTypes', 
+                'usingFarmOSData'
+            ));
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to load planting chart: ' . $e->getMessage());
+            
+            // Fallback to local data
+            $locations = ['Block 1', 'Block 2', 'Block 3', 'Block 4', 'Block 5'];
+            $cropTypes = ['lettuce', 'tomato', 'carrot', 'cabbage', 'potato'];
+            $chartData = $this->getFallbackPlantingData();
+            $usingFarmOSData = false;
+            
+            return view('admin.farmos.planting-chart', compact(
+                'chartData',
+                'locations',
+                'cropTypes',
+                'usingFarmOSData'
+            ));
+        }
+    }
+
+    /**
+     * Transform farmOS crop plans into planting chart format
+     */
+    private function transformPlantingChartData($cropPlans)
+    {
+        $chartData = [];
+        
+        foreach ($cropPlans as $plan) {
+            $item = [
+                'id' => $plan['farmos_asset_id'] ?? uniqid(),
+                'crop_type' => $plan['crop_type'] ?? 'Unknown',
+                'variety' => $plan['variety'] ?? '',
+                'location' => $plan['location'] ?? 'Unknown',
+                'status' => $plan['status'] ?? 'planned',
+                'planned_seeding_date' => $plan['planned_seeding_date'] ?? null,
+                'planned_transplant_date' => $plan['planned_transplant_date'] ?? null,
+                'planned_harvest_start' => $plan['planned_harvest_start'] ?? null,
+                'planned_harvest_end' => $plan['planned_harvest_end'] ?? null,
+                'notes' => $plan['notes'] ?? '',
+                'source' => 'farmOS'
+            ];
+            
+            $chartData[] = $item;
+        }
+        
+        return $chartData;
+    }
+
+    /**
+     * Get fallback planting data for testing
+     */
+    private function getFallbackPlantingData()
+    {
+        $now = date('Y-m-d');
+        
+        return [
+            [
+                'id' => 'test_lettuce_1',
+                'crop_type' => 'lettuce',
+                'variety' => 'Butter Lettuce',
+                'location' => 'Block 1',
+                'status' => 'growing',
+                'planned_seeding_date' => date('Y-m-d', strtotime('-2 weeks')),
+                'planned_transplant_date' => date('Y-m-d', strtotime('-1 week')),
+                'planned_harvest_start' => date('Y-m-d', strtotime('+3 weeks')),
+                'planned_harvest_end' => date('Y-m-d', strtotime('+5 weeks')),
+                'notes' => 'Test planting data',
+                'source' => 'fallback'
+            ],
+            [
+                'id' => 'test_tomato_1',
+                'crop_type' => 'tomato',
+                'variety' => 'Cherry Tomato',
+                'location' => 'Block 2',
+                'status' => 'planned',
+                'planned_seeding_date' => date('Y-m-d', strtotime('+1 week')),
+                'planned_transplant_date' => date('Y-m-d', strtotime('+4 weeks')),
+                'planned_harvest_start' => date('Y-m-d', strtotime('+12 weeks')),
+                'planned_harvest_end' => date('Y-m-d', strtotime('+16 weeks')),
+                'notes' => 'Summer tomatoes',
+                'source' => 'fallback'
+            ]
+        ];
     }
 }
