@@ -807,325 +807,61 @@ class FarmOSDataController extends Controller
     }
 
     /**
-     * Display the Gantt chart page
+     * Display the planting chart page
      */
-    public function ganttChart(Request $request)
+    public function plantingChart(Request $request)
     {
         try {
-            // Get locations and crop types for filters
-            $locations = $this->farmOSApi->getAvailableLocations();
-            $cropTypes = $this->farmOSApi->getAvailableCropTypes();
+            // Get farmOS data for the planting chart
+            $farmOSCropPlans = $this->farmOSApi->getCropPlanningData();
+            $farmOSCropTypes = $this->farmOSApi->getAvailableCropTypes();
+            $farmOSLocations = $this->farmOSApi->getAvailableLocations();
+            
+            // Convert farmOS data to collection for easier handling
+            $cropPlans = collect($farmOSCropPlans);
+            
+            // Calculate statistics
+            $planningStats = [
+                'total_plans' => $cropPlans->count(),
+                'planned' => $cropPlans->where('status', 'planned')->count(),
+                'in_progress' => $cropPlans->whereIn('status', ['seeded', 'transplanted', 'growing'])->count(),
+                'completed' => $cropPlans->where('status', 'completed')->count(),
+            ];
             
             $usingFarmOSData = true;
             
-            return view('admin.farmos.gantt-chart', compact(
-                'locations',
-                'cropTypes', 
+            return view('admin.farmos.planting-chart', compact(
+                'cropPlans',
+                'planningStats',
+                'farmOSCropTypes',
+                'farmOSLocations',
                 'usingFarmOSData'
             ));
             
         } catch (\Exception $e) {
-            Log::error('Failed to load Gantt chart page: ' . $e->getMessage());
+            Log::error('Failed to load planting chart: ' . $e->getMessage());
             
-            // Fallback to local data
-            $locations = ['Block 1', 'Block 2', 'Block 3', 'Block 4', 'Block 5'];
-            $cropTypes = ['lettuce', 'tomato', 'carrot', 'cabbage', 'potato'];
+            // Fallback to local database
+            $cropPlans = CropPlan::orderBy('planned_harvest_start', 'asc')->get();
+            $farmOSCropTypes = ['lettuce', 'tomato', 'carrot', 'cabbage', 'potato'];
+            $farmOSLocations = ['Block 1', 'Block 2', 'Block 3', 'Block 4', 'Block 5'];
+            
+            $planningStats = [
+                'total_plans' => CropPlan::count(),
+                'planned' => CropPlan::where('status', 'planned')->count(),
+                'in_progress' => CropPlan::whereIn('status', ['seeded', 'transplanted', 'growing'])->count(),
+                'completed' => CropPlan::where('status', 'completed')->count(),
+            ];
+            
             $usingFarmOSData = false;
             
-            return view('admin.farmos.gantt-chart', compact(
-                'locations',
-                'cropTypes',
+            return view('admin.farmos.planting-chart', compact(
+                'cropPlans',
+                'planningStats',
+                'farmOSCropTypes',
+                'farmOSLocations',
                 'usingFarmOSData'
             ));
         }
-    }
-
-    /**
-     * Get Gantt chart data as JSON
-     */
-    public function ganttData(Request $request)
-    {
-        try {
-            // Get farmOS data
-            $cropPlans = $this->farmOSApi->getCropPlanningData();
-            $harvestLogs = $this->farmOSApi->getHarvestLogs();
-            $locations = $this->farmOSApi->getAvailableLocations();
-            
-            // Apply filters
-            if ($request->filled('location')) {
-                $cropPlans = array_filter($cropPlans, function($plan) use ($request) {
-                    return $plan['location'] === $request->location;
-                });
-            }
-            
-            if ($request->filled('crop_type')) {
-                $cropPlans = array_filter($cropPlans, function($plan) use ($request) {
-                    return $plan['crop_type'] === $request->crop_type;
-                });
-            }
-            
-            // Filter by date range
-            $startDate = $request->get('start_date', now()->subMonths(2)->toDateString());
-            $endDate = $request->get('end_date', now()->addMonths(4)->toDateString());
-            
-            // Transform data for Gantt chart
-            $ganttData = $this->transformToGanttData($cropPlans, $harvestLogs, $locations, $startDate, $endDate);
-            
-            return response()->json([
-                'success' => true,
-                'data' => $ganttData,
-                'locations' => $locations,
-                'date_range' => ['start' => $startDate, 'end' => $endDate]
-            ]);
-            
-        } catch (\Exception $e) {
-            Log::error('Failed to get Gantt data: ' . $e->getMessage());
-            
-            // Return fallback/test data
-            return response()->json([
-                'success' => false,
-                'error' => $e->getMessage(),
-                'data' => $this->getFallbackGanttData(),
-                'locations' => ['Block 1', 'Block 2', 'Block 3', 'Block 4', 'Block 5']
-            ]);
-        }
-    }
-
-    /**
-     * Transform farmOS data into Gantt chart format
-     */
-    private function transformToGanttData($cropPlans, $harvestLogs, $locations, $startDate, $endDate)
-    {
-        $ganttData = [];
-        
-        // Ensure we have locations array
-        if (empty($locations)) {
-            $locations = ['Block 1', 'Block 2', 'Block 3', 'Block 4', 'Block 5'];
-        }
-        
-        // Group crop plans by location
-        $plansByLocation = [];
-        foreach ($cropPlans as $plan) {
-            $location = $plan['location'] ?? 'Unknown';
-            if (!isset($plansByLocation[$location])) {
-                $plansByLocation[$location] = [];
-            }
-            $plansByLocation[$location][] = $plan;
-        }
-        
-        // Create gantt bars for each location
-        foreach ($locations as $location) {
-            $locationPlans = $plansByLocation[$location] ?? [];
-            $ganttData[$location] = $this->createLocationGanttBars($locationPlans, $startDate, $endDate);
-        }
-        
-        // If no real data, add at least some demo data for visualization
-        if (empty(array_filter($ganttData))) {
-            $ganttData = $this->getFallbackGanttData();
-        }
-        
-        return $ganttData;
-    }
-
-    /**
-     * Create Gantt bars for a specific location
-     */
-    private function createLocationGanttBars($plans, $startDate, $endDate)
-    {
-        $bars = [];
-        
-        foreach ($plans as $plan) {
-            // Seeding period
-            if (!empty($plan['planned_seeding_date'])) {
-                $seedingStart = $plan['planned_seeding_date'];
-                $seedingEnd = $plan['planned_transplant_date'] ?? 
-                             date('Y-m-d', strtotime($seedingStart . ' + 3 weeks'));
-                
-                $bars[] = [
-                    'id' => $plan['farmos_asset_id'] . '_seeding',
-                    'type' => 'seeding',
-                    'crop' => $plan['crop_type'],
-                    'variety' => $plan['variety'] ?? '',
-                    'start' => $seedingStart,
-                    'end' => $seedingEnd,
-                    'color' => '#28a745', // Green
-                    'label' => $plan['crop_type'] . ' (Seeding)',
-                    'details' => $plan
-                ];
-            }
-            
-            // Growing period
-            if (!empty($plan['planned_transplant_date']) || !empty($plan['planned_seeding_date'])) {
-                $growingStart = $plan['planned_transplant_date'] ?? $plan['planned_seeding_date'];
-                $growingEnd = $plan['planned_harvest_start'] ?? 
-                             date('Y-m-d', strtotime($growingStart . ' + 8 weeks'));
-                
-                if ($growingStart && $growingEnd) {
-                    $bars[] = [
-                        'id' => $plan['farmos_asset_id'] . '_growing',
-                        'type' => 'growing',
-                        'crop' => $plan['crop_type'],
-                        'variety' => $plan['variety'] ?? '',
-                        'start' => $growingStart,
-                        'end' => $growingEnd,
-                        'color' => '#007bff', // Blue
-                        'label' => $plan['crop_type'] . ' (Growing)',
-                        'details' => $plan
-                    ];
-                }
-            }
-            
-            // Harvest period
-            if (!empty($plan['planned_harvest_start'])) {
-                $harvestStart = $plan['planned_harvest_start'];
-                $harvestEnd = $plan['planned_harvest_end'] ?? 
-                             date('Y-m-d', strtotime($harvestStart . ' + 2 weeks'));
-                
-                $bars[] = [
-                    'id' => $plan['farmos_asset_id'] . '_harvest',
-                    'type' => 'harvest',
-                    'crop' => $plan['crop_type'],
-                    'variety' => $plan['variety'] ?? '',
-                    'start' => $harvestStart,
-                    'end' => $harvestEnd,
-                    'color' => '#ffc107', // Yellow/Orange
-                    'label' => $plan['crop_type'] . ' (Harvest)',
-                    'details' => $plan
-                ];
-            }
-        }
-        
-        return $bars;
-    }
-
-    /**
-     * Get fallback Gantt data for testing
-     */
-    private function getFallbackGanttData()
-    {
-        $now = now();
-        
-        return [
-            'Block 1' => [
-                [
-                    'id' => 'test_lettuce_seeding',
-                    'type' => 'seeding',
-                    'crop' => 'lettuce',
-                    'variety' => 'Butter Lettuce',
-                    'start' => $now->subDays(10)->toDateString(),
-                    'end' => $now->addDays(5)->toDateString(),
-                    'color' => '#28a745',
-                    'label' => 'Lettuce (Seeding)'
-                ],
-                [
-                    'id' => 'test_lettuce_growing',
-                    'type' => 'growing',
-                    'crop' => 'lettuce',
-                    'variety' => 'Butter Lettuce',
-                    'start' => $now->addDays(5)->toDateString(),
-                    'end' => $now->addDays(40)->toDateString(),
-                    'color' => '#007bff',
-                    'label' => 'Lettuce (Growing)'
-                ],
-                [
-                    'id' => 'test_lettuce_harvest',
-                    'type' => 'harvest',
-                    'crop' => 'lettuce',
-                    'variety' => 'Butter Lettuce',
-                    'start' => $now->addDays(40)->toDateString(),
-                    'end' => $now->addDays(50)->toDateString(),
-                    'color' => '#ffc107',
-                    'label' => 'Lettuce (Harvest)'
-                ]
-            ],
-            'Block 2' => [
-                [
-                    'id' => 'test_tomato_growing',
-                    'type' => 'growing',
-                    'crop' => 'tomato',
-                    'variety' => 'Cherry Tomato',
-                    'start' => $now->subDays(30)->toDateString(),
-                    'end' => $now->addDays(60)->toDateString(),
-                    'color' => '#007bff',
-                    'label' => 'Tomato (Growing)'
-                ],
-                [
-                    'id' => 'test_tomato_harvest',
-                    'type' => 'harvest',
-                    'crop' => 'tomato',
-                    'variety' => 'Cherry Tomato',
-                    'start' => $now->addDays(60)->toDateString(),
-                    'end' => $now->addDays(90)->toDateString(),
-                    'color' => '#ffc107',
-                    'label' => 'Tomato (Harvest)'
-                ]
-            ],
-            'Block 3' => [
-                [
-                    'id' => 'test_carrot_seeding',
-                    'type' => 'seeding',
-                    'crop' => 'carrot',
-                    'variety' => 'Nantes',
-                    'start' => $now->addDays(7)->toDateString(),
-                    'end' => $now->addDays(14)->toDateString(),
-                    'color' => '#28a745',
-                    'label' => 'Carrot (Seeding)'
-                ],
-                [
-                    'id' => 'test_carrot_growing',
-                    'type' => 'growing',
-                    'crop' => 'carrot',
-                    'variety' => 'Nantes',
-                    'start' => $now->addDays(14)->toDateString(),
-                    'end' => $now->addDays(84)->toDateString(),
-                    'color' => '#007bff',
-                    'label' => 'Carrot (Growing)'
-                ]
-            ],
-            'Block 4' => [
-                [
-                    'id' => 'test_spinach_completed',
-                    'type' => 'harvest',
-                    'crop' => 'spinach',
-                    'variety' => 'Space Spinach',
-                    'start' => $now->subDays(20)->toDateString(),
-                    'end' => $now->subDays(5)->toDateString(),
-                    'color' => '#6c757d',
-                    'label' => 'Spinach (Completed)'
-                ],
-                [
-                    'id' => 'test_kale_seeding',
-                    'type' => 'seeding',
-                    'crop' => 'kale',
-                    'variety' => 'Curly Kale',
-                    'start' => $now->addDays(15)->toDateString(),
-                    'end' => $now->addDays(22)->toDateString(),
-                    'color' => '#28a745',
-                    'label' => 'Kale (Seeding)'
-                ]
-            ],
-            'Block 5' => [
-                [
-                    'id' => 'test_herbs_succession',
-                    'type' => 'growing',
-                    'crop' => 'basil',
-                    'variety' => 'Sweet Basil',
-                    'start' => $now->subDays(15)->toDateString(),
-                    'end' => $now->addDays(45)->toDateString(),
-                    'color' => '#007bff',
-                    'label' => 'Basil (Growing)'
-                ],
-                [
-                    'id' => 'test_herbs_harvest',
-                    'type' => 'harvest',
-                    'crop' => 'basil',
-                    'variety' => 'Sweet Basil',
-                    'start' => $now->addDays(30)->toDateString(),
-                    'end' => $now->addDays(75)->toDateString(),
-                    'color' => '#ffc107',
-                    'label' => 'Basil (Harvest)'
-                ]
-            ]
-        ];
     }
 }
