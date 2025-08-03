@@ -376,21 +376,25 @@ class FarmOSApiService
                 ];
             }
             
-            // Convert to GeoJSON format
+            // Convert to GeoJSON format using WKT conversion
             $features = [];
             if (isset($data['data']) && is_array($data['data'])) {
                 foreach ($data['data'] as $asset) {
                     if (isset($asset['attributes']['geometry'])) {
-                        $features[] = [
-                            'type' => 'Feature',
-                            'properties' => [
-                                'name' => $asset['attributes']['name'] ?? 'Unnamed Area',
-                                'id' => $asset['id'],
-                                'status' => $asset['attributes']['status'] ?? 'unknown',
-                                'land_type' => $asset['attributes']['land_type'] ?? 'field'
-                            ],
-                            'geometry' => $asset['attributes']['geometry']
-                        ];
+                        $geometry = $this->convertWktToGeoJson($asset['attributes']['geometry']);
+                        
+                        if ($geometry) {
+                            $features[] = [
+                                'type' => 'Feature',
+                                'properties' => [
+                                    'name' => $asset['attributes']['name'] ?? 'Unnamed Area',
+                                    'id' => $asset['id'],
+                                    'status' => $asset['attributes']['status'] ?? 'unknown',
+                                    'land_type' => $asset['attributes']['land_type'] ?? 'field'
+                                ],
+                                'geometry' => $geometry
+                            ];
+                        }
                     }
                 }
             }
@@ -802,5 +806,130 @@ class FarmOSApiService
             }
         }
         return 'Unknown Location';
+    }
+
+    /**
+     * Convert WKT geometry to GeoJSON format
+     */
+    private function convertWktToGeoJson($geometryData)
+    {
+        if (!isset($geometryData['value']) || !isset($geometryData['geo_type'])) {
+            return null;
+        }
+        
+        $wkt = $geometryData['value'];
+        $geoType = $geometryData['geo_type'];
+        
+        try {
+            // Handle different geometry types
+            switch (strtoupper($geoType)) {
+                case 'POLYGON':
+                    return $this->parsePolygonWkt($wkt);
+                case 'POINT':
+                    return $this->parsePointWkt($wkt);
+                case 'LINESTRING':
+                    return $this->parseLineStringWkt($wkt);
+                case 'GEOMETRYCOLLECTION':
+                    return $this->parseGeometryCollectionWkt($wkt);
+                default:
+                    Log::warning('Unsupported geometry type: ' . $geoType);
+                    return null;
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to convert WKT to GeoJSON: ' . $e->getMessage());
+            return null;
+        }
+    }
+    
+    /**
+     * Parse POLYGON WKT to GeoJSON
+     */
+    private function parsePolygonWkt($wkt)
+    {
+        // Remove POLYGON wrapper and parentheses
+        $wkt = trim($wkt);
+        if (preg_match('/^POLYGON\s*\(\((.*)\)\)$/i', $wkt, $matches)) {
+            $coordinateString = $matches[1];
+            $coordinates = $this->parseCoordinateString($coordinateString);
+            
+            return [
+                'type' => 'Polygon',
+                'coordinates' => [$coordinates] // Polygon coordinates are nested in array
+            ];
+        }
+        return null;
+    }
+    
+    /**
+     * Parse POINT WKT to GeoJSON
+     */
+    private function parsePointWkt($wkt)
+    {
+        if (preg_match('/^POINT\s*\(([^)]+)\)$/i', $wkt, $matches)) {
+            $coordPairs = explode(' ', trim($matches[1]));
+            if (count($coordPairs) >= 2) {
+                return [
+                    'type' => 'Point',
+                    'coordinates' => [(float)$coordPairs[0], (float)$coordPairs[1]]
+                ];
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Parse LINESTRING WKT to GeoJSON
+     */
+    private function parseLineStringWkt($wkt)
+    {
+        if (preg_match('/^LINESTRING\s*\(([^)]+)\)$/i', $wkt, $matches)) {
+            $coordinateString = $matches[1];
+            $coordinates = $this->parseCoordinateString($coordinateString);
+            
+            return [
+                'type' => 'LineString',
+                'coordinates' => $coordinates
+            ];
+        }
+        return null;
+    }
+    
+    /**
+     * Parse GEOMETRYCOLLECTION WKT to GeoJSON (simplified - return first polygon)
+     */
+    private function parseGeometryCollectionWkt($wkt)
+    {
+        // For simplicity, extract the first polygon from the collection
+        if (preg_match('/POLYGON\s*\(\(([^)]+(?:\)[^)]*)*)\)\)/i', $wkt, $matches)) {
+            $coordinateString = $matches[1];
+            $coordinates = $this->parseCoordinateString($coordinateString);
+            
+            return [
+                'type' => 'Polygon',
+                'coordinates' => [$coordinates]
+            ];
+        }
+        return null;
+    }
+    
+    /**
+     * Parse coordinate string into array of [lon, lat] pairs
+     */
+    private function parseCoordinateString($coordinateString)
+    {
+        $coordinates = [];
+        
+        // Split by comma to get coordinate pairs
+        $pairs = explode(',', $coordinateString);
+        
+        foreach ($pairs as $pair) {
+            $coords = preg_split('/\s+/', trim($pair));
+            if (count($coords) >= 2) {
+                // GeoJSON uses [longitude, latitude] order
+                $coordinates[] = [(float)$coords[0], (float)$coords[1]];
+            }
+        }
+        
+        return $coordinates;
     }
 }

@@ -17,9 +17,9 @@ return [
     
     'password' => env('FARMOS_PASSWORD'),
     
-    'client_id' => env('FARMOS_CLIENT_ID'),
+    'client_id' => env('FARMOS_OAUTH_CLIENT_ID'),
     
-    'client_secret' => env('FARMOS_CLIENT_SECRET'),
+    'client_secret' => env('FARMOS_OAUTH_CLIENT_SECRET'),
     
     /*
     |--------------------------------------------------------------------------

@@ -489,7 +489,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     return;
                 }
+                
                 console.log('Adding', data.features.length, 'features to map');
+                
+                // Use standard Leaflet GeoJSON processing
                 var geojson = L.geoJSON(data, {
                     style: function(feature) {
                         return { color: '#27ae60', weight: 2, fillOpacity: 0.2 };
@@ -497,18 +500,23 @@ document.addEventListener('DOMContentLoaded', function() {
                     onEachFeature: function(feature, layer) {
                         if (feature.properties && feature.properties.name) {
                             var popupContent = feature.properties.name;
-                            if (feature.properties.note) {
-                                popupContent += '<br><small>' + feature.properties.note + '</small>';
+                            if (feature.properties.land_type) {
+                                popupContent += '<br><small>Type: ' + feature.properties.land_type + '</small>';
+                            }
+                            if (feature.properties.status) {
+                                popupContent += '<br><small>Status: ' + feature.properties.status + '</small>';
                             }
                             layer.bindPopup(popupContent);
                         }
                     }
                 }).addTo(map);
+                
+                // Fit map to show all features
                 if (geojson.getBounds && geojson.getBounds().isValid()) {
-                    map.fitBounds(geojson.getBounds());
+                    map.fitBounds(geojson.getBounds(), { padding: [10, 10] });
                 } else {
-                    console.log('Using default zoom for Lincoln area');
-                    map.setView([53.215252, -0.419950], 15); // Middle World Farms front gates
+                    console.log('Using default zoom for Middle World Farms');
+                    map.setView([53.215252, -0.419950], 15);
                 }
             })
             .catch(function(err) {

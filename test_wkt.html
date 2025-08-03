@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WKT Test</title>
+    <script src="https://unpkg.com/wicket@1.3.8/wicket.js"></script>
+</head>
+<body>
+    <script>
+        // Test WKT parsing with farmOS data
+        var testWkt = 'POLYGON ((-0.42128781620906 53.216037882928, -0.42048901438585 53.216413794979, -0.41983620767394 53.215965447669, -0.41951293278465 53.216121557989, -0.41921451473216 53.215930687712, -0.4192851988653 53.215888361966, -0.41916286094255 53.215813477851, -0.41912480025547 53.215831384934, -0.41874419338467 53.215590452647, -0.41978947854924 53.215177370567, -0.41994519282449 53.215079888621, -0.42007323144154 53.215119980949, -0.42128781620906 53.216037882928))';
+        
+        console.log('Testing WKT:', testWkt);
+        
+        try {
+            var wkt = new Wkt.Wkt();
+            wkt.read(testWkt);
+            console.log('WKT parsed successfully:', wkt);
+            console.log('WKT components:', wkt.components);
+            console.log('WKT type:', wkt.type);
+            
+            var obj = wkt.toObject();
+            console.log('Converted to object:', obj);
+            
+        } catch (e) {
+            console.error('WKT parsing failed:', e);
+        }
+    </script>
+</body>
+</html>
