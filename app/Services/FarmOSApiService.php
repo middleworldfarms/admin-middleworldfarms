@@ -384,13 +384,22 @@ class FarmOSApiService
                         $geometry = $this->convertWktToGeoJson($asset['attributes']['geometry']);
                         
                         if ($geometry) {
+                            // Get additional asset details
+                            $assetId = $asset['id'];
+                            $assetDetails = $this->getAssetDetails($assetId);
+                            
                             $features[] = [
                                 'type' => 'Feature',
                                 'properties' => [
                                     'name' => $asset['attributes']['name'] ?? 'Unnamed Area',
                                     'id' => $asset['id'],
                                     'status' => $asset['attributes']['status'] ?? 'unknown',
-                                    'land_type' => $asset['attributes']['land_type'] ?? 'field'
+                                    'land_type' => $asset['attributes']['land_type'] ?? 'field',
+                                    'notes' => $asset['attributes']['notes']['value'] ?? '',
+                                    'created' => $asset['attributes']['created'] ?? null,
+                                    'changed' => $asset['attributes']['changed'] ?? null,
+                                    'asset_details' => $assetDetails,
+                                    'farmos_url' => $this->generateFarmOSAssetUrl($asset)
                                 ],
                                 'geometry' => $geometry
                             ];
@@ -931,5 +940,89 @@ class FarmOSApiService
         }
         
         return $coordinates;
+    }
+    
+    /**
+     * Get detailed information about a specific asset
+     */
+    private function getAssetDetails($assetId)
+    {
+        try {
+            $headers = ['Accept' => 'application/vnd.api+json'];
+            $requestOptions = ['headers' => $headers];
+            
+            // Use OAuth2 token if available, otherwise fall back to basic auth
+            if ($this->token) {
+                $headers['Authorization'] = 'Bearer ' . $this->token;
+                $requestOptions['headers'] = $headers;
+            } else {
+                $requestOptions['auth'] = [$this->username, $this->password];
+            }
+            
+            // Fetch related assets (like plants in this location)
+            $requestOptions['query'] = [
+                'filter[location.id]' => $assetId,
+                'filter[status]' => 'active'
+            ];
+
+            $response = $this->client->get('/api/asset/plant', $requestOptions);
+            $data = json_decode($response->getBody(), true);
+            
+            $relatedAssets = [];
+            if (isset($data['data']) && is_array($data['data'])) {
+                foreach ($data['data'] as $asset) {
+                    $attributes = $asset['attributes'] ?? [];
+                    $relatedAssets[] = [
+                        'id' => $asset['id'],
+                        'name' => $attributes['name'] ?? 'Unnamed Asset',
+                        'type' => $asset['type'] ?? 'unknown',
+                        'status' => $attributes['status'] ?? 'active',
+                        'created' => $attributes['created'] ?? null
+                    ];
+                }
+            }
+            
+            return [
+                'related_assets' => $relatedAssets,
+                'asset_count' => count($relatedAssets)
+            ];
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch asset details for ' . $assetId . ': ' . $e->getMessage());
+            return [
+                'related_assets' => [],
+                'asset_count' => 0,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Generate proper FarmOS asset URL
+     * FarmOS web interface uses numeric IDs in URLs, not UUIDs
+     * Based on FarmOS canonical URL pattern: /asset/{drupal_internal__id}
+     */
+    private function generateFarmOSAssetUrl($asset)
+    {
+        $assetId = $asset['id'];
+        $attributes = $asset['attributes'] ?? [];
+        
+        // FarmOS uses drupal_internal__id for web URLs (not the UUID)
+        // This follows the canonical link pattern defined in core/asset/src/Entity/Asset.php
+        if (isset($attributes['drupal_internal__id'])) {
+            $numericId = $attributes['drupal_internal__id'];
+            return $this->baseUrl . '/asset/' . $numericId;
+        }
+        
+        // Log warning if numeric ID is not available
+        Log::warning('FarmOS asset missing drupal_internal__id, cannot generate valid URL', [
+            'asset_id' => $assetId, 
+            'available_attributes' => array_keys($attributes),
+            'name' => $attributes['name'] ?? 'Unknown'
+        ]);
+        
+        // Return null instead of invalid URL
+        // FarmOS URLs require the numeric ID to work properly
+        return null;
     }
 }

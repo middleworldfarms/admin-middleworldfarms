@@ -424,6 +424,53 @@
         border-radius: 8px;
         overflow: hidden;
     }
+    
+    /* Enhanced popup styling */
+    .farmos-popup .leaflet-popup-content {
+        margin: 0 !important;
+        line-height: 1.4;
+    }
+    
+    .farmos-popup-content {
+        font-family: inherit;
+    }
+    
+    .farmos-popup-content .popup-header {
+        border-bottom: 1px solid #e9ecef;
+        padding-bottom: 8px;
+        margin-bottom: 8px;
+    }
+    
+    .farmos-popup-content .popup-header h6 {
+        color: #27ae60;
+        margin: 0;
+    }
+    
+    .farmos-popup-content .detail-item {
+        margin-bottom: 4px;
+        font-size: 0.9em;
+    }
+    
+    .farmos-popup-content .asset-item {
+        padding: 2px 0;
+        border-left: 2px solid #27ae60;
+        padding-left: 8px;
+        margin: 2px 0;
+        background: rgba(39, 174, 96, 0.05);
+    }
+    
+    .farmos-popup-content .badge-sm {
+        font-size: 0.75em;
+        padding: 2px 6px;
+    }
+    
+    .leaflet-popup-content-wrapper {
+        border-radius: 8px;
+    }
+    
+    .leaflet-popup-tip {
+        background: white;
+    }
 </style>
 @endsection
 
@@ -510,6 +557,79 @@ document.addEventListener('DOMContentLoaded', function() {
         if (err) { err.textContent = msg; err.classList.remove('d-none'); }
     }
 
+    function createEnhancedPopup(properties) {
+        var popup = '<div class="farmos-popup-content">';
+        
+        // Header with asset name and FarmOS link
+        popup += '<div class="popup-header">';
+        popup += '<h6 class="mb-1"><i class="fas fa-map-marker-alt text-success me-1"></i>' + 
+                 (properties.name || 'Unnamed Area') + '</h6>';
+        
+        popup += '<div class="btn-group-vertical w-100 mb-2">';
+        
+        // Primary FarmOS link using numeric ID
+        if (properties.farmos_url) {
+            popup += '<a href="' + properties.farmos_url + '" target="_blank" class="btn btn-sm btn-outline-success">';
+            popup += '<i class="fas fa-external-link-alt me-1"></i>View in FarmOS';
+            popup += '</a>';
+        } else {
+            popup += '<span class="btn btn-sm btn-outline-secondary disabled">';
+            popup += '<i class="fas fa-exclamation-triangle me-1"></i>FarmOS URL unavailable';
+            popup += '</span>';
+        }
+        popup += '</div>';
+        popup += '</div>';
+        
+        // Asset details
+        popup += '<div class="popup-details">';
+        
+        if (properties.land_type) {
+            popup += '<div class="detail-item"><strong>Type:</strong> ' + properties.land_type + '</div>';
+        }
+        
+        if (properties.status) {
+            var statusClass = properties.status === 'active' ? 'success' : 'secondary';
+            popup += '<div class="detail-item"><strong>Status:</strong> <span class="badge bg-' + statusClass + '">' + 
+                     properties.status + '</span></div>';
+        }
+        
+        // Related assets information
+        if (properties.asset_details && properties.asset_details.asset_count > 0) {
+            popup += '<div class="detail-item mt-2">';
+            popup += '<strong><i class="fas fa-seedling text-success me-1"></i>Assets in this location:</strong>';
+            popup += '<div class="mt-1">';
+            
+            var assets = properties.asset_details.related_assets || [];
+            var displayLimit = 3; // Show first 3 assets
+            
+            for (var i = 0; i < Math.min(assets.length, displayLimit); i++) {
+                var asset = assets[i];
+                popup += '<div class="asset-item">';
+                popup += '<i class="fas fa-leaf text-success me-1"></i>';
+                popup += '<small>' + (asset.name || 'Unnamed Asset') + '</small>';
+                if (asset.status) {
+                    popup += ' <span class="badge bg-info badge-sm">' + asset.status + '</span>';
+                }
+                popup += '</div>';
+            }
+            
+            if (assets.length > displayLimit) {
+                popup += '<small class="text-muted">+ ' + (assets.length - displayLimit) + ' more assets</small>';
+            }
+            
+            popup += '</div></div>';
+        }
+        
+        if (properties.notes) {
+            popup += '<div class="detail-item mt-2"><strong>Notes:</strong><br><small>' + 
+                     properties.notes + '</small></div>';
+        }
+        
+        popup += '</div></div>';
+        
+        return popup;
+    }
+
     function initFarmOSMap() {
         var map = L.map('farmos-map').setView([53.215252, -0.419950], 15); // Middle World Farms front gates
         
@@ -587,21 +707,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 console.log('Adding', data.features.length, 'features to map');
                 
-                // Use standard Leaflet GeoJSON processing
+                // Use standard Leaflet GeoJSON processing with enhanced popups
                 var geojson = L.geoJSON(data, {
                     style: function(feature) {
-                        return { color: '#27ae60', weight: 2, fillOpacity: 0.2 };
+                        return { 
+                            color: '#27ae60', 
+                            weight: 2, 
+                            fillOpacity: 0.2,
+                            fillColor: '#27ae60'
+                        };
                     },
                     onEachFeature: function(feature, layer) {
                         if (feature.properties && feature.properties.name) {
-                            var popupContent = feature.properties.name;
-                            if (feature.properties.land_type) {
-                                popupContent += '<br><small>Type: ' + feature.properties.land_type + '</small>';
-                            }
-                            if (feature.properties.status) {
-                                popupContent += '<br><small>Status: ' + feature.properties.status + '</small>';
-                            }
-                            layer.bindPopup(popupContent);
+                            var popupContent = createEnhancedPopup(feature.properties);
+                            layer.bindPopup(popupContent, {
+                                maxWidth: 400,
+                                className: 'farmos-popup'
+                            });
                         }
                     }
                 }).addTo(map);
