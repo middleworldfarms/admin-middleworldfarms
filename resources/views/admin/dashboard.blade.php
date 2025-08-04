@@ -394,6 +394,36 @@
         justify-content: center;
         font-size: 0.9rem;
     }
+    
+    /* Enhanced map layer control styling */
+    .leaflet-control-layers {
+        background: rgba(255, 255, 255, 0.95) !important;
+        border-radius: 8px !important;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2) !important;
+        border: 1px solid #ccc !important;
+    }
+    
+    .leaflet-control-layers-toggle {
+        background-color: #27ae60 !important;
+        width: 36px !important;
+        height: 36px !important;
+    }
+    
+    .leaflet-control-layers-expanded {
+        padding: 8px 12px !important;
+        min-width: 150px;
+    }
+    
+    .leaflet-control-layers label {
+        font-weight: 500 !important;
+        margin: 6px 0 !important;
+        cursor: pointer !important;
+    }
+    
+    #farmos-map {
+        border-radius: 8px;
+        overflow: hidden;
+    }
 </style>
 @endsection
 
@@ -449,13 +479,29 @@ console.log('⚠️ WordPress Integration: Not Available');
 document.addEventListener('DOMContentLoaded', function() {
     function loadLeafletAssets(callback) {
         if (window.L && window.L.map) { callback(); return; }
+        
+        // Load Leaflet CSS
         var leafletCss = document.createElement('link');
         leafletCss.rel = 'stylesheet';
         leafletCss.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
         document.head.appendChild(leafletCss);
+        
+        // Load Fullscreen plugin CSS
+        var fullscreenCss = document.createElement('link');
+        fullscreenCss.rel = 'stylesheet';
+        fullscreenCss.href = 'https://unpkg.com/leaflet-fullscreen@1.0.1/dist/leaflet.fullscreen.css';
+        document.head.appendChild(fullscreenCss);
+        
+        // Load Leaflet JS
         var leafletJs = document.createElement('script');
         leafletJs.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-        leafletJs.onload = callback;
+        leafletJs.onload = function() {
+            // Load Fullscreen plugin JS
+            var fullscreenJs = document.createElement('script');
+            fullscreenJs.src = 'https://unpkg.com/leaflet-fullscreen@1.0.1/dist/Leaflet.fullscreen.min.js';
+            fullscreenJs.onload = callback;
+            document.body.appendChild(fullscreenJs);
+        };
         document.body.appendChild(leafletJs);
     }
 
@@ -466,9 +512,58 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function initFarmOSMap() {
         var map = L.map('farmos-map').setView([53.215252, -0.419950], 15); // Middle World Farms front gates
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        
+        // Base layers
+        var openStreetMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '© OpenStreetMap contributors'
+        });
+        
+        var satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19,
+            attribution: '© Esri, Maxar, Earthstar Geographics, and the GIS User Community'
+        });
+        
+        var hybrid = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19,
+            attribution: '© Esri, Maxar, Earthstar Geographics, and the GIS User Community'
+        });
+        
+        // Add labels overlay for hybrid view
+        var labels = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors',
+            opacity: 0.3
+        });
+        
+        // Add default layer
+        openStreetMap.addTo(map);
+        
+        // Layer control
+        var baseLayers = {
+            "🗺️ Street Map": openStreetMap,
+            "🛰️ Satellite": satellite,
+            "🌍 Hybrid": L.layerGroup([hybrid, labels])
+        };
+        
+        var layerControl = L.control.layers(baseLayers, null, {
+            position: 'topright',
+            collapsed: false
+        }).addTo(map);
+        
+        // Add fullscreen control
+        map.addControl(new L.Control.Fullscreen({
+            title: {
+                'false': 'View Fullscreen',
+                'true': 'Exit Fullscreen'
+            }
+        }));
+        
+        // Add scale control
+        L.control.scale({
+            position: 'bottomleft',
+            metric: true,
+            imperial: false
         }).addTo(map);
 
         fetch('/admin/farmos-map-data')
