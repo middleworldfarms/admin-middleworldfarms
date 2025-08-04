@@ -209,48 +209,28 @@
     </div>
 </div>
 
-<!-- Frappe Gantt Library from CDN -->
-<script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css">
-
 <script>
-let gantt = null;
 let currentData = null;
+
+// Load data from server-side variables
+const serverData = @json($chartData ?? []);
+const usingFarmOSData = @json($usingFarmOSData ?? false);
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
-    if (typeof Gantt === 'undefined') {
-        // Show error without Gantt library
-        document.getElementById('chartLoading').style.display = 'none';
-        document.getElementById('noDataMessage').style.display = 'block';
-        document.getElementById('noDataMessage').querySelector('h5').textContent = 'Chart Library Error';
-        document.getElementById('noDataMessage').querySelector('p').textContent = 'Frappe Gantt library failed to load. Showing demo data instead.';
-        // Show demo data without Gantt
-        setTimeout(function() {
-            showTestDataWithoutGantt();
-        }, 1000);
-        return;
+    // Initialize with server data
+    currentData = { data: serverData };
+    
+    if (serverData && Object.keys(serverData).length > 0) {
+        renderTimelineChart(serverData);
+        updateStats(serverData);
+        showChart();
+    } else {
+        showTestData();
     }
-    initializeChart();
+    
     setupEventListeners();
 });
-
-function showTestDataWithoutGantt() {
-    document.getElementById('chartContainer').innerHTML = `
-        <div class="alert alert-info">
-            <h5>Demo Timeline Data</h5>
-            <p>Frappe Gantt library couldn't load, but here's what your timeline would show:</p>
-            <ul>
-                <li><strong>Block 1:</strong> Lettuce (Seeding: Jul 20 - Aug 5, Growing: Aug 5 - Sep 10)</li>
-                <li><strong>Block 2:</strong> Tomato (Growing: Jul 1 - Sep 30)</li>
-                <li><strong>Block 3:</strong> Carrot (Seeding: Aug 5 - Aug 12, Growing: Aug 12 - Oct 15)</li>
-            </ul>
-            <p><small>Try refreshing the page or check your internet connection.</small></p>
-        </div>
-    `;
-    document.getElementById('chartContainer').style.display = 'block';
-    document.getElementById('noDataMessage').style.display = 'none';
-}
 
 function setupEventListeners() {
     // Filter controls
@@ -271,105 +251,135 @@ function setupEventListeners() {
 
 function initializeChart() {
     showLoading(true);
-    const params = new URLSearchParams({
-        location: document.getElementById('locationFilter').value,
-        crop_type: document.getElementById('cropTypeFilter').value,
-        start_date: document.getElementById('startDate').value,
-        end_date: document.getElementById('endDate').value
-    });
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-    fetch(`{{ route('admin.farmos.gantt-data') }}?${params}`, {
-        method: 'GET',
-        headers: {
-            'Accept': 'application/json',
-            'X-CSRF-TOKEN': '{{ csrf_token() }}',
-            'X-Requested-With': 'XMLHttpRequest'
-        },
-        credentials: 'same-origin',
-        signal: controller.signal
-    })
-    .then(response => {
-        clearTimeout(timeoutId);
-        if (response.url.includes('/login') || response.status === 302) {
-            throw new Error('Authentication required. Please refresh the page and log in.');
-        }
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        return response.json();
-    })
-    .then(data => {
-        currentData = data;
-        if (data.data && Object.keys(data.data).length > 0) {
-            renderGanttChart(data.data);
-            updateStats(data.data);
-            showChart();
-        } else {
-            showNoData();
-        }
-    })
-    .catch(error => {
-        showError(`Failed to load chart data: ${error.message}`);
-    })
-    .finally(() => {
-        showLoading(false);
-    });
+    
+    // Use server data instead of AJAX fetch
+    let filteredData = serverData;
+    
+    // Apply client-side filtering if needed
+    const locationFilter = document.getElementById('locationFilter').value;
+    const cropTypeFilter = document.getElementById('cropTypeFilter').value;
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+    
+    if (locationFilter || cropTypeFilter || startDate || endDate) {
+        filteredData = applyFiltersToData(serverData, {
+            location: locationFilter,
+            crop_type: cropTypeFilter,
+            start_date: startDate,
+            end_date: endDate
+        });
+    }
+    
+    // Update display
+    currentData = { data: filteredData };
+    
+    if (filteredData && Object.keys(filteredData).length > 0) {
+        renderTimelineChart(filteredData);
+        updateStats(filteredData);
+        showChart();
+    } else {
+        showNoData();
+    }
+    
+    showLoading(false);
 }
 
-function renderGanttChart(data) {
+function applyFiltersToData(data, filters) {
+    const filtered = {};
+    
+    Object.keys(data).forEach(location => {
+        // Filter by location
+        if (filters.location && location !== filters.location) {
+            return;
+        }
+        
+        const activities = data[location] || [];
+        const filteredActivities = activities.filter(activity => {
+            // Filter by crop type
+            if (filters.crop_type && activity.crop !== filters.crop_type) {
+                return false;
+            }
+            
+            // Filter by date range
+            if (filters.start_date && activity.end < filters.start_date) {
+                return false;
+            }
+            
+            if (filters.end_date && activity.start > filters.end_date) {
+                return false;
+            }
+            
+            return true;
+        });
+        
+        if (filteredActivities.length > 0) {
+            filtered[location] = filteredActivities;
+        }
+    });
+    
+    return filtered;
+}
+
+function renderTimelineChart(data) {
     const chartContainer = document.getElementById('plantingChart');
     chartContainer.innerHTML = '';
-    const tasks = [];
-    let taskId = 1;
+    
+    // Create a simple timeline view using HTML/CSS
+    const timelineHtml = `
+        <div class="timeline-container">
+            <div class="timeline-header">
+                <h6>Planting Timeline Overview</h6>
+                <p class="text-muted">Live data from farmOS</p>
+            </div>
+            <div class="timeline-content">
+                ${generateTimelineItems(data)}
+            </div>
+        </div>
+    `;
+    
+    chartContainer.innerHTML = timelineHtml;
+}
+
+function generateTimelineItems(data) {
+    let items = '';
     Object.keys(data).forEach(location => {
         const activities = data[location] || [];
-        activities.forEach(activity => {
-            const task = {
-                id: `task-${taskId++}`,
-                name: `${activity.crop} (${activity.type})`,
-                start: activity.start,
-                end: activity.end,
-                progress: activity.type === 'harvest' ? 100 : activity.type === 'growing' ? 50 : 25,
-                custom_class: `gantt-bar-${activity.type}`,
-                location: location,
-                crop: activity.crop,
-                variety: activity.variety || 'N/A',
-                phase: activity.type
-            };
-            tasks.push(task);
-        });
-    });
-    if (tasks.length === 0) {
-        showNoData();
-        return;
-    }
-    gantt = new Gantt('#plantingChart', tasks, {
-        view_mode: 'Month',
-        date_format: 'YYYY-MM-DD',
-        language: 'en',
-        custom_popup_html: function(task) {
-            const startDate = new Date(task.start).toLocaleDateString();
-            const endDate = new Date(task.end).toLocaleDateString();
-            const duration = Math.ceil((new Date(task.end) - new Date(task.start)) / (1000 * 60 * 60 * 24));
-            return `
-                <div class="gantt-popup">
-                    <h6>${task.crop} - ${task.phase}</h6>
-                    <p><strong>Location:</strong> ${task.location}</p>
-                    <p><strong>Variety:</strong> ${task.variety}</p>
-                    <p><strong>Start:</strong> ${startDate}</p>
-                    <p><strong>End:</strong> ${endDate}</p>
-                    <p><strong>Duration:</strong> ${duration} days</p>
+        if (activities.length > 0) {
+            items += `
+                <div class="timeline-location">
+                    <h6 class="location-header">${location}</h6>
+                    <div class="timeline-items">
+            `;
+            
+            activities.forEach(activity => {
+                const startDate = new Date(activity.start).toLocaleDateString();
+                const endDate = new Date(activity.end).toLocaleDateString();
+                const duration = Math.ceil((new Date(activity.end) - new Date(activity.start)) / (1000 * 60 * 60 * 24));
+                
+                items += `
+                    <div class="timeline-item ${activity.type}" onclick="showCropDetails('${activity.crop}', '${activity.type}', '${location}', '${activity.variety || 'N/A'}', '${startDate}', '${endDate}', '${duration}')">
+                        <div class="timeline-marker ${activity.type}"></div>
+                        <div class="timeline-content-item">
+                            <div class="timeline-title">${activity.crop} - ${activity.type}</div>
+                            <div class="timeline-dates">${startDate} - ${endDate}</div>
+                            <div class="timeline-variety">${activity.variety || 'Standard variety'}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            items += `
+                    </div>
                 </div>
             `;
-        },
-        on_click: function(task) {
-            showCropDetails(task);
-        },
-        on_date_change: function(task, start, end) {},
-        on_progress_change: function(task, progress) {},
-        on_view_change: function(mode) {}
+        }
     });
+    
+    if (items === '') {
+        items = '<div class="no-timeline-data">No planting activities found</div>';
+    }
+    
+    return items;
 }
 
 function applyFilters() {
@@ -389,9 +399,9 @@ function changeView(view) {
     if (view === 'Week') document.getElementById('viewWeeks').classList.add('active');
     else if (view === 'Month') document.getElementById('viewMonths').classList.add('active');
     else if (view === 'Quarter Year') document.getElementById('viewQuarters').classList.add('active');
-    if (gantt) {
-        gantt.change_view_mode(view);
-    }
+    
+    // Note: Timeline view doesn't change like Gantt chart
+    // This is kept for UI consistency but doesn't affect the timeline
 }
 
 function updateStats(data) {
@@ -424,11 +434,8 @@ function updateStats(data) {
     document.getElementById('availableBeds').textContent = availableBeds;
 }
 
-function showCropDetails(task) {
-    const startDate = new Date(task.start).toLocaleDateString();
-    const endDate = new Date(task.end).toLocaleDateString();
-    const duration = Math.ceil((new Date(task.end) - new Date(task.start)) / (1000 * 60 * 60 * 24));
-    alert(`Crop Details:\n\nCrop: ${task.crop}\nPhase: ${task.phase}\nLocation: ${task.location}\nVariety: ${task.variety}\nStart: ${startDate}\nEnd: ${endDate}\nDuration: ${duration} days`);
+function showCropDetails(crop, phase, location, variety, startDate, endDate, duration) {
+    alert(`Crop Details:\n\nCrop: ${crop}\nPhase: ${phase}\nLocation: ${location}\nVariety: ${variety}\nStart: ${startDate}\nEnd: ${endDate}\nDuration: ${duration} days`);
 }
 
 function showLoading(show) {
@@ -492,42 +499,144 @@ function showTestData() {
             }
         ]
     };
-    renderGanttChart(testData);
+    renderTimelineChart(testData);
     updateStats(testData);
     showChart();
 }
 </script>
 
 <style>
-.gantt .grid-background { fill: none; }
-.gantt .grid-header { fill: #ffffff; stroke: #e0e0e0; stroke-width: 1.4; }
-.gantt .grid-row { fill: #ffffff; }
-.gantt .grid-row:nth-child(even) { fill: #f5f5f5; }
-.gantt .row-line { stroke: #ebeff2; }
-.gantt .tick { stroke: #e0e0e0; stroke-width: 0.2; }
-.gantt .tick.thick { stroke: #c0c0c0; stroke-width: 0.4; }
-.gantt .today-highlight { fill: #fcf8e3; }
-.gantt .arrow { fill: none; stroke: #666; stroke-width: 1.4; }
-.gantt .bar { fill: #b8c2cc; stroke: #8d99a6; stroke-width: 0; cursor: pointer; }
-.gantt .bar.active { fill: #5eb9f3; stroke: #4aa8e8; }
-.gantt .bar-progress { fill: #a3a3a3; }
-.gantt .bar-invalid { fill: #e53e3e; }
-.gantt .bar-invalid~.bar-label { fill: #fff; }
-.gantt .bar-label { fill: #fff; dominant-baseline: central; text-anchor: middle; font-size: 12px; font-weight: 400; }
-.gantt .lower-text { font-size: 16px; fill: #777; text-anchor: middle; }
-.gantt .upper-text { font-size: 12px; fill: #555; text-anchor: middle; }
-.gantt .handle.left { cursor: w-resize; }
-.gantt .handle.right { cursor: e-resize; }
-.gantt .handle { fill: #ddd; cursor: ew-resize; opacity: 0; }
-.gantt .handle.active { opacity: 1; }
-.gantt .popup-wrapper { position: absolute; top: 0; left: 0; background: rgba(0, 0, 0, 0.8); height: 100%; width: 100%; display: flex; align-items: center; justify-content: center; }
-.gantt .popup { background: white; padding: 10px; border-radius: 3px; box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2); }
-.gantt-bar-seeding { fill: #28a745 !important; }
-.gantt-bar-growing { fill: #007bff !important; }
-.gantt-bar-harvest { fill: #ffc107 !important; }
-.gantt-popup { padding: 15px; min-width: 200px; }
-.gantt-popup h6 { margin: 0 0 10px 0; color: #333; font-weight: bold; }
-.gantt-popup p { margin: 5px 0; font-size: 14px; color: #666; }
-#plantingChart { min-height: 500px; overflow-x: auto; }
+/* Timeline Styles */
+.timeline-container {
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.timeline-header {
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.timeline-location {
+    margin-bottom: 30px;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 15px;
+}
+
+.location-header {
+    color: #495057;
+    margin-bottom: 15px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #007bff;
+}
+
+.timeline-items {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.timeline-item {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-left: 4px solid #6c757d;
+}
+
+.timeline-item:hover {
+    background-color: #f8f9fa;
+    transform: translateX(5px);
+}
+
+.timeline-item.seeding {
+    border-left-color: #28a745;
+    background-color: #f8fff9;
+}
+
+.timeline-item.growing {
+    border-left-color: #007bff;
+    background-color: #f8fcff;
+}
+
+.timeline-item.harvest {
+    border-left-color: #ffc107;
+    background-color: #fffcf5;
+}
+
+.timeline-marker {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 15px;
+    flex-shrink: 0;
+}
+
+.timeline-marker.seeding {
+    background-color: #28a745;
+}
+
+.timeline-marker.growing {
+    background-color: #007bff;
+}
+
+.timeline-marker.harvest {
+    background-color: #ffc107;
+}
+
+.timeline-content-item {
+    flex-grow: 1;
+}
+
+.timeline-title {
+    font-weight: 600;
+    color: #343a40;
+    margin-bottom: 4px;
+}
+
+.timeline-dates {
+    font-size: 0.9em;
+    color: #6c757d;
+    margin-bottom: 2px;
+}
+
+.timeline-variety {
+    font-size: 0.8em;
+    color: #868e96;
+}
+
+.no-timeline-data {
+    text-align: center;
+    padding: 40px;
+    color: #6c757d;
+    font-style: italic;
+}
+
+#plantingChart { 
+    min-height: 500px; 
+    overflow-x: auto; 
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .timeline-container {
+        padding: 15px;
+    }
+    
+    .timeline-item {
+        padding: 10px;
+    }
+    
+    .timeline-marker {
+        width: 10px;
+        height: 10px;
+        margin-right: 10px;
+    }
+}
 </style>
 @endsection

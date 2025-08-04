@@ -399,7 +399,13 @@ class FarmOSApiService
                                     'created' => $asset['attributes']['created'] ?? null,
                                     'changed' => $asset['attributes']['changed'] ?? null,
                                     'asset_details' => $assetDetails,
-                                    'farmos_url' => $this->generateFarmOSAssetUrl($asset)
+                                    'farmos_url' => $this->generateFarmOSAssetUrl($asset),
+                                    // Enhanced properties for smart selection
+                                    'is_bed' => $this->isBedAsset($asset),
+                                    'is_block' => $this->isBlockAsset($asset),
+                                    'parent_block' => $this->getParentBlock($asset),
+                                    'area_size' => $this->calculateAssetArea($asset),
+                                    'asset_hierarchy' => $this->getAssetHierarchy($asset)
                                 ],
                                 'geometry' => $geometry
                             ];
@@ -1024,5 +1030,126 @@ class FarmOSApiService
         // Return null instead of invalid URL
         // FarmOS URLs require the numeric ID to work properly
         return null;
+    }
+
+    /**
+     * Check if an asset is a bed (smaller plot within a block)
+     */
+    private function isBedAsset($asset)
+    {
+        $name = strtolower($asset['attributes']['name'] ?? '');
+        
+        // Check for bed patterns in name
+        return preg_match('/bed\s*\d+|plot\s*\d+|section\s*[a-z]|row\s*\d+/i', $name) ||
+               strpos($name, 'bed') !== false ||
+               strpos($name, 'plot') !== false;
+    }
+
+    /**
+     * Check if an asset is a block (larger area containing beds)
+     */
+    private function isBlockAsset($asset)
+    {
+        $name = strtolower($asset['attributes']['name'] ?? '');
+        
+        // Check for block patterns in name
+        return preg_match('/block\s*\d+|field\s*\d+|area\s*[a-z]/i', $name) ||
+               strpos($name, 'block') !== false ||
+               strpos($name, 'field') !== false;
+    }
+
+    /**
+     * Get parent block for a bed asset
+     */
+    private function getParentBlock($asset)
+    {
+        $relationships = $asset['relationships'] ?? [];
+        
+        // Try to get parent from relationships
+        if (isset($relationships['parent']['data']) && !empty($relationships['parent']['data'])) {
+            $parent = $relationships['parent']['data'][0];
+            return $parent['id'] ?? null;
+        }
+
+        // Try to infer from name patterns
+        $name = $asset['attributes']['name'] ?? '';
+        if (preg_match('/block\s*(\d+).*bed\s*\d+/i', $name, $matches)) {
+            return 'block_' . $matches[1];
+        }
+
+        return null;
+    }
+
+    /**
+     * Calculate approximate area of an asset
+     */
+    private function calculateAssetArea($asset)
+    {
+        if (!isset($asset['attributes']['geometry'])) {
+            return 0;
+        }
+
+        $geometry = $asset['attributes']['geometry'];
+        if (!isset($geometry['value']) || $geometry['geo_type'] !== 'POLYGON') {
+            return 0;
+        }
+
+        // Simple area calculation based on coordinate bounds
+        $wkt = $geometry['value'];
+        if (preg_match('/POLYGON\s*\(\((.*)\)\)/i', $wkt, $matches)) {
+            $coordinateString = $matches[1];
+            $coordinates = $this->parseCoordinateString($coordinateString);
+            
+            if (count($coordinates) < 3) return 0;
+            
+            // Calculate area using shoelace formula
+            $area = 0;
+            for ($i = 0; $i < count($coordinates) - 1; $i++) {
+                $area += ($coordinates[$i][0] * $coordinates[$i + 1][1] - $coordinates[$i + 1][0] * $coordinates[$i][1]);
+            }
+            return abs($area) / 2;
+        }
+
+        return 0;
+    }
+
+    /**
+     * Get asset hierarchy information
+     */
+    private function getAssetHierarchy($asset)
+    {
+        $name = $asset['attributes']['name'] ?? '';
+        $isBed = $this->isBedAsset($asset);
+        $isBlock = $this->isBlockAsset($asset);
+        $area = $this->calculateAssetArea($asset);
+        
+        return [
+            'is_bed' => $isBed,
+            'is_block' => $isBlock,
+            'level' => $isBed ? 'bed' : ($isBlock ? 'block' : 'field'),
+            'area' => $area,
+            'parent' => $this->getParentBlock($asset),
+            'name_pattern' => $this->getNamePattern($name)
+        ];
+    }
+
+    /**
+     * Extract name pattern for hierarchy detection
+     */
+    private function getNamePattern($name)
+    {
+        $name = strtolower($name);
+        
+        if (preg_match('/block\s*(\d+)\s*bed\s*(\d+)/i', $name, $matches)) {
+            return 'block_bed';
+        } elseif (preg_match('/block\s*(\d+)/i', $name)) {
+            return 'block';
+        } elseif (preg_match('/bed\s*(\d+)/i', $name)) {
+            return 'bed';
+        } elseif (preg_match('/field\s*(\d+)/i', $name)) {
+            return 'field';
+        }
+        
+        return 'unknown';
     }
 }

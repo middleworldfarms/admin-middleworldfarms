@@ -344,11 +344,7 @@
                 <span>Harvest Logs</span>
             </a>
             
-            <a href="/admin/farmos/gantt-chart" class="nav-link {{ request()->is('admin/farmos/gantt-chart*') ? 'active' : '' }}">
-                <i class="fas fa-chart-gantt"></i>
-                <span>Timeline View</span>
-            </a>
-            
+
             <div class="nav-section">System</div>
             <a href="/admin/settings" class="nav-link {{ request()->is('admin/settings*') ? 'active' : '' }}">
                 <i class="fas fa-cog"></i>

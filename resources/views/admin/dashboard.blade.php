@@ -471,6 +471,20 @@
     .leaflet-popup-tip {
         background: white;
     }
+    
+    /* Polygon styling improvements */
+    .leaflet-interactive {
+        cursor: pointer;
+    }
+    
+    .leaflet-interactive:hover {
+        filter: brightness(1.1);
+    }
+    
+    /* Ensure beds appear above blocks */
+    .leaflet-overlay-pane svg g:last-child {
+        pointer-events: auto;
+    }
 </style>
 @endsection
 
@@ -630,6 +644,180 @@ document.addEventListener('DOMContentLoaded', function() {
         return popup;
     }
 
+    function handleSmartPolygonClick(clickEvent, geoJsonLayer, mapInstance) {
+        // Prevent event bubbling
+        L.DomEvent.stopPropagation(clickEvent);
+        
+        var clickPoint = clickEvent.latlng;
+        var clickedLayers = [];
+        
+        // Find all layers that contain the click point
+        geoJsonLayer.eachLayer(function(layer) {
+            if (layer.feature && layer.feature.geometry) {
+                if (isPointInPolygon(clickPoint, layer.feature)) {
+                    var props = layer.feature.properties;
+                    var area = props.area_size || calculatePolygonArea(layer.feature.geometry);
+                    var isBed = props.is_bed || (props.name && props.name.toLowerCase().includes('bed'));
+                    var isBlock = props.is_block || (props.name && props.name.toLowerCase().includes('block'));
+                    var distanceToEdge = getDistanceToPolygonEdge(clickPoint, layer.feature);
+                    
+                    clickedLayers.push({
+                        layer: layer,
+                        feature: layer.feature,
+                        area: area,
+                        isBed: isBed,
+                        isBlock: isBlock,
+                        distanceToEdge: distanceToEdge,
+                        name: props.name || 'Unknown',
+                        hierarchy: props.asset_hierarchy || {}
+                    });
+                }
+            }
+        });
+        
+        if (clickedLayers.length === 0) return;
+        
+        // Smart selection logic:
+        // 1. If clicked near edge (< 15 meters) of a block, prefer the block
+        // 2. Otherwise, prefer beds over blocks
+        // 3. Among beds, prefer smaller area (more specific)
+        // 4. Among blocks, prefer smaller area
+        clickedLayers.sort(function(a, b) {
+            var edgeThreshold = 15; // meters
+            
+            // If clicked near edge of a block, strongly prefer the block
+            if (a.isBlock && a.distanceToEdge < edgeThreshold && !b.isBlock) {
+                return -1;
+            }
+            if (b.isBlock && b.distanceToEdge < edgeThreshold && !a.isBlock) {
+                return 1;
+            }
+            
+            // Prefer beds over blocks when not near block edge
+            if (a.isBed && !b.isBed && b.distanceToEdge >= edgeThreshold) {
+                return -1;
+            }
+            if (b.isBed && !a.isBed && a.distanceToEdge >= edgeThreshold) {
+                return 1;
+            }
+            
+            // Among same type, prefer smaller area (more specific)
+            return a.area - b.area;
+        });
+        
+        var selectedLayer = clickedLayers[0];
+        console.log('Smart selection:', selectedLayer.name, {
+            area: selectedLayer.area,
+            isBed: selectedLayer.isBed,
+            isBlock: selectedLayer.isBlock,
+            distanceToEdge: selectedLayer.distanceToEdge,
+            totalCandidates: clickedLayers.length
+        });
+        
+        // Open the popup for the selected layer
+        selectedLayer.layer.openPopup(clickPoint);
+        
+        // Highlight the selected polygon temporarily
+        var originalStyle = selectedLayer.layer.options;
+        selectedLayer.layer.setStyle({
+            color: '#ff6b6b',
+            weight: 4,
+            fillOpacity: 0.6
+        });
+        
+        // Reset style after 2 seconds
+        setTimeout(function() {
+            selectedLayer.layer.setStyle(originalStyle);
+        }, 2000);
+    }
+
+    function isPointInPolygon(point, feature) {
+        // Simple point-in-polygon check for GeoJSON
+        if (feature.geometry.type === 'Polygon') {
+            var coords = feature.geometry.coordinates[0];
+            return pointInPolygon([point.lng, point.lat], coords);
+        }
+        return false;
+    }
+
+    function pointInPolygon(point, polygon) {
+        var x = point[0], y = point[1];
+        var inside = false;
+        
+        for (var i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+            var xi = polygon[i][0], yi = polygon[i][1];
+            var xj = polygon[j][0], yj = polygon[j][1];
+            
+            if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) {
+                inside = !inside;
+            }
+        }
+        
+        return inside;
+    }
+
+    function calculatePolygonArea(geometry) {
+        // Simple area calculation for polygon comparison
+        if (geometry.type === 'Polygon') {
+            var coords = geometry.coordinates[0];
+            var area = 0;
+            for (var i = 0; i < coords.length - 1; i++) {
+                area += (coords[i][0] * coords[i + 1][1] - coords[i + 1][0] * coords[i][1]);
+            }
+            return Math.abs(area) / 2;
+        }
+        return 0;
+    }
+
+    function getDistanceToPolygonEdge(point, feature) {
+        // Calculate approximate distance to polygon edge
+        if (feature.geometry.type === 'Polygon') {
+            var coords = feature.geometry.coordinates[0];
+            var minDistance = Infinity;
+            
+            for (var i = 0; i < coords.length - 1; i++) {
+                var p1 = L.latLng(coords[i][1], coords[i][0]);
+                var p2 = L.latLng(coords[i + 1][1], coords[i + 1][0]);
+                var distance = distanceToLineSegment(point, p1, p2);
+                minDistance = Math.min(minDistance, distance);
+            }
+            
+            return minDistance;
+        }
+        return 0;
+    }
+
+    function distanceToLineSegment(point, lineStart, lineEnd) {
+        var A = point.lng - lineStart.lng;
+        var B = point.lat - lineStart.lat;
+        var C = lineEnd.lng - lineStart.lng;
+        var D = lineEnd.lat - lineStart.lat;
+
+        var dot = A * C + B * D;
+        var lenSq = C * C + D * D;
+        var param = -1;
+        
+        if (lenSq !== 0) {
+            param = dot / lenSq;
+        }
+
+        var xx, yy;
+        if (param < 0) {
+            xx = lineStart.lng;
+            yy = lineStart.lat;
+        } else if (param > 1) {
+            xx = lineEnd.lng;
+            yy = lineEnd.lat;
+        } else {
+            xx = lineStart.lng + param * C;
+            yy = lineStart.lat + param * D;
+        }
+
+        var dx = point.lng - xx;
+        var dy = point.lat - yy;
+        return Math.sqrt(dx * dx + dy * dy) * 111000; // Convert to meters approximately
+    }
+
     function initFarmOSMap() {
         var map = L.map('farmos-map').setView([53.215252, -0.419950], 15); // Middle World Farms front gates
         
@@ -707,15 +895,37 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 console.log('Adding', data.features.length, 'features to map');
                 
-                // Use standard Leaflet GeoJSON processing with enhanced popups
+                // Use standard Leaflet GeoJSON processing with enhanced popups and smart selection
                 var geojson = L.geoJSON(data, {
                     style: function(feature) {
-                        return { 
-                            color: '#27ae60', 
-                            weight: 2, 
-                            fillOpacity: 0.2,
-                            fillColor: '#27ae60'
-                        };
+                        var props = feature.properties;
+                        var isBed = props.is_bed || (props.name && props.name.toLowerCase().includes('bed'));
+                        var isBlock = props.is_block || (props.name && props.name.toLowerCase().includes('block'));
+                        
+                        if (isBed) {
+                            return { 
+                                color: '#e74c3c', 
+                                weight: 2, 
+                                fillOpacity: 0.4,
+                                fillColor: '#e74c3c',
+                                pane: 'overlayPane'  // Beds on top
+                            };
+                        } else if (isBlock) {
+                            return { 
+                                color: '#27ae60', 
+                                weight: 2, 
+                                fillOpacity: 0.2,
+                                fillColor: '#27ae60',
+                                pane: 'tilePane'  // Blocks below
+                            };
+                        } else {
+                            return { 
+                                color: '#3498db', 
+                                weight: 2, 
+                                fillOpacity: 0.2,
+                                fillColor: '#3498db'
+                            };
+                        }
                     },
                     onEachFeature: function(feature, layer) {
                         if (feature.properties && feature.properties.name) {
@@ -723,6 +933,14 @@ document.addEventListener('DOMContentLoaded', function() {
                             layer.bindPopup(popupContent, {
                                 maxWidth: 400,
                                 className: 'farmos-popup'
+                            });
+                            
+                            // Store feature data for smart selection
+                            layer.feature = feature;
+                            
+                            // Custom click handler for smart polygon selection
+                            layer.on('click', function(e) {
+                                handleSmartPolygonClick(e, geojson, map);
                             });
                         }
                     }
