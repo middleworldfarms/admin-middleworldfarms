@@ -812,13 +812,34 @@ class FarmOSDataController extends Controller
     public function plantingChart(Request $request)
     {
         try {
-            // Get farmOS data for the planting chart
+            // Get farmOS land assets (your actual farm structure)
+            $geometryAssets = $this->farmOSApi->getGeometryAssets();
             $cropPlans = $this->farmOSApi->getCropPlanningData();
-            $locations = $this->farmOSApi->getAvailableLocations();
             $cropTypes = $this->farmOSApi->getAvailableCropTypes();
             
-            // Transform farmOS data for the planting chart
-            $chartData = $this->transformPlantingChartData($cropPlans);
+            // Debug: Log the data we're getting
+            Log::info('Planting Chart Debug - Geometry Assets Count: ' . count($geometryAssets['features'] ?? []));
+            Log::info('Planting Chart Debug - Crop Plans Count: ' . count($cropPlans));
+            Log::info('Planting Chart Debug - Sample Assets: ', array_slice($geometryAssets['features'] ?? [], 0, 3));
+            Log::info('Planting Chart Debug - Sample Crop Plans: ', array_slice($cropPlans, 0, 2));
+            
+            // Transform land assets into chart data showing your actual blocks and beds
+            $chartData = $this->transformLandAssetsToChart($geometryAssets, $cropPlans);
+            $locations = $this->extractLocationsFromAssets($geometryAssets);
+            
+            // Debug: Log the transformed data
+            Log::info('Planting Chart Debug - Chart Data Keys: ' . implode(', ', array_keys($chartData)));
+            Log::info('Planting Chart Debug - Chart Data Structure: ', $chartData);
+            Log::info('Planting Chart Debug - Locations: ', $locations);
+            
+            $usingFarmOSData = true;
+            Log::info('Planting Chart Debug - Chart Data Keys: ' . implode(', ', array_keys($chartData)));
+            Log::info('Planting Chart Debug - Locations: ' . implode(', ', $locations));
+            
+            // If we don't have good data, use fallback
+            if (empty($chartData) || count($geometryAssets['features'] ?? []) < 5) {
+                throw new \Exception('Insufficient farmOS data, using fallback');
+            }
             
             $usingFarmOSData = true;
             
@@ -833,7 +854,7 @@ class FarmOSDataController extends Controller
             Log::error('Failed to load planting chart: ' . $e->getMessage());
             
             // Fallback to local data
-            $locations = ['Block 1', 'Block 2', 'Block 3', 'Block 4', 'Block 5'];
+            $locations = ['Block 1', 'Block 2', 'Block 3', 'Block 4', 'Block 5', 'Block 6', 'Block 7', 'Block 8', 'Block 9', 'Block 10'];
             $cropTypes = ['lettuce', 'tomato', 'carrot', 'cabbage', 'potato'];
             $chartData = $this->getFallbackPlantingData();
             $usingFarmOSData = false;
@@ -876,39 +897,225 @@ class FarmOSDataController extends Controller
     }
 
     /**
-     * Get fallback planting data for testing
+     * Get fallback planting data for testing - returns realistic test data with 16 beds per block
      */
     private function getFallbackPlantingData()
     {
-        $now = date('Y-m-d');
-        
-        return [
-            [
-                'id' => 'test_lettuce_1',
-                'crop_type' => 'lettuce',
-                'variety' => 'Butter Lettuce',
-                'location' => 'Block 1',
-                'status' => 'growing',
-                'planned_seeding_date' => date('Y-m-d', strtotime('-2 weeks')),
-                'planned_transplant_date' => date('Y-m-d', strtotime('-1 week')),
-                'planned_harvest_start' => date('Y-m-d', strtotime('+3 weeks')),
-                'planned_harvest_end' => date('Y-m-d', strtotime('+5 weeks')),
-                'notes' => 'Test planting data',
-                'source' => 'fallback'
-            ],
-            [
-                'id' => 'test_tomato_1',
-                'crop_type' => 'tomato',
-                'variety' => 'Cherry Tomato',
-                'location' => 'Block 2',
-                'status' => 'planned',
-                'planned_seeding_date' => date('Y-m-d', strtotime('+1 week')),
-                'planned_transplant_date' => date('Y-m-d', strtotime('+4 weeks')),
-                'planned_harvest_start' => date('Y-m-d', strtotime('+12 weeks')),
-                'planned_harvest_end' => date('Y-m-d', strtotime('+16 weeks')),
-                'notes' => 'Summer tomatoes',
-                'source' => 'fallback'
-            ]
+        $chartData = [];
+        $crops = ['lettuce', 'tomato', 'carrot', 'cabbage', 'potato', 'spinach', 'kale', 'broccoli'];
+        $varieties = [
+            'lettuce' => ['Butter Lettuce', 'Romaine', 'Iceberg', 'Red Leaf'],
+            'tomato' => ['Cherry Tomato', 'Beefsteak', 'Roma', 'Heirloom'],
+            'carrot' => ['Nantes', 'Chantenay', 'Purple Haze', 'Baby Carrot'],
+            'cabbage' => ['Green Cabbage', 'Red Cabbage', 'Savoy', 'Napa'],
+            'potato' => ['Russet', 'Red Potato', 'Yukon Gold', 'Fingerling'],
+            'spinach' => ['Baby Spinach', 'Giant Noble', 'Space', 'Bloomsdale'],
+            'kale' => ['Curly Kale', 'Lacinato', 'Red Russian', 'Winterbor'],
+            'broccoli' => ['Calabrese', 'Purple Sprouting', 'Romanesco', 'Broccolini']
         ];
+        
+        // Create data for 10 blocks, each with 16 beds
+        for ($blockNum = 1; $blockNum <= 10; $blockNum++) {
+            // Add 16 beds per block as separate entries
+            for ($bedNum = 1; $bedNum <= 16; $bedNum++) {
+                $bedName = "$blockNum/$bedNum";
+                $chartData[$bedName] = []; // Create separate entry for each bed
+                
+                // Random chance of having a planting (about 60% of beds have activities)
+                if (rand(1, 100) <= 60) {
+                    $crop = $crops[array_rand($crops)];
+                    $variety = $varieties[$crop][array_rand($varieties[$crop])];
+                    
+                    // Random timing within the year
+                    $seedingOffset = rand(-180, 180); // +/- 6 months from now
+                    $transplantOffset = $seedingOffset + rand(14, 28); // 2-4 weeks after seeding
+                    $harvestStartOffset = $transplantOffset + rand(28, 84); // 4-12 weeks after transplant
+                    $harvestEndOffset = $harvestStartOffset + rand(7, 28); // 1-4 weeks harvest period
+                    
+                    $seedingStart = date('Y-m-d', strtotime("$seedingOffset days"));
+                    $seedingEnd = date('Y-m-d', strtotime("$transplantOffset days"));
+                    $growingStart = $seedingEnd;
+                    $growingEnd = date('Y-m-d', strtotime("$harvestStartOffset days"));
+                    $harvestStart = $growingEnd;
+                    $harvestEnd = date('Y-m-d', strtotime("$harvestEndOffset days"));
+                    
+                    // Create seeding activity
+                    $chartData[$bedName][] = [
+                        'id' => "seeding_{$crop}_{$blockNum}_{$bedNum}",
+                        'type' => 'seeding',
+                        'crop' => $crop,
+                        'variety' => $variety,
+                        'location' => $bedName,
+                        'start' => $seedingStart,
+                        'end' => $seedingEnd,
+                        'status' => 'completed',
+                        'notes' => "Demo seeding: $variety in $bedName",
+                        'source' => 'fallback'
+                    ];
+                    
+                    // Create growing activity
+                    $chartData[$bedName][] = [
+                        'id' => "growing_{$crop}_{$blockNum}_{$bedNum}",
+                        'type' => 'growing',
+                        'crop' => $crop,
+                        'variety' => $variety,
+                        'location' => $bedName,
+                        'start' => $growingStart,
+                        'end' => $growingEnd,
+                        'status' => rand(1, 100) <= 70 ? 'active' : 'planned',
+                        'notes' => "Demo growing: $variety in $bedName",
+                        'source' => 'fallback'
+                    ];
+                    
+                    // Create harvest activity
+                    $chartData[$bedName][] = [
+                        'id' => "harvest_{$crop}_{$blockNum}_{$bedNum}",
+                        'type' => 'harvest',
+                        'crop' => $crop,
+                        'variety' => $variety,
+                        'location' => $bedName,
+                        'start' => $harvestStart,
+                        'end' => $harvestEnd,
+                        'status' => 'planned',
+                        'notes' => "Demo harvest: $variety in $bedName",
+                        'source' => 'fallback'
+                    ];
+                }
+            }
+        }
+        
+        return $chartData;
     }
+    
+    /**
+     * Transform land assets (blocks/beds) into planting chart timeline format
+     */
+    private function transformLandAssetsToChart($geometryAssets, $cropPlans = [])
+    {
+        $chartData = [];
+        
+        if (!isset($geometryAssets['features'])) {
+            return $chartData;
+        }
+        
+        // Group assets by location (blocks and beds)
+        $locationGroups = [];
+        
+        foreach ($geometryAssets['features'] as $feature) {
+            $properties = $feature['properties'] ?? [];
+            $name = $properties['name'] ?? 'Unnamed';
+            $landType = $properties['land_type'] ?? 'field';
+            
+            // Skip property-level assets, focus on blocks and beds
+            if ($landType === 'property') {
+                continue;
+            }
+            
+            // Determine if this is a block or bed
+            $isBlock = $properties['is_block'] ?? false;
+            $isBed = $properties['is_bed'] ?? false;
+            
+            // Create timeline activities for this asset
+            $activities = $this->generateActivitiesForAsset($properties, $cropPlans);
+            
+            if (!empty($activities)) {
+                $chartData[$name] = $activities;
+            } else {
+                // No activities for this asset - will show as empty on timeline
+                $chartData[$name] = [];
+            }
+        }
+        
+        return $chartData;
+    }
+    
+    /**
+     * Extract location names from geometry assets
+     */
+    private function extractLocationsFromAssets($geometryAssets)
+    {
+        $locations = [];
+        
+        if (!isset($geometryAssets['features'])) {
+            return $locations;
+        }
+        
+        foreach ($geometryAssets['features'] as $feature) {
+            $properties = $feature['properties'] ?? [];
+            $name = $properties['name'] ?? null;
+            $landType = $properties['land_type'] ?? 'field';
+            
+            // Skip property-level assets
+            if ($landType === 'property' || !$name) {
+                continue;
+            }
+            
+            if (!in_array($name, $locations)) {
+                $locations[] = $name;
+            }
+        }
+        
+        // Sort naturally (Block 1, Block 2, etc.)
+        usort($locations, function($a, $b) {
+            return strnatcmp($a, $b);
+        });
+        
+        return $locations;
+    }
+    
+    /**
+     * Generate timeline activities for a specific asset
+     */
+    private function generateActivitiesForAsset($properties, $cropPlans)
+    {
+        $activities = [];
+        $assetName = $properties['name'] ?? 'Unnamed';
+        
+        // Look for crop plans that reference this location
+        foreach ($cropPlans as $plan) {
+            if (isset($plan['location']) && $plan['location'] === $assetName) {
+                // Create seeding activity
+                if (!empty($plan['planned_seeding_date'])) {
+                    $activities[] = [
+                        'id' => 'seeding_' . ($plan['farmos_asset_id'] ?? uniqid()),
+                        'type' => 'seeding',
+                        'crop' => $plan['crop_type'] ?? 'Unknown Crop',
+                        'variety' => $plan['variety'] ?? 'Standard',
+                        'start' => $plan['planned_seeding_date'],
+                        'end' => $plan['planned_transplant_date'] ?? date('Y-m-d', strtotime($plan['planned_seeding_date'] . ' +14 days')),
+                        'status' => $plan['status'] ?? 'planned'
+                    ];
+                }
+                
+                // Create growing activity
+                if (!empty($plan['planned_transplant_date']) && !empty($plan['planned_harvest_start'])) {
+                    $activities[] = [
+                        'id' => 'growing_' . ($plan['farmos_asset_id'] ?? uniqid()),
+                        'type' => 'growing',
+                        'crop' => $plan['crop_type'] ?? 'Unknown Crop',
+                        'variety' => $plan['variety'] ?? 'Standard',
+                        'start' => $plan['planned_transplant_date'],
+                        'end' => $plan['planned_harvest_start'],
+                        'status' => $plan['status'] ?? 'planned'
+                    ];
+                }
+                
+                // Create harvest activity
+                if (!empty($plan['planned_harvest_start'])) {
+                    $activities[] = [
+                        'id' => 'harvest_' . ($plan['farmos_asset_id'] ?? uniqid()),
+                        'type' => 'harvest',
+                        'crop' => $plan['crop_type'] ?? 'Unknown Crop',
+                        'variety' => $plan['variety'] ?? 'Standard',
+                        'start' => $plan['planned_harvest_start'],
+                        'end' => $plan['planned_harvest_end'] ?? date('Y-m-d', strtotime($plan['planned_harvest_start'] . ' +21 days')),
+                        'status' => $plan['status'] ?? 'planned'
+                    ];
+                }
+            }
+        }
+        
+        return $activities;
+    }
+    
 }
