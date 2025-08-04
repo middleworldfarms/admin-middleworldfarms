@@ -21,7 +21,7 @@ return [
     
     'client_secret' => env('FARMOS_OAUTH_CLIENT_SECRET'),
     
-    'oauth_scope' => env('FARMOS_OAUTH_SCOPE', 'farmos_restws_access'),
+    'oauth_scope' => env('FARMOS_OAUTH_SCOPE', 'farm_manager'),
     
     /*
     |--------------------------------------------------------------------------

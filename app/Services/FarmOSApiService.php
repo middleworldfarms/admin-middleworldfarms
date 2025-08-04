@@ -84,7 +84,7 @@ class FarmOSApiService
             }
 
             // Request new token
-            $scope = Config::get('farmos.oauth_scope', 'farmos_restws_access');
+            $scope = Config::get('farmos.oauth_scope', 'farm_manager');
             
             Log::info('Requesting OAuth2 token', [
                 'client_id' => $clientId,
