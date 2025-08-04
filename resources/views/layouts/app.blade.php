@@ -334,6 +334,11 @@
                 <span>Planting Chart</span>
             </a>
             
+            <a href="/admin/farmos/succession-planning" class="nav-link {{ request()->is('admin/farmos/succession-planning*') ? 'active' : '' }}">
+                <i class="fas fa-layer-group"></i>
+                <span>Succession Planning</span>
+            </a>
+            
             <a href="/admin/farmos/crop-plans" class="nav-link {{ request()->is('admin/farmos/crop-plans*') ? 'active' : '' }}">
                 <i class="fas fa-tasks"></i>
                 <span>Crop Plans</span>

@@ -1,0 +1,500 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Http\Controllers\Controller;
+use App\Services\FarmOSApiService;
+use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
+use Carbon\Carbon;
+
+class SuccessionPlanningController extends Controller
+{
+    protected $farmOSApi;
+
+    public function __construct(FarmOSApiService $farmOSApi)
+    {
+        $this->farmOSApi = $farmOSApi;
+    }
+
+    /**
+     * Display the succession planning interface
+     */
+    public function index()
+    {
+        try {
+            // Get available crop types and assets
+            $cropTypes = $this->farmOSApi->getAvailableCropTypes();
+            $geometryAssets = $this->farmOSApi->getGeometryAssets();
+            $availableBeds = $this->extractAvailableBeds($geometryAssets);
+            
+            // Crop timing presets for common market garden crops
+            $cropPresets = $this->getCropTimingPresets();
+            
+            return view('admin.farmos.succession-planning', compact(
+                'cropTypes',
+                'availableBeds', 
+                'cropPresets'
+            ));
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to load succession planning: ' . $e->getMessage());
+            
+            // Fallback data for demo
+            $cropTypes = ['lettuce', 'carrot', 'radish', 'spinach', 'kale', 'arugula', 'chard', 'beets'];
+            $availableBeds = $this->getFallbackBeds();
+            $cropPresets = $this->getCropTimingPresets();
+            
+            return view('admin.farmos.succession-planning', compact(
+                'cropTypes',
+                'availableBeds',
+                'cropPresets'
+            ));
+        }
+    }
+
+    /**
+     * Generate succession plan based on user input
+     */
+    public function generate(Request $request)
+    {
+        $validated = $request->validate([
+            'crop_type' => 'required|string',
+            'variety' => 'nullable|string',
+            'succession_count' => 'required|integer|min:1|max:50',
+            'interval_days' => 'required|integer|min:1|max:365',
+            'first_seeding_date' => 'required|date',
+            'seeding_to_transplant_days' => 'nullable|integer|min:0|max:180',
+            'transplant_to_harvest_days' => 'required|integer|min:1|max:365',
+            'harvest_duration_days' => 'required|integer|min:1|max:90',
+            'beds_per_planting' => 'required|integer|min:1|max:10',
+            'auto_assign_beds' => 'boolean',
+            'selected_beds' => 'nullable|array',
+            'notes' => 'nullable|string|max:1000'
+        ]);
+
+        try {
+            // Get existing farmOS crop plans to check for conflicts
+            $existingPlans = $this->farmOSApi->getCropPlanningData();
+            $cropPresets = $this->getCropTimingPresets();
+            
+            // Generate succession plan with AI assistance
+            $successionPlan = $this->generateSuccessionPlan($validated, $existingPlans, $cropPresets);
+            
+            // Check for bed conflicts and find alternatives
+            $planWithBeds = $this->assignBedsWithConflictResolution($successionPlan);
+            
+            // Use AI to optimize the plan
+            $optimizedPlan = $this->optimizePlanWithAI($planWithBeds, $validated);
+            
+            return response()->json([
+                'success' => true,
+                'plan' => $optimizedPlan,
+                'message' => 'Succession plan generated successfully with AI optimization',
+                'conflicts_resolved' => $optimizedPlan['conflicts_resolved'] ?? 0
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to generate succession plan: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to generate succession plan: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Create farmOS logs for the succession plan via API
+     * IMPORTANT: This admin is a CLIENT ONLY - all data goes to farmOS via API
+     * Our planting chart will then read this data back from farmOS
+     */
+    public function createLogs(Request $request)
+    {
+        $validated = $request->validate([
+            'plan' => 'required|array',
+            'confirm' => 'required|boolean'
+        ]);
+
+        if (!$validated['confirm']) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Plan creation not confirmed'
+            ], 400);
+        }
+
+        try {
+            $createdLogs = [];
+            $errors = [];
+            $farmOSPlans = []; // Track what we send to farmOS
+
+            foreach ($validated['plan']['plantings'] as $planting) {
+                try {
+                    // CRITICAL: All data goes to farmOS via API calls
+                    // We store NOTHING locally - farmOS is the master database
+                    
+                    // Create seeding plan in farmOS
+                    if (!empty($planting['seeding_date'])) {
+                        $seedingPlan = $this->farmOSApi->createCropPlan([
+                            'type' => 'plant',
+                            'crop' => [
+                                'name' => $planting['crop'],
+                                'variety' => $planting['variety'] ?? ''
+                            ],
+                            'location' => $planting['bed_id'],
+                            'timestamp' => $planting['seeding_date'],
+                            'notes' => "Succession #{$planting['sequence']}: Seeding - " . ($planting['notes'] ?? ''),
+                            'status' => 'pending'
+                        ]);
+                        $createdLogs[] = $seedingPlan;
+                        $farmOSPlans[] = $seedingPlan;
+                    }
+
+                    // Create transplant plan in farmOS (if applicable)
+                    if (!empty($planting['transplant_date'])) {
+                        $transplantPlan = $this->farmOSApi->createCropPlan([
+                            'type' => 'transplant',
+                            'crop' => [
+                                'name' => $planting['crop'],
+                                'variety' => $planting['variety'] ?? ''
+                            ],
+                            'location' => $planting['bed_id'],
+                            'timestamp' => $planting['transplant_date'],
+                            'notes' => "Succession #{$planting['sequence']}: Transplant - " . ($planting['notes'] ?? ''),
+                            'status' => 'pending'
+                        ]);
+                        $createdLogs[] = $transplantPlan;
+                        $farmOSPlans[] = $transplantPlan;
+                    }
+
+                    // Create harvest plan in farmOS
+                    if (!empty($planting['harvest_date'])) {
+                        $harvestPlan = $this->farmOSApi->createCropPlan([
+                            'type' => 'harvest',
+                            'crop' => [
+                                'name' => $planting['crop'],
+                                'variety' => $planting['variety'] ?? ''
+                            ],
+                            'location' => $planting['bed_id'],
+                            'timestamp' => $planting['harvest_date'],
+                            'notes' => "Succession #{$planting['sequence']}: Harvest - " . ($planting['notes'] ?? ''),
+                            'status' => 'pending'
+                        ]);
+                        $createdLogs[] = $harvestPlan;
+                        $farmOSPlans[] = $harvestPlan;
+                    }
+
+                } catch (\Exception $e) {
+                    $errors[] = "Failed to create farmOS plans for planting #{$planting['sequence']}: " . $e->getMessage();
+                    Log::error("farmOS API error during succession planning: " . $e->getMessage());
+                }
+            }
+
+            // Log what was sent to farmOS for debugging
+            Log::info('Succession planning: Created ' . count($farmOSPlans) . ' plans in farmOS', [
+                'plans_created' => count($farmOSPlans),
+                'crop_type' => $validated['plan']['crop_type'] ?? 'unknown',
+                'total_plantings' => $validated['plan']['total_plantings'] ?? 0
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'created_logs' => count($createdLogs),
+                'errors' => $errors,
+                'message' => count($createdLogs) . ' farmOS crop plans created successfully',
+                'note' => 'Data now exists in farmOS - planting chart will show these when refreshed'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to create succession plans in farmOS: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create farmOS plans: ' . $e->getMessage(),
+                'note' => 'No data was stored locally - all operations are against farmOS API'
+            ], 500);
+        }
+    }
+
+    /**
+     * Generate basic succession plan with timing calculations
+     */
+    private function generateSuccessionPlan($validated, $existingPlans, $cropPresets)
+    {
+        $cropType = $validated['crop_type'];
+        $variety = $validated['variety'] ?? 'Standard';
+        $successionCount = $validated['succession_count'];
+        $intervalDays = $validated['interval_days'];
+        $firstSeedingDate = Carbon::parse($validated['first_seeding_date']);
+        $notes = $validated['notes'] ?? '';
+
+        // Get crop timing from presets
+        $timing = $cropPresets[$cropType] ?? $cropPresets['default'];
+        
+        $plantings = [];
+        
+        for ($i = 0; $i < $successionCount; $i++) {
+            $seedingDate = $firstSeedingDate->copy()->addDays($i * $intervalDays);
+            $transplantDate = $timing['transplant_days'] > 0 ? 
+                $seedingDate->copy()->addDays($timing['transplant_days']) : null;
+            $harvestDate = $seedingDate->copy()->addDays($timing['harvest_days']);
+            
+            $plantings[] = [
+                'sequence' => $i + 1,
+                'crop' => $cropType,
+                'variety' => $variety,
+                'seeding_date' => $seedingDate->format('Y-m-d'),
+                'transplant_date' => $transplantDate ? $transplantDate->format('Y-m-d') : null,
+                'harvest_date' => $harvestDate->format('Y-m-d'),
+                'notes' => $notes,
+                'bed_id' => null, // To be assigned later
+                'conflicts' => []
+            ];
+        }
+
+        return [
+            'crop_type' => $cropType,
+            'variety' => $variety,
+            'total_plantings' => $successionCount,
+            'interval_days' => $intervalDays,
+            'plantings' => $plantings
+        ];
+    }
+
+    /**
+     * Assign beds while checking for conflicts with existing farmOS data
+     */
+    private function assignBedsWithConflictResolution($plan)
+    {
+        // Get all available beds from farmOS
+        $geometryAssets = $this->farmOSApi->getGeometryAssets();
+        $availableBeds = $this->extractAvailableBeds($geometryAssets);
+        
+        // Get existing crop plans to check for conflicts
+        $existingPlans = $this->farmOSApi->getCropPlanningData();
+        
+        $conflictsResolved = 0;
+        
+        foreach ($plan['plantings'] as &$planting) {
+            $assigned = false;
+            $attemptCount = 0;
+            
+            // Try to find an available bed
+            while (!$assigned && $attemptCount < count($availableBeds)) {
+                $candidateBed = $availableBeds[$attemptCount % count($availableBeds)];
+                
+                // Check for conflicts with existing plans
+                $conflicts = $this->checkBedConflicts(
+                    $candidateBed, 
+                    $planting['seeding_date'], 
+                    $planting['harvest_date'], 
+                    $existingPlans
+                );
+                
+                if (empty($conflicts)) {
+                    $planting['bed_id'] = $candidateBed['id'];
+                    $planting['bed_name'] = $candidateBed['name'];
+                    $assigned = true;
+                } else {
+                    $planting['conflicts'] = $conflicts;
+                    $conflictsResolved++;
+                }
+                
+                $attemptCount++;
+            }
+            
+            if (!$assigned) {
+                $planting['bed_id'] = null;
+                $planting['bed_name'] = 'No available bed found';
+                $planting['conflicts'][] = 'All beds are occupied during this period';
+            }
+        }
+        
+        $plan['conflicts_resolved'] = $conflictsResolved;
+        return $plan;
+    }
+
+    /**
+     * Use AI to optimize the succession plan
+     */
+    private function optimizePlanWithAI($plan, $originalRequest)
+    {
+        try {
+            $aiContext = [
+                'crop_type' => $plan['crop_type'],
+                'variety' => $plan['variety'],
+                'total_plantings' => $plan['total_plantings'],
+                'interval_days' => $plan['interval_days'],
+                'conflicts_resolved' => $plan['conflicts_resolved'] ?? 0,
+                'current_date' => now()->format('Y-m-d'),
+                'farm_beds' => count($this->getFallbackBeds()),
+                'plantings_overview' => array_map(function($p) {
+                    return [
+                        'sequence' => $p['sequence'],
+                        'seeding_date' => $p['seeding_date'],
+                        'harvest_date' => $p['harvest_date'],
+                        'bed_assigned' => !empty($p['bed_id']),
+                        'conflicts' => count($p['conflicts'] ?? [])
+                    ];
+                }, $plan['plantings'])
+            ];
+
+            $aiQuestion = "Analyze this succession planting plan for {$plan['crop_type']} and suggest optimizations. "
+                        . "Consider: timing intervals, bed rotation, seasonal factors, and any conflicts found. "
+                        . "Provide specific recommendations for improving yield and reducing conflicts.";
+
+            $response = Http::timeout(10)->post(env('AI_SERVICE_URL', 'http://localhost:8001/ask'), [
+                'question' => $aiQuestion,
+                'context' => json_encode($aiContext)
+            ]);
+
+            if ($response->successful()) {
+                $aiData = $response->json();
+                $plan['ai_recommendations'] = $aiData['answer'] ?? 'No recommendations available';
+                $plan['ai_analysis_date'] = now()->format('Y-m-d H:i:s');
+            } else {
+                $plan['ai_recommendations'] = 'AI analysis unavailable';
+            }
+
+        } catch (\Exception $e) {
+            Log::warning('AI optimization failed: ' . $e->getMessage());
+            $plan['ai_recommendations'] = 'AI analysis temporarily unavailable';
+        }
+
+        return $plan;
+    }
+
+    /**
+     * Check for bed conflicts with existing farmOS plans
+     */
+    private function checkBedConflicts($bed, $startDate, $endDate, $existingPlans)
+    {
+        $conflicts = [];
+        $startCarbon = Carbon::parse($startDate);
+        $endCarbon = Carbon::parse($endDate);
+
+        foreach ($existingPlans as $plan) {
+            if (isset($plan['location']) && $plan['location'] === $bed['name']) {
+                $planStart = Carbon::parse($plan['start_date'] ?? $plan['timestamp']);
+                $planEnd = Carbon::parse($plan['end_date'] ?? $plan['harvest_date'] ?? $planStart->copy()->addDays(90));
+
+                // Check for date overlap
+                if ($startCarbon->lte($planEnd) && $endCarbon->gte($planStart)) {
+                    $conflicts[] = [
+                        'type' => 'date_overlap',
+                        'existing_crop' => $plan['crop'] ?? 'Unknown crop',
+                        'existing_start' => $planStart->format('Y-m-d'),
+                        'existing_end' => $planEnd->format('Y-m-d')
+                    ];
+                }
+            }
+        }
+
+        return $conflicts;
+    }
+
+    /**
+     * Extract available beds from farmOS geometry assets
+     */
+    private function extractAvailableBeds($geometryAssets)
+    {
+        $beds = [];
+        
+        if (isset($geometryAssets['features'])) {
+            foreach ($geometryAssets['features'] as $feature) {
+                $properties = $feature['attributes'] ?? [];
+                $name = $properties['name'] ?? 'Unknown';
+                
+                // Filter for bed-type assets
+                if (stripos($name, 'bed') !== false || preg_match('/\d+\/\d+/', $name)) {
+                    $beds[] = [
+                        'id' => $feature['id'] ?? uniqid(),
+                        'name' => $name,
+                        'type' => $properties['type'] ?? 'bed',
+                        'area' => $properties['area'] ?? 0
+                    ];
+                }
+            }
+        }
+
+        // Fallback if no beds found
+        if (empty($beds)) {
+            return $this->getFallbackBeds();
+        }
+
+        return $beds;
+    }
+
+    /**
+     * Get fallback bed data for demo/testing
+     */
+    private function getFallbackBeds()
+    {
+        $beds = [];
+        for ($block = 1; $block <= 10; $block++) {
+            for ($bed = 1; $bed <= 16; $bed++) {
+                $beds[] = [
+                    'id' => "bed_{$block}_{$bed}",
+                    'name' => "{$block}/{$bed}",
+                    'type' => 'bed',
+                    'area' => rand(50, 200) // sq ft
+                ];
+            }
+        }
+        return $beds;
+    }
+
+    /**
+     * Get crop timing presets for common market garden crops
+     */
+    private function getCropTimingPresets()
+    {
+        return [
+            'lettuce' => [
+                'transplant_days' => 21,  // Seed to transplant
+                'harvest_days' => 65,     // Seed to harvest
+                'yield_period' => 14      // Harvest window
+            ],
+            'carrot' => [
+                'transplant_days' => 0,   // Direct seed
+                'harvest_days' => 75,
+                'yield_period' => 21
+            ],
+            'radish' => [
+                'transplant_days' => 0,
+                'harvest_days' => 30,
+                'yield_period' => 10
+            ],
+            'spinach' => [
+                'transplant_days' => 14,
+                'harvest_days' => 50,
+                'yield_period' => 21
+            ],
+            'kale' => [
+                'transplant_days' => 28,
+                'harvest_days' => 70,
+                'yield_period' => 60
+            ],
+            'arugula' => [
+                'transplant_days' => 0,
+                'harvest_days' => 40,
+                'yield_period' => 14
+            ],
+            'chard' => [
+                'transplant_days' => 21,
+                'harvest_days' => 60,
+                'yield_period' => 90
+            ],
+            'beets' => [
+                'transplant_days' => 0,
+                'harvest_days' => 70,
+                'yield_period' => 21
+            ],
+            'default' => [
+                'transplant_days' => 21,
+                'harvest_days' => 70,
+                'yield_period' => 21
+            ]
+        ];
+    }
+}

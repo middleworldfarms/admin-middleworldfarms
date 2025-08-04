@@ -1160,4 +1160,80 @@ class FarmOSApiService
         
         return 'unknown';
     }
+
+    /**
+     * Create crop plan in farmOS for succession planning
+     * CRITICAL: This sends data to farmOS - farmOS is the master database
+     */
+    public function createCropPlan($planData)
+    {
+        $this->authenticate();
+        
+        // Prepare farmOS plan structure
+        $data = [
+            'data' => [
+                'type' => 'plan--crop',
+                'attributes' => [
+                    'name' => $planData['crop']['name'] . ' - ' . $planData['type'] . ' Plan',
+                    'notes' => [
+                        'value' => $planData['notes'] ?? '',
+                        'format' => 'default'
+                    ],
+                    'status' => $planData['status'] ?? 'pending'
+                ],
+                'relationships' => [
+                    'crop' => [
+                        'data' => [
+                            'type' => 'taxonomy_term--crop_family',
+                            'attributes' => [
+                                'name' => $planData['crop']['name']
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ];
+
+        // Add location if provided
+        if (!empty($planData['location'])) {
+            $data['data']['relationships']['location'] = [
+                'data' => [
+                    'type' => 'asset--land',
+                    'id' => $planData['location']
+                ]
+            ];
+        }
+
+        // Add timing if provided
+        if (!empty($planData['timestamp'])) {
+            $data['data']['attributes']['timestamp'] = strtotime($planData['timestamp']);
+        }
+
+        try {
+            $response = $this->client->post('/api/plan/crop', [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $this->token,
+                ],
+                'json' => $data
+            ]);
+
+            $result = json_decode($response->getBody(), true);
+            Log::info('Created farmOS crop plan', [
+                'crop' => $planData['crop']['name'],
+                'type' => $planData['type'],
+                'location' => $planData['location'] ?? 'none',
+                'plan_id' => $result['data']['id'] ?? 'unknown'
+            ]);
+
+            return $result;
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to create farmOS crop plan: ' . $e->getMessage(), [
+                'crop' => $planData['crop']['name'] ?? 'unknown',
+                'type' => $planData['type'] ?? 'unknown',
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
 }
