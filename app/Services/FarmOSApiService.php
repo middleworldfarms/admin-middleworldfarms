@@ -183,7 +183,7 @@ class FarmOSApiService
                         'crop_name' => $attributes['name'] ?? 'Unknown Crop',
                         'crop_type' => $this->extractCropTypeFromLog($log),
                         'formatted_quantity' => $this->formatQuantityFromLog($log),
-                        'harvest_date' => $attributes['timestamp'] ?? date('c'),
+                        'harvest_date' => $attributes['timestamp'] ?? \date('c'),
                         'synced_to_stock' => false, // farmOS logs don't have this concept
                         'notes' => $attributes['notes']['value'] ?? '',
                         'status' => $attributes['status'] ?? 'done'
@@ -282,7 +282,7 @@ class FarmOSApiService
                 'type' => 'log--activity',
                 'attributes' => [
                     'name' => 'Stock adjustment from harvest',
-                    'timestamp' => time(),
+                    'timestamp' => \time(),
                     'status' => 'done',
                     'notes' => [
                         'value' => 'Automatically created from harvest log integration',
@@ -499,8 +499,8 @@ class FarmOSApiService
                         'crop_type' => $attributes['crop'] ?? 'Unknown',
                         'location' => $this->extractLocationFromPlan($plan),
                         'status' => $attributes['status'] ?? 'active',
-                        'created_at' => $attributes['created'] ?? date('c'),
-                        'updated_at' => $attributes['changed'] ?? date('c'),
+                        'created_at' => $attributes['created'] ?? \date('c'),
+                        'updated_at' => $attributes['changed'] ?? \date('c'),
                     ];
                 }
             }
@@ -541,9 +541,9 @@ class FarmOSApiService
                         'location' => $this->extractLocationFromLog($log),
                         'status' => 'active',
                         'type' => 'seeding',
-                        'date' => $attributes['timestamp'] ?? date('c'),
-                        'created_at' => $attributes['created'] ?? date('c'),
-                        'updated_at' => $attributes['changed'] ?? date('c'),
+                        'date' => $attributes['timestamp'] ?? \date('c'),
+                        'created_at' => $attributes['created'] ?? \date('c'),
+                        'updated_at' => $attributes['changed'] ?? \date('c'),
                     ];
                 }
             }
@@ -586,8 +586,8 @@ class FarmOSApiService
                         'planned_transplant_date' => $this->extractPlannedDate($plant, 'transplanting'),
                         'planned_harvest_start' => $this->extractPlannedDate($plant, 'harvest'),
                         'planned_harvest_end' => $this->calculateHarvestEnd($this->extractPlannedDate($plant, 'harvest')),
-                        'created_at' => $attributes['created'] ?? date('c'),
-                        'updated_at' => $attributes['changed'] ?? date('c'),
+                        'created_at' => $attributes['created'] ?? \date('c'),
+                        'updated_at' => $attributes['changed'] ?? \date('c'),
                     ];
                 }
             }
@@ -820,18 +820,19 @@ class FarmOSApiService
     private function extractPlannedDate($plant, $type)
     {
         // This would need to look at log relationships
-        // For now, generate reasonable test dates
-        $baseDate = time();
+        // For now, generate reasonable test dates using Carbon
+        $baseDate = Carbon::now();
         
         switch ($type) {
             case 'seeding':
-                return date('Y-m-d', $baseDate - (rand(10, 30) * 86400));
+                // Use fixed values instead of random to avoid IDE issues
+                return $baseDate->subDays(20)->format('Y-m-d');
             case 'transplanting':
-                return date('Y-m-d', $baseDate + (rand(5, 15) * 86400));
+                return $baseDate->addDays(10)->format('Y-m-d');
             case 'harvest':
-                return date('Y-m-d', $baseDate + (rand(30, 90) * 86400));
+                return $baseDate->addDays(60)->format('Y-m-d');
             default:
-                return date('Y-m-d', $baseDate);
+                return $baseDate->format('Y-m-d');
         }
     }
 
@@ -845,7 +846,7 @@ class FarmOSApiService
         }
 
         // Default 2-week harvest window
-        return date('Y-m-d', strtotime($harvestStart . ' +14 days'));
+        return \date('Y-m-d', strtotime($harvestStart . ' +14 days'));
     }
 
     /**

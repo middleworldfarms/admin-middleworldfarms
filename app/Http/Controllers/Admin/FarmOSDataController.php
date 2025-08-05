@@ -815,30 +815,39 @@ class FarmOSDataController extends Controller
             // Get farmOS land assets (your actual farm structure)
             $geometryAssets = $this->farmOSApi->getGeometryAssets();
             $cropPlans = $this->farmOSApi->getCropPlanningData();
-            $cropTypes = $this->farmOSApi->getAvailableCropTypes();
+            $cropTypesData = $this->farmOSApi->getAvailableCropTypes();
+            
+            // Extract simple crop type names for the filter dropdown
+            $cropTypes = [];
+            if (isset($cropTypesData['types'])) {
+                foreach ($cropTypesData['types'] as $type) {
+                    $cropTypes[] = $type['name'] ?? $type['label'] ?? 'Unknown';
+                }
+            }
             
             // Debug: Log the data we're getting
             Log::info('Planting Chart Debug - Geometry Assets Count: ' . count($geometryAssets['features'] ?? []));
             Log::info('Planting Chart Debug - Crop Plans Count: ' . count($cropPlans));
-            Log::info('Planting Chart Debug - Sample Assets: ', array_slice($geometryAssets['features'] ?? [], 0, 3));
-            Log::info('Planting Chart Debug - Sample Crop Plans: ', array_slice($cropPlans, 0, 2));
+            Log::info('Planting Chart Debug - Crop Types: ', $cropTypes);
             
             // Transform land assets into chart data showing your actual blocks and beds
             $chartData = $this->transformLandAssetsToChart($geometryAssets, $cropPlans);
             $locations = $this->extractLocationsFromAssets($geometryAssets);
             
-            // Debug: Log the transformed data
-            Log::info('Planting Chart Debug - Chart Data Keys: ' . implode(', ', array_keys($chartData)));
-            Log::info('Planting Chart Debug - Chart Data Structure: ', $chartData);
-            Log::info('Planting Chart Debug - Locations: ', $locations);
-            
             $usingFarmOSData = true;
-            Log::info('Planting Chart Debug - Chart Data Keys: ' . implode(', ', array_keys($chartData)));
-            Log::info('Planting Chart Debug - Locations: ' . implode(', ', $locations));
             
-            // If we don't have good data, use fallback
-            if (empty($chartData) || count($geometryAssets['features'] ?? []) < 5) {
-                throw new \Exception('Insufficient farmOS data, using fallback');
+            // Check if we have actual planting data (not just empty locations)
+            $hasPlantingData = false;
+            foreach ($chartData as $location => $plantings) {
+                if (!empty($plantings)) {
+                    $hasPlantingData = true;
+                    break;
+                }
+            }
+            
+            // If we don't have good data or no planting data, use fallback
+            if (empty($chartData) || count($geometryAssets['features'] ?? []) < 5 || !$hasPlantingData) {
+                throw new \Exception('Insufficient farmOS planting data, using fallback');
             }
             
             $usingFarmOSData = true;

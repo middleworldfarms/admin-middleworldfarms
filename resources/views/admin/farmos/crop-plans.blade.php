@@ -108,8 +108,11 @@
                             <select name="crop_type" id="crop_type" class="form-select">
                                 <option value="">All Crops</option>
                                 @foreach($cropTypes as $type)
-                                    <option value="{{ $type }}" {{ request('crop_type') == $type ? 'selected' : '' }}>
-                                        {{ ucfirst($type) }}
+                                    @php
+                                        $value = is_array($type) ? ($type['name'] ?? ($type['label'] ?? 'Unknown')) : $type;
+                                    @endphp
+                                    <option value="{{ $value }}" {{ request('crop_type') == $value ? 'selected' : '' }}>
+                                        {{ ucfirst($value) }}
                                     </option>
                                 @endforeach
                             </select>
