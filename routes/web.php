@@ -149,6 +149,20 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         Route::post('/succession-planning/generate', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'generate'])->name('succession-planning.generate');
         Route::post('/succession-planning/create-logs', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'createLogs'])->name('succession-planning.create-logs');
 
+    });
+
+    // Test route for AI timing
+    Route::get('/test-ai-timing', function () {
+        return view('test-ai-timing');
+    });
+
+    // AI API routes (outside farmOS group since they might be called differently)
+    Route::prefix('api')->group(function () {
+        Route::post('/ai/crop-timing', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'getAICropTiming'])->name('api.ai.crop-timing');
+    });
+
+    Route::prefix('admin/farmos')->group(function () {
+
         Route::post('/sync-harvests', [App\Http\Controllers\Admin\FarmOSDataController::class, 'syncHarvests'])->name('sync-harvests');
         Route::post('/sync-to-stock', [App\Http\Controllers\Admin\FarmOSDataController::class, 'syncToStock'])->name('sync-to-stock');
         Route::delete('/clear-test-data', [App\Http\Controllers\Admin\FarmOSDataController::class, 'clearTestData'])->name('clear-test-data');

@@ -601,60 +601,119 @@ class FarmOSApiService
     }
 
     /**
-     * Get available crop types from plant assets
+     * Get available crop types and varieties from farmOS taxonomy
      */
     public function getAvailableCropTypes()
     {
         try {
-            $token = $this->authenticate();
-            if (!$token) {
-                return ['lettuce', 'tomato', 'carrot', 'spinach']; // fallback
-            }
+            $this->authenticate();
+            
+            $cropData = [
+                'types' => [],
+                'varieties' => []
+            ];
 
             // Get plant types from farmOS taxonomy
             $response = $this->client->get('/api/taxonomy_term/plant_type', [
                 'headers' => [
-                    'Authorization' => 'Bearer ' . $token,
+                    'Authorization' => 'Bearer ' . $this->token,
                     'Accept' => 'application/vnd.api+json'
                 ]
             ]);
 
             $data = json_decode($response->getBody(), true);
-            $cropTypes = [];
 
             if (isset($data['data'])) {
                 foreach ($data['data'] as $term) {
                     $attributes = $term['attributes'] ?? [];
-                    $cropTypes[] = $attributes['name'] ?? 'Unknown';
-                }
-            }
-
-            // If no crop types from taxonomy, try to get from existing plant assets
-            if (empty($cropTypes)) {
-                $plants = $this->getPlantAssets();
-                if (isset($plants['data'])) {
-                    foreach ($plants['data'] as $plant) {
-                        $cropType = $this->extractCropType($plant);
-                        if ($cropType && !in_array($cropType, $cropTypes)) {
-                            $cropTypes[] = $cropType;
-                        }
+                    $name = $attributes['name'] ?? 'Unknown';
+                    
+                    if ($name !== 'Unknown') {
+                        $cropData['types'][] = [
+                            'id' => $term['id'] ?? '',
+                            'name' => $name,
+                            'label' => ucfirst(strtolower($name))
+                        ];
                     }
                 }
             }
 
-            // Add some common defaults if still empty
-            if (empty($cropTypes)) {
-                $cropTypes = ['lettuce', 'tomato', 'carrot', 'cabbage', 'potato', 'herb', 'flower'];
+            // Get crop varieties if available
+            try {
+                $varietyResponse = $this->client->get('/api/taxonomy_term/plant_variety', [
+                    'headers' => [
+                        'Authorization' => 'Bearer ' . $this->token,
+                        'Accept' => 'application/vnd.api+json'
+                    ]
+                ]);
+
+                $varietyData = json_decode($varietyResponse->getBody(), true);
+                
+                if (isset($varietyData['data'])) {
+                    foreach ($varietyData['data'] as $term) {
+                        $attributes = $term['attributes'] ?? [];
+                        $name = $attributes['name'] ?? '';
+                        $parent = $attributes['parent'] ?? null;
+                        
+                        if ($name) {
+                            $cropData['varieties'][] = [
+                                'id' => $term['id'] ?? '',
+                                'name' => $name,
+                                'label' => $name,
+                                'parent_id' => $parent
+                            ];
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::warning('Could not fetch crop varieties: ' . $e->getMessage());
             }
 
-            sort($cropTypes);
-            return array_unique($cropTypes);
+            // Add some common defaults if no types found
+            if (empty($cropData['types'])) {
+                $defaultTypes = ['lettuce', 'tomato', 'carrot', 'cabbage', 'potato', 'spinach', 'kale', 'radish', 'beets', 'arugula'];
+                foreach ($defaultTypes as $type) {
+                    $cropData['types'][] = [
+                        'id' => $type,
+                        'name' => $type,
+                        'label' => ucfirst($type)
+                    ];
+                }
+            }
+
+            // Sort types alphabetically
+            usort($cropData['types'], function($a, $b) {
+                return strcmp($a['label'], $b['label']);
+            });
+            
+            usort($cropData['varieties'], function($a, $b) {
+                return strcmp($a['label'], $b['label']);
+            });
+
+            return $cropData;
 
         } catch (\Exception $e) {
-            Log::error('FarmOS crop types fetch failed: ' . $e->getMessage());
-            return ['lettuce', 'tomato', 'carrot', 'cabbage', 'potato'];
+            Log::error('Failed to fetch crop types from farmOS: ' . $e->getMessage());
+            
+            // Fallback data
+            return [
+                'types' => [
+                    ['id' => 'lettuce', 'name' => 'lettuce', 'label' => 'Lettuce'],
+                    ['id' => 'carrot', 'name' => 'carrot', 'label' => 'Carrot'],
+                    ['id' => 'radish', 'name' => 'radish', 'label' => 'Radish'],
+                    ['id' => 'spinach', 'name' => 'spinach', 'label' => 'Spinach'],
+                    ['id' => 'kale', 'name' => 'kale', 'label' => 'Kale'],
+                    ['id' => 'arugula', 'name' => 'arugula', 'label' => 'Arugula'],
+                    ['id' => 'beets', 'name' => 'beets', 'label' => 'Beets']
+                ],
+                'varieties' => []
+            ];
         }
     }
+
+    /**
+     * Get plant assets from farmOS
+     */
 
     /**
      * Get available locations from land assets

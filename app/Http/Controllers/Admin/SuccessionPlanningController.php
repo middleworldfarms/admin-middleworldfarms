@@ -25,8 +25,8 @@ class SuccessionPlanningController extends Controller
     public function index()
     {
         try {
-            // Get available crop types and assets
-            $cropTypes = $this->farmOSApi->getAvailableCropTypes();
+            // Get available crop types and varieties from farmOS
+            $cropData = $this->farmOSApi->getAvailableCropTypes();
             $geometryAssets = $this->farmOSApi->getGeometryAssets();
             $availableBeds = $this->extractAvailableBeds($geometryAssets);
             
@@ -34,7 +34,7 @@ class SuccessionPlanningController extends Controller
             $cropPresets = $this->getCropTimingPresets();
             
             return view('admin.farmos.succession-planning', compact(
-                'cropTypes',
+                'cropData',
                 'availableBeds', 
                 'cropPresets'
             ));
@@ -43,12 +43,23 @@ class SuccessionPlanningController extends Controller
             Log::error('Failed to load succession planning: ' . $e->getMessage());
             
             // Fallback data for demo
-            $cropTypes = ['lettuce', 'carrot', 'radish', 'spinach', 'kale', 'arugula', 'chard', 'beets'];
+            $cropData = [
+                'types' => [
+                    ['id' => 'lettuce', 'name' => 'lettuce', 'label' => 'Lettuce'],
+                    ['id' => 'carrot', 'name' => 'carrot', 'label' => 'Carrot'],
+                    ['id' => 'radish', 'name' => 'radish', 'label' => 'Radish'],
+                    ['id' => 'spinach', 'name' => 'spinach', 'label' => 'Spinach'],
+                    ['id' => 'kale', 'name' => 'kale', 'label' => 'Kale'],
+                    ['id' => 'arugula', 'name' => 'arugula', 'label' => 'Arugula'],
+                    ['id' => 'beets', 'name' => 'beets', 'label' => 'Beets']
+                ],
+                'varieties' => []
+            ];
             $availableBeds = $this->getFallbackBeds();
             $cropPresets = $this->getCropTimingPresets();
             
             return view('admin.farmos.succession-planning', compact(
-                'cropTypes',
+                'cropData',
                 'availableBeds',
                 'cropPresets'
             ));
@@ -72,7 +83,8 @@ class SuccessionPlanningController extends Controller
             'beds_per_planting' => 'required|integer|min:1|max:10',
             'auto_assign_beds' => 'boolean',
             'selected_beds' => 'nullable|array',
-            'notes' => 'nullable|string|max:1000'
+            'notes' => 'nullable|string|max:1000',
+            'direct_sow' => 'boolean'
         ]);
 
         try {
@@ -136,23 +148,26 @@ class SuccessionPlanningController extends Controller
                     
                     // Create seeding plan in farmOS
                     if (!empty($planting['seeding_date'])) {
+                        $seedingType = ($planting['direct_sow'] ?? false) ? 'direct_seed' : 'seed';
+                        $seedingNote = ($planting['direct_sow'] ?? false) ? 'Direct Sow' : 'Seeding';
+                        
                         $seedingPlan = $this->farmOSApi->createCropPlan([
-                            'type' => 'plant',
+                            'type' => $seedingType,
                             'crop' => [
                                 'name' => $planting['crop'],
                                 'variety' => $planting['variety'] ?? ''
                             ],
                             'location' => $planting['bed_id'],
                             'timestamp' => $planting['seeding_date'],
-                            'notes' => "Succession #{$planting['sequence']}: Seeding - " . ($planting['notes'] ?? ''),
+                            'notes' => "Succession #{$planting['sequence']}: {$seedingNote} - " . ($planting['notes'] ?? ''),
                             'status' => 'pending'
                         ]);
                         $createdLogs[] = $seedingPlan;
                         $farmOSPlans[] = $seedingPlan;
                     }
 
-                    // Create transplant plan in farmOS (if applicable)
-                    if (!empty($planting['transplant_date'])) {
+                    // Create transplant plan in farmOS (only for non-direct-sow crops)
+                    if (!empty($planting['transplant_date']) && !($planting['direct_sow'] ?? false)) {
                         $transplantPlan = $this->farmOSApi->createCropPlan([
                             'type' => 'transplant',
                             'crop' => [
@@ -227,17 +242,32 @@ class SuccessionPlanningController extends Controller
         $intervalDays = $validated['interval_days'];
         $firstSeedingDate = Carbon::parse($validated['first_seeding_date']);
         $notes = $validated['notes'] ?? '';
+        $isDirectSow = $validated['direct_sow'] ?? false;
 
-        // Get crop timing from presets
-        $timing = $cropPresets[$cropType] ?? $cropPresets['default'];
+        // Get crop timing from user input (preferred) or presets
+        $seedingToTransplantDays = $isDirectSow ? 0 : ($validated['seeding_to_transplant_days'] ?? 0);
+        $transplantToHarvestDays = $validated['transplant_to_harvest_days'];
+        $harvestDurationDays = $validated['harvest_duration_days'];
         
         $plantings = [];
         
         for ($i = 0; $i < $successionCount; $i++) {
             $seedingDate = $firstSeedingDate->copy()->addDays($i * $intervalDays);
-            $transplantDate = $timing['transplant_days'] > 0 ? 
-                $seedingDate->copy()->addDays($timing['transplant_days']) : null;
-            $harvestDate = $seedingDate->copy()->addDays($timing['harvest_days']);
+            
+            // For direct sow crops, transplant date is null
+            $transplantDate = $isDirectSow ? null : 
+                ($seedingToTransplantDays > 0 ? $seedingDate->copy()->addDays($seedingToTransplantDays) : null);
+                
+            // Calculate harvest date based on planting method
+            if ($isDirectSow) {
+                // Direct sow: harvest date calculated from seeding date
+                $harvestDate = $seedingDate->copy()->addDays($transplantToHarvestDays);
+            } else {
+                // Transplant: harvest date calculated from transplant date
+                $harvestDate = $transplantDate ? 
+                    $transplantDate->copy()->addDays($transplantToHarvestDays) :
+                    $seedingDate->copy()->addDays($transplantToHarvestDays);
+            }
             
             $plantings[] = [
                 'sequence' => $i + 1,
@@ -246,6 +276,8 @@ class SuccessionPlanningController extends Controller
                 'seeding_date' => $seedingDate->format('Y-m-d'),
                 'transplant_date' => $transplantDate ? $transplantDate->format('Y-m-d') : null,
                 'harvest_date' => $harvestDate->format('Y-m-d'),
+                'harvest_duration_days' => $harvestDurationDays,
+                'direct_sow' => $isDirectSow,
                 'notes' => $notes,
                 'bed_id' => null, // To be assigned later
                 'conflicts' => []
@@ -257,6 +289,7 @@ class SuccessionPlanningController extends Controller
             'variety' => $variety,
             'total_plantings' => $successionCount,
             'interval_days' => $intervalDays,
+            'direct_sow' => $isDirectSow,
             'plantings' => $plantings
         ];
     }
@@ -490,11 +523,286 @@ class SuccessionPlanningController extends Controller
                 'harvest_days' => 70,
                 'yield_period' => 21
             ],
+            'cilantro' => [
+                'transplant_days' => 0,   // Direct seed
+                'harvest_days' => 45,
+                'yield_period' => 21
+            ],
+            'dill' => [
+                'transplant_days' => 0,   // Direct seed
+                'harvest_days' => 50,
+                'yield_period' => 14
+            ],
+            'scallion' => [
+                'transplant_days' => 14,
+                'harvest_days' => 60,
+                'yield_period' => 30
+            ],
+            'mesclun' => [
+                'transplant_days' => 0,   // Cut-and-come-again mix
+                'harvest_days' => 30,
+                'yield_period' => 21
+            ],
             'default' => [
                 'transplant_days' => 21,
                 'harvest_days' => 70,
                 'yield_period' => 21
             ]
         ];
+    }
+
+    /**
+     * Get AI-powered crop timing recommendations
+     */
+    public function getAICropTiming(Request $request): JsonResponse
+    {
+        // Debug logging
+        Log::info('AI crop timing request received', [
+            'crop_type' => $request->input('crop_type'),
+            'season' => $request->input('season'),
+            'is_direct_sow' => $request->input('is_direct_sow')
+        ]);
+        
+        try {
+            $cropType = $request->input('crop_type');
+            $season = $request->input('season', $this->getCurrentSeason());
+            $isDirectSow = $request->input('is_direct_sow', false);
+            
+            if (!$cropType) {
+                Log::warning('AI crop timing: Missing crop type');
+                return new JsonResponse(['error' => 'Crop type is required'], 400);
+            }
+
+            // Get base timing from presets
+            $presets = $this->getCropTimingPresets();
+            $baseTiming = $presets[$cropType] ?? $presets['default'];
+            
+            // Apply seasonal adjustments
+            $seasonalAdjustments = $this->getSeasonalAdjustments($season);
+            
+            // Calculate AI-enhanced timing
+            $timing = $this->calculateAITiming($baseTiming, $seasonalAdjustments, $isDirectSow, $cropType, $season);
+            
+            Log::info('AI crop timing success', [
+                'crop_type' => $cropType,
+                'season' => $season,
+                'timing' => $timing
+            ]);
+            
+            return new JsonResponse([
+                'success' => true,
+                'timing' => $timing,
+                'recommendations' => $this->getAIRecommendations($cropType, $season, $isDirectSow)
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('AI crop timing failed: ' . $e->getMessage());
+            return new JsonResponse(['error' => 'Failed to get timing recommendations'], 500);
+        }
+    }
+
+    /**
+     * Calculate AI-enhanced timing based on crop, season, and growing method
+     */
+    private function calculateAITiming(array $baseTiming, array $seasonalAdjustments, bool $isDirectSow, string $cropType, string $season): array
+    {
+        $timing = [
+            'days_to_transplant' => $baseTiming['transplant_days'],
+            'days_to_harvest' => $baseTiming['harvest_days'],
+            'harvest_window' => $baseTiming['yield_period']
+        ];
+        
+        // Apply direct sow adjustments
+        if ($isDirectSow) {
+            $timing['days_to_transplant'] = 0;
+            // Direct sow crops often take slightly longer to harvest
+            $timing['days_to_harvest'] += $this->getDirectSowAdjustment($cropType);
+        }
+        
+        // Apply seasonal adjustments
+        $timing['days_to_transplant'] = max(0, $timing['days_to_transplant'] + $seasonalAdjustments['transplant_adjustment']);
+        $timing['days_to_harvest'] = max(1, $timing['days_to_harvest'] + $seasonalAdjustments['harvest_adjustment']);
+        $timing['harvest_window'] = max(7, $timing['harvest_window'] + $seasonalAdjustments['window_adjustment']);
+        
+        // Apply crop-specific seasonal logic
+        $timing = $this->applyCropSpecificSeasonalLogic($timing, $cropType, $season);
+        
+        return $timing;
+    }
+
+    /**
+     * Get seasonal adjustments for timing calculations
+     */
+    private function getSeasonalAdjustments(string $season): array
+    {
+        // Convert to lowercase for consistent matching
+        $season = strtolower($season);
+        
+        $adjustments = [
+            'spring' => [
+                'transplant_adjustment' => 0,    // Standard timing
+                'harvest_adjustment' => 0,
+                'window_adjustment' => 0
+            ],
+            'summer' => [
+                'transplant_adjustment' => -3,   // Faster growth in heat
+                'harvest_adjustment' => -7,     // Quicker maturation
+                'window_adjustment' => -3       // Shorter harvest window (bolting risk)
+            ],
+            'fall' => [
+                'transplant_adjustment' => 2,    // Slightly slower establishment
+                'harvest_adjustment' => 5,      // Slower growth in cooling weather
+                'window_adjustment' => 7        // Longer harvest window (less bolting)
+            ],
+            'winter' => [
+                'transplant_adjustment' => 7,    // Much slower establishment
+                'harvest_adjustment' => 14,     // Significantly slower growth
+                'window_adjustment' => 14       // Extended harvest window
+            ]
+        ];
+        
+        return $adjustments[$season] ?? $adjustments['spring'];
+    }
+
+    /**
+     * Get direct sow timing adjustments for specific crops
+     */
+    private function getDirectSowAdjustment(string $cropType): int
+    {
+        $adjustments = [
+            'lettuce' => 7,      // Direct sow lettuce takes longer to establish
+            'carrot' => 0,       // Carrots are typically direct sown
+            'radish' => 0,       // Radishes are typically direct sown
+            'spinach' => 5,      // Direct sow spinach slightly slower
+            'arugula' => 3,      // Minimal difference for arugula
+            'kale' => 10,        // Kale benefits from transplant head start
+            'chard' => 7,        // Chard establishes better as transplant
+            'beet' => 0,         // Beets are typically direct sown
+            'turnip' => 0,       // Turnips are typically direct sown
+            'cucumber' => 14,    // Cucumbers much better as transplants
+            'tomato' => 21,      // Tomatoes require transplants in most climates
+            'pepper' => 21,      // Peppers require transplants
+            'basil' => 10,       // Basil better as transplant
+            'cilantro' => 0,     // Cilantro often direct sown
+            'dill' => 0,         // Dill typically direct sown
+            'scallion' => 5,     // Scallions can be either
+            'mesclun' => 0       // Mix is typically direct sown
+        ];
+        
+        return $adjustments[$cropType] ?? 7; // Default 7-day adjustment for unknown crops
+    }
+
+    /**
+     * Apply crop-specific seasonal logic
+     */
+    private function applyCropSpecificSeasonalLogic(array $timing, string $cropType, string $season): array
+    {
+        // Cool season crops (lettuce, spinach, kale, etc.)
+        $coolSeasonCrops = ['lettuce', 'spinach', 'arugula', 'kale', 'chard', 'radish', 'turnip', 'cilantro', 'dill', 'mesclun'];
+        
+        // Warm season crops (tomato, pepper, cucumber, basil)
+        $warmSeasonCrops = ['tomato', 'pepper', 'cucumber', 'basil'];
+        
+        if (in_array($cropType, $coolSeasonCrops)) {
+            if ($season === 'summer') {
+                // Cool season crops bolt quickly in summer heat
+                $timing['harvest_window'] = max(7, $timing['harvest_window'] - 7);
+                $timing['days_to_harvest'] -= 3; // Harvest earlier before bolting
+            } elseif ($season === 'fall' || $season === 'winter') {
+                // Cool season crops thrive in cool weather
+                $timing['harvest_window'] += 7; // Extended harvest window
+            }
+        }
+        
+        if (in_array($cropType, $warmSeasonCrops)) {
+            if ($season === 'winter') {
+                // Warm season crops may not be viable in winter
+                $timing['days_to_harvest'] += 21; // Much slower growth
+                $timing['harvest_window'] -= 7;   // Shorter viable period
+            } elseif ($season === 'summer') {
+                // Warm season crops thrive in heat
+                $timing['days_to_harvest'] -= 7;  // Faster maturation
+                $timing['harvest_window'] += 14;  // Longer productive period
+            }
+        }
+        
+        return $timing;
+    }
+
+    /**
+     * Get AI recommendations for the crop and conditions
+     */
+    private function getAIRecommendations(string $cropType, string $season, bool $isDirectSow): array
+    {
+        $recommendations = [];
+        
+        // Convert season to lowercase for consistent matching
+        $season = strtolower($season);
+        
+        // Seasonal recommendations
+        $seasonalTips = [
+            'spring' => 'Ideal growing conditions. Watch for late frost risks.',
+            'summer' => 'Hot weather. Provide shade for cool-season crops and ensure adequate water.',
+            'fall' => 'Cool growing season. Excellent for greens and root vegetables.',
+            'winter' => 'Slow growth period. Consider row covers or greenhouse protection.'
+        ];
+        
+        $recommendations[] = $seasonalTips[$season] ?? $seasonalTips['spring'];
+        
+        // Direct sow vs transplant recommendations
+        if ($isDirectSow) {
+            $recommendations[] = 'Direct seeding: Ensure consistent soil moisture for germination.';
+            
+            // Crop-specific direct sow tips
+            switch ($cropType) {
+                case 'lettuce':
+                    $recommendations[] = 'Lettuce: Thin seedlings to 6-8" spacing. Successive plant every 2 weeks.';
+                    break;
+                case 'carrot':
+                    $recommendations[] = 'Carrots: Do not transplant. Thin to 2" spacing when 2" tall.';
+                    break;
+                case 'radish':
+                    $recommendations[] = 'Radishes: Quick crop. Can interplant with slower vegetables.';
+                    break;
+            }
+        } else {
+            $recommendations[] = 'Transplanting: Start seeds ' . (14 + ($season === 'winter' ? 7 : 0)) . ' days before transplant date.';
+        }
+        
+        // Crop-specific recommendations
+        switch ($cropType) {
+            case 'lettuce':
+                $recommendations[] = 'Lettuce: Harvest outer leaves for continuous production.';
+                break;
+            case 'tomato':
+                $recommendations[] = 'Tomatoes: Stake or cage for support. Prune suckers for better fruit development.';
+                break;
+            case 'cucumber':
+                $recommendations[] = 'Cucumbers: Provide trellis support. Harvest regularly to encourage production.';
+                break;
+            case 'basil':
+                $recommendations[] = 'Basil: Pinch flowers to encourage leaf growth. Harvest regularly.';
+                break;
+        }
+        
+        return $recommendations;
+    }
+
+    /**
+     * Get current season based on date
+     */
+    private function getCurrentSeason(): string
+    {
+        $month = (int) date('n');
+        
+        if ($month >= 3 && $month <= 5) {
+            return 'spring';
+        } elseif ($month >= 6 && $month <= 8) {
+            return 'summer';
+        } elseif ($month >= 9 && $month <= 11) {
+            return 'fall';
+        } else {
+            return 'winter';
+        }
     }
 }

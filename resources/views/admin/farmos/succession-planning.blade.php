@@ -73,11 +73,29 @@
                                     <label for="cropType" class="form-label">
                                         <i class="fas fa-leaf"></i> Crop Type
                                     </label>
-                                    <select class="form-select" id="cropType" name="crop_type" required>
+                                    <select class="form-select" id="cropType" name="crop_type" required onchange="
+                                        alert('Crop changed to: ' + this.value); 
+                                        document.getElementById('debugOutput').innerHTML += 'Crop dropdown changed to: ' + this.value + '\n'; 
+                                        if(this.value) {
+                                            document.getElementById('debugOutput').innerHTML += 'About to call getSeasonalTimingFromAI...\n';
+                                            if (typeof getSeasonalTimingFromAI === 'function') {
+                                                document.getElementById('debugOutput').innerHTML += 'Function exists, calling it now...\n';
+                                                getSeasonalTimingFromAI(this.value);
+                                            } else {
+                                                document.getElementById('debugOutput').innerHTML += 'ERROR: getSeasonalTimingFromAI function not found!\n';
+                                            }
+                                        }
+                                    ">
                                         <option value="">Select crop...</option>
-                                        @foreach($cropTypes ?? ['lettuce', 'carrot', 'radish', 'spinach', 'kale', 'arugula', 'chard', 'beets'] as $crop)
-                                            <option value="{{ $crop }}">{{ ucfirst($crop) }}</option>
-                                        @endforeach
+                                        @if(isset($cropData['types']))
+                                            @foreach($cropData['types'] as $crop)
+                                                <option value="{{ $crop['name'] }}">{{ $crop['label'] }}</option>
+                                            @endforeach
+                                        @else
+                                            @foreach(['lettuce', 'carrot', 'radish', 'spinach', 'kale', 'arugula', 'chard', 'beets', 'cilantro', 'dill', 'scallion', 'mesclun'] as $crop)
+                                                <option value="{{ $crop }}">{{ ucfirst($crop) }}</option>
+                                            @endforeach
+                                        @endif
                                     </select>
                                 </div>
                             </div>
@@ -87,8 +105,26 @@
                                     <label for="variety" class="form-label">
                                         <i class="fas fa-dna"></i> Variety
                                     </label>
-                                    <input type="text" class="form-control" id="variety" name="variety" 
-                                           placeholder="e.g., Butter Lettuce, Nantes Carrot">
+                                    <select class="form-select" id="variety" name="variety">
+                                        <option value="">Select variety (optional)...</option>
+                                        <!-- Varieties will be populated by JavaScript -->
+                                    </select>
+                                    <div class="form-text">Optional - select a specific variety or leave blank</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Planting Method -->
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="mb-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="directSow" name="direct_sow">
+                                        <label class="form-check-label" for="directSow">
+                                            <i class="fas fa-hand-paper"></i> <strong>Direct Sow Only</strong>
+                                            <small class="text-muted d-block">Check this for crops that are planted directly in the field (carrots, radishes, cut-and-come-again mixes, etc.)</small>
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -131,24 +167,25 @@
                         <!-- Crop Timing -->
                         <div class="row">
                             <div class="col-md-4">
-                                <div class="mb-3">
+                                <div class="mb-3" id="seedingToTransplantGroup">
                                     <label for="seedingToTransplant" class="form-label">
                                         <i class="fas fa-seedling"></i> Seeding to Transplant (Days)
+                                        <span class="badge bg-secondary ms-1" id="transplantOnlyBadge">Transplant Only</span>
                                     </label>
                                     <input type="number" class="form-control" id="seedingToTransplant" 
                                            name="seeding_to_transplant_days" min="0" max="180" value="21">
-                                    <div class="form-text">0 for direct seeding</div>
+                                    <div class="form-text">Time from seeding to transplant (ignored for direct sow)</div>
                                 </div>
                             </div>
                             
                             <div class="col-md-4">
                                 <div class="mb-3">
                                     <label for="transplantToHarvest" class="form-label">
-                                        <i class="fas fa-cut"></i> Transplant to Harvest (Days)
+                                        <i class="fas fa-cut"></i> <span id="transplantToHarvestLabel">Transplant to Harvest (Days)</span>
                                     </label>
                                     <input type="number" class="form-control" id="transplantToHarvest" 
                                            name="transplant_to_harvest_days" min="1" max="365" value="44" required>
-                                    <div class="form-text">Growing period length</div>
+                                    <div class="form-text" id="transplantToHarvestHelp">Growing period from transplant to harvest</div>
                                 </div>
                             </div>
                             
@@ -285,6 +322,8 @@
                     </div>
                 </div>
             </div>
+
+
         </div>
     </div>
 
@@ -344,14 +383,166 @@
 </div>
 
 <script>
+// Global function for AI timing (accessible from inline onclick)
+function getSeasonalTimingFromAI(cropType) {
+    const debugOutput = document.getElementById('debugOutput');
+    debugOutput.innerHTML += 'getSeasonalTimingFromAI called with: ' + cropType + '\n';
+    
+    if (!cropType) {
+        debugOutput.innerHTML += 'No crop type provided\n';
+        return;
+    }
+    
+    debugOutput.innerHTML += 'Making fetch request to AI endpoint...\n';
+    
+    const season = 'Summer'; // Current season
+    
+    fetch('/admin/api/ai/crop-timing', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        },
+        body: JSON.stringify({
+            crop_type: cropType,
+            season: season
+        })
+    })
+    .then(response => {
+        debugOutput.innerHTML += 'Got response: ' + response.status + '\n';
+        return response.json();
+    })
+    .then(data => {
+        debugOutput.innerHTML += 'Response data: ' + JSON.stringify(data) + '\n';
+        
+        if (data.success && data.timing) {
+            debugOutput.innerHTML += 'Updating form fields...\n';
+            
+            // Update the form fields
+            const seedingField = document.getElementById('seedingToTransplant');
+            const harvestField = document.getElementById('transplantToHarvest');
+            const windowField = document.getElementById('harvestDuration');
+            
+            if (seedingField && data.timing.days_to_transplant !== undefined) {
+                seedingField.value = data.timing.days_to_transplant;
+                debugOutput.innerHTML += 'Set seeding to transplant: ' + data.timing.days_to_transplant + '\n';
+            }
+            
+            if (harvestField && data.timing.days_to_harvest !== undefined) {
+                harvestField.value = data.timing.days_to_harvest;
+                debugOutput.innerHTML += 'Set transplant to harvest: ' + data.timing.days_to_harvest + '\n';
+            }
+            
+            if (windowField && data.timing.harvest_window !== undefined) {
+                windowField.value = data.timing.harvest_window;
+                debugOutput.innerHTML += 'Set harvest window: ' + data.timing.harvest_window + '\n';
+            }
+            
+            debugOutput.innerHTML += 'Form fields updated successfully!\n';
+        } else {
+            debugOutput.innerHTML += 'AI response error: ' + (data.message || 'Unknown error') + '\n';
+        }
+    })
+    .catch(error => {
+        debugOutput.innerHTML += 'Fetch error: ' + error.message + '\n';
+    });
+}
+
+// Ultra simple test function
+function simpleTest() {
+    alert('Button clicked!');
+    
+    var debugDiv = document.getElementById('debugOutput');
+    if (!debugDiv) {
+        alert('Debug div not found!');
+        return;
+    }
+    
+    debugDiv.innerHTML = 'Simple test at ' + new Date().toLocaleTimeString() + '\n';
+    alert('Debug output should now show the time');
+    
+    // Try to make an API call manually
+    fetch('/admin/api/ai/crop-timing', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        },
+        body: JSON.stringify({
+            crop_type: 'lettuce',
+            season: 'Summer'
+        })
+    })
+    .then(function(response) {
+        debugDiv.innerHTML += 'Got response: ' + response.status + '\n';
+        return response.json();
+    })
+    .then(function(data) {
+        debugDiv.innerHTML += 'Response data: ' + JSON.stringify(data) + '\n';
+    })
+    .catch(function(error) {
+        debugDiv.innerHTML += 'Error: ' + error.message + '\n';
+    });
+}
+
+// Debug helper functions
+function debugLog(message, type = 'info') {
+    const debugOutput = document.getElementById('debugOutput');
+    if (debugOutput) {
+        const timestamp = new Date().toLocaleTimeString();
+        const logEntry = `[${timestamp}] ${type.toUpperCase()}: ${message}\n`;
+        debugOutput.innerHTML += logEntry;
+        debugOutput.scrollTop = debugOutput.scrollHeight;
+    }
+    
+    // Also log to console for fallback
+    console.log(`[${timestamp}] ${type.toUpperCase()}: ${message}`);
+}
+
 // Crop timing presets
 const cropPresets = @json($cropPresets ?? []);
+// Crop data from farmOS
+const cropData = @json($cropData ?? ['types' => [], 'varieties' => []]);
 let currentPlan = null;
 
 document.addEventListener('DOMContentLoaded', function() {
+    debugLog('Page loaded, initializing succession planning');
+    debugLog(`Available crop presets: ${Object.keys(cropPresets).length}`);
+    debugLog(`Available crop data: ${JSON.stringify(Object.keys(cropData))}`);
+    
+    // Test basic functionality
+    alert('JavaScript is working! Check debug output below.');
+    
+    // Check if our debug elements exist
+    const debugOutput = document.getElementById('debugOutput');
+    const clearDebugBtn = document.getElementById('clearDebug');
+    const testAIBtn = document.getElementById('testAITiming');
+    
+    debugLog(`Debug elements found: output=${!!debugOutput}, clear=${!!clearDebugBtn}, test=${!!testAIBtn}`);
+    
     setupEventListeners();
     checkAIStatus();
     loadFarmStatus();
+    
+    // Add debug controls
+    if (clearDebugBtn) {
+        clearDebugBtn.addEventListener('click', function() {
+            debugLog('Clear button clicked');
+            document.getElementById('debugOutput').innerHTML = 'Debug output cleared...\n';
+        });
+    } else {
+        debugLog('Clear button not found!', 'error');
+    }
+    
+    if (testAIBtn) {
+        testAIBtn.addEventListener('click', function() {
+            debugLog('Test AI button clicked!', 'info');
+            alert('Test AI button clicked - check debug output');
+            getSeasonalTimingFromAI('lettuce');
+        });
+    } else {
+        debugLog('Test AI button not found!', 'error');
+    }
 });
 
 function setupEventListeners() {
@@ -372,14 +563,35 @@ function setupEventListeners() {
     // Crop type change
     document.getElementById('cropType').addEventListener('change', function() {
         const crop = this.value;
-        if (crop && cropPresets[crop]) {
+        debugLog(`Crop type changed to: ${crop}`, 'info');
+        
+        // Populate varieties for selected crop
+        populateVarieties(crop);
+        
+        // Update timing from presets
+        if (crop && cropPresets && cropPresets[crop]) {
+            debugLog(`Found preset for crop: ${crop}`, 'info');
             updateTimingFromPreset(crop);
+        } else {
+            debugLog(`No preset found for crop: ${crop}`, 'warning');
+            // Still try to get AI timing even without preset
+            if (crop) {
+                getSeasonalTimingFromAI(crop);
+            }
         }
         updateAIAssistant();
     });
 
     // AI Assistant
     document.getElementById('askAI').addEventListener('click', getAIRecommendations);
+    
+    // Direct sow checkbox
+    document.getElementById('directSow').addEventListener('change', function() {
+        toggleDirectSowMode(this.checked);
+    });
+    
+    // Initialize direct sow mode
+    toggleDirectSowMode(false);
 }
 
 function applyPreset(cropType) {
@@ -403,22 +615,210 @@ function applyPreset(cropType) {
 }
 
 function updateTimingFromPreset(cropType) {
-    if (!cropPresets[cropType]) return;
+    if (!cropType) return;
     
     const preset = cropPresets[cropType];
     const seedingToTransplant = document.getElementById('seedingToTransplant');
     const transplantToHarvest = document.getElementById('transplantToHarvest');
     const harvestDuration = document.getElementById('harvestDuration');
+    const directSowCheckbox = document.getElementById('directSow');
     
-    // Only update if field is empty or has default value
-    if (!seedingToTransplant.value || seedingToTransplant.value === '21') {
+    if (preset) {
+        // Check if this is a direct sow crop (transplant_days = 0)
+        const isDirectSow = preset.transplant_days === 0;
+        
+        // Auto-check direct sow checkbox for appropriate crops
+        directSowCheckbox.checked = isDirectSow;
+        toggleDirectSowMode(isDirectSow);
+        
+        // Always update timing fields when crop changes
         seedingToTransplant.value = preset.transplant_days;
-    }
-    if (!transplantToHarvest.value || transplantToHarvest.value === '44') {
         transplantToHarvest.value = preset.harvest_days - preset.transplant_days;
-    }
-    if (!harvestDuration.value || harvestDuration.value === '14') {
         harvestDuration.value = preset.yield_period;
+        
+        // Show helpful message for direct sow crops
+        if (isDirectSow) {
+            showNotification(`${cropType} is typically direct sown - checkbox auto-selected`, 'info');
+        }
+    }
+    
+    // Get AI-powered seasonal timing recommendations
+    getSeasonalTimingFromAI(cropType);
+}
+
+async function getSeasonalTimingFromAI(cropType) {
+    if (!cropType) {
+        debugLog('No crop type provided for AI timing', 'warning');
+        return;
+    }
+    
+    debugLog(`getSeasonalTimingFromAI called for: ${cropType}`, 'info');
+    
+    try {
+        // Show loading indicator
+        const cropTypeSelect = document.getElementById('cropType');
+        const originalText = cropTypeSelect.options[cropTypeSelect.selectedIndex].text;
+        cropTypeSelect.options[cropTypeSelect.selectedIndex].text = `${originalText} (Getting AI timing...)`;
+        
+        // Get current date and season info
+        const currentDate = new Date();
+        const month = currentDate.getMonth() + 1; // JavaScript months are 0-based
+        const season = getSeason(month);
+        const location = 'North America'; // You could make this configurable
+        
+        debugLog(`Current season: ${season}, month: ${month}`, 'info');
+        
+        // Make AI request
+        debugLog(`Making AI request for ${cropType} in ${season}`, 'info');
+        
+        const requestData = {
+            crop_type: cropType,
+            season: season,
+            is_direct_sow: isDirectSowCrop(cropType)
+        };
+        
+        debugLog(`Request data: ${JSON.stringify(requestData)}`, 'info');
+        
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        debugLog(`Using CSRF token: ${csrfToken.substring(0, 10)}...`, 'info');
+        
+        const response = await fetch('/admin/api/ai/crop-timing', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken
+            },
+            body: JSON.stringify(requestData)
+        });
+        
+        debugLog(`Response status: ${response.status}`, 'info');
+        
+        if (response.ok) {
+            const result = await response.json();
+            debugLog(`AI response: ${JSON.stringify(result)}`, 'success');
+            
+            if (result.success && result.timing) {
+                applyAITiming(result.timing, cropType);
+                debugLog('Timing applied successfully', 'success');
+                
+                // Show success notification with recommendations
+                let message = `AI updated timing for ${cropType} based on current season`;
+                if (result.recommendations && result.recommendations.length > 0) {
+                    message += '\n\nRecommendations:\n• ' + result.recommendations.join('\n• ');
+                }
+                showNotification(message, 'success');
+            } else {
+                debugLog(`AI request succeeded but no timing data: ${JSON.stringify(result)}`, 'warning');
+            }
+        } else {
+            const errorText = await response.text();
+            debugLog(`AI request failed with status ${response.status}: ${errorText}`, 'error');
+        }
+        
+    } catch (error) {
+        debugLog(`AI timing lookup failed: ${error.message}`, 'error');
+        // Fail silently - preset values are still good
+    } finally {
+        // Restore original crop type text
+        const cropTypeSelect = document.getElementById('cropType');
+        const originalText = cropTypeSelect.options[cropTypeSelect.selectedIndex].text.replace(' (Getting AI timing...)', '');
+        cropTypeSelect.options[cropTypeSelect.selectedIndex].text = originalText;
+    }
+}
+
+function isDirectSowCrop(cropType) {
+    // List of crops that are typically direct sown
+    const directSowCrops = [
+        'carrot', 'radish', 'beet', 'turnip', 'parsnip',
+        'cilantro', 'dill', 'mesclun', 'arugula'
+    ];
+    
+    return directSowCrops.includes(cropType.toLowerCase());
+}
+
+function getSeason(month) {
+    if (month >= 3 && month <= 5) return 'Spring';
+    if (month >= 6 && month <= 8) return 'Summer';
+    if (month >= 9 && month <= 11) return 'Fall';
+    return 'Winter';
+}
+
+function applyAITiming(timing, cropType) {
+    debugLog(`Applying AI timing for ${cropType}: ${JSON.stringify(timing)}`, 'info');
+    
+    try {
+        // Handle new object format from backend
+        if (typeof timing === 'object' && timing.days_to_transplant !== undefined) {
+            debugLog('Using object format timing data', 'info');
+            
+            // Apply timing values from object
+            document.getElementById('seedingToTransplant').value = timing.days_to_transplant;
+            document.getElementById('transplantToHarvest').value = timing.days_to_harvest;
+            document.getElementById('harvestDuration').value = timing.harvest_window;
+            
+            debugLog(`Set values: transplant=${timing.days_to_transplant}, harvest=${timing.days_to_harvest}, window=${timing.harvest_window}`, 'success');
+            
+            // Apply direct sow setting
+            if (timing.days_to_transplant === 0) {
+                document.getElementById('directSow').checked = true;
+                toggleDirectSowMode(true);
+                debugLog('Applied direct sow mode', 'info');
+            } else {
+                document.getElementById('directSow').checked = false;
+                toggleDirectSowMode(false);
+                debugLog('Applied transplant mode', 'info');
+            }
+            
+            return;
+        }
+        
+        debugLog('Trying to parse string format timing', 'info');
+        
+        // Fallback: Parse string format (legacy) - expecting format like "21, 45, 14, transplant"
+        const parts = timing.split(',').map(part => part.trim());
+        
+        if (parts.length >= 3) {
+            const seedingToTransplant = parseInt(parts[0]);
+            const transplantToHarvest = parseInt(parts[1]);
+            const harvestDuration = parseInt(parts[2]);
+            const method = parts[3]?.toLowerCase();
+            
+            debugLog(`Parsed values: ${seedingToTransplant}, ${transplantToHarvest}, ${harvestDuration}, ${method}`, 'info');
+            
+            // Apply timing values
+            if (!isNaN(seedingToTransplant)) {
+                document.getElementById('seedingToTransplant').value = seedingToTransplant;
+            }
+            if (!isNaN(transplantToHarvest)) {
+                document.getElementById('transplantToHarvest').value = transplantToHarvest;
+            }
+            if (!isNaN(harvestDuration)) {
+                document.getElementById('harvestDuration').value = harvestDuration;
+            }
+            
+            // Apply direct sow setting if specified
+            if (method && (method.includes('direct') || seedingToTransplant === 0)) {
+                document.getElementById('directSow').checked = true;
+                toggleDirectSowMode(true);
+                debugLog('Applied direct sow mode from string format', 'info');
+            } else if (method && method.includes('transplant')) {
+                document.getElementById('directSow').checked = false;
+                toggleDirectSowMode(false);
+                debugLog('Applied transplant mode from string format', 'info');
+            }
+            
+            debugLog('Successfully applied string format timing', 'success');
+        } else {
+            debugLog(`Invalid timing format: ${timing}`, 'error');
+        }
+        
+    } catch (error) {
+        debugLog(`Error applying timing: ${error.message}`, 'error');
+    }
+}
+        }
+    } catch (error) {
+        console.warn('Failed to parse AI timing response:', error);
     }
 }
 
@@ -522,10 +922,14 @@ function displayPlan(plan) {
     
     plan.plantings.forEach(planting => {
         const row = tbody.insertRow();
+        const transplantDisplay = planting.direct_sow ? 
+            '<span class="badge bg-info">Direct Sow</span>' : 
+            (planting.transplant_date || '<span class="text-muted">Not set</span>');
+            
         row.innerHTML = `
             <td><span class="badge bg-primary">#${planting.sequence}</span></td>
             <td>${planting.seeding_date}</td>
-            <td>${planting.transplant_date || 'Direct seed'}</td>
+            <td>${transplantDisplay}</td>
             <td>${planting.harvest_date}</td>
             <td>
                 ${planting.bed_name || 'Not assigned'}
@@ -623,24 +1027,10 @@ async function getAIRecommendations() {
 }
 
 function checkAIStatus() {
-    // Check if AI service is running
-    fetch('{{ env('AI_SERVICE_URL', 'http://localhost:8001') }}/health')
-        .then(response => response.ok)
-        .then(isHealthy => {
-            const status = document.getElementById('aiStatus');
-            if (isHealthy) {
-                status.className = 'badge bg-success';
-                status.textContent = 'Connected';
-            } else {
-                status.className = 'badge bg-warning';
-                status.textContent = 'Limited';
-            }
-        })
-        .catch(() => {
-            const status = document.getElementById('aiStatus');
-            status.className = 'badge bg-danger';
-            status.textContent = 'Offline';
-        });
+    // AI status check disabled - using internal AI only
+    const status = document.getElementById('aiStatus');
+    status.className = 'badge bg-success';
+    status.textContent = 'Ready';
 }
 
 function loadFarmStatus() {
@@ -666,6 +1056,152 @@ function showNotification(message, type = 'info') {
             toast.parentNode.removeChild(toast);
         }
     }, 5000);
+}
+
+function populateVarieties(cropType) {
+    const varietySelect = document.getElementById('variety');
+    
+    // Clear existing options
+    varietySelect.innerHTML = '<option value="">Select variety (optional)...</option>';
+    
+    if (!cropType || !cropData.varieties) {
+        return;
+    }
+    
+    // Find varieties for this crop type
+    const availableVarieties = cropData.varieties.filter(variety => {
+        // Try to match by crop type name or ID
+        return variety.parent_id === cropType || 
+               variety.name.toLowerCase().includes(cropType.toLowerCase());
+    });
+    
+    // Add varieties to dropdown
+    availableVarieties.forEach(variety => {
+        const option = document.createElement('option');
+        option.value = variety.name;
+        option.textContent = variety.label;
+        varietySelect.appendChild(option);
+    });
+    
+    // If no specific varieties found, add some common generic options
+    if (availableVarieties.length === 0) {
+        const commonVarieties = {
+            'lettuce': ['Butter', 'Romaine', 'Red Leaf', 'Green Leaf', 'Iceberg'],
+            'carrot': ['Nantes', 'Chantenay', 'Purple', 'Baby'],
+            'radish': ['Cherry Belle', 'French Breakfast', 'Daikon'],
+            'tomato': ['Cherry', 'Beefsteak', 'Roma', 'Heirloom'],
+            'spinach': ['Baby Leaf', 'Bloomsdale', 'Space'],
+            'kale': ['Curly', 'Lacinato', 'Red Russian'],
+            'arugula': ['Wild', 'Cultivated'],
+            'beets': ['Detroit Red', 'Chioggia', 'Golden']
+        };
+        
+        const varieties = commonVarieties[cropType.toLowerCase()] || ['Standard'];
+        varieties.forEach(variety => {
+            const option = document.createElement('option');
+            option.value = variety;
+            option.textContent = variety;
+            varietySelect.appendChild(option);
+        });
+    }
+}
+
+function toggleDirectSowMode(isDirectSow) {
+    const seedingToTransplantGroup = document.getElementById('seedingToTransplantGroup');
+    const seedingToTransplantInput = document.getElementById('seedingToTransplant');
+    const transplantOnlyBadge = document.getElementById('transplantOnlyBadge');
+    const transplantToHarvestLabel = document.getElementById('transplantToHarvestLabel');
+    const transplantToHarvestHelp = document.getElementById('transplantToHarvestHelp');
+    
+    if (isDirectSow) {
+        // Direct sow mode
+        seedingToTransplantGroup.style.opacity = '0.5';
+        seedingToTransplantInput.disabled = true;
+        seedingToTransplantInput.value = '0';
+        transplantOnlyBadge.style.display = 'none';
+        
+        // Update labels for direct sow
+        transplantToHarvestLabel.innerHTML = '<i class="fas fa-cut"></i> Seeding to Harvest (Days)';
+        transplantToHarvestHelp.textContent = 'Growing period from direct seeding to harvest';
+        
+        showNotification('Switched to Direct Sow mode - transplant step will be skipped', 'info');
+    } else {
+        // Transplant mode
+        seedingToTransplantGroup.style.opacity = '1';
+        seedingToTransplantInput.disabled = false;
+        seedingToTransplantInput.value = '21';
+        transplantOnlyBadge.style.display = 'inline';
+        
+        // Update labels for transplant
+        transplantToHarvestLabel.innerHTML = '<i class="fas fa-cut"></i> Transplant to Harvest (Days)';
+        transplantToHarvestHelp.textContent = 'Growing period from transplant to harvest';
+    }
+}
+</script>
+
+<script>
+// Standalone AI timing function - must be global
+function getSeasonalTimingFromAI(cropType) {
+    const debugOutput = document.getElementById('debugOutput');
+    debugOutput.innerHTML += 'getSeasonalTimingFromAI called with: ' + cropType + '\n';
+    
+    if (!cropType) {
+        debugOutput.innerHTML += 'No crop type provided\n';
+        return;
+    }
+    
+    debugOutput.innerHTML += 'Making fetch request to AI endpoint...\n';
+    
+    const season = 'Summer';
+    
+    fetch('/admin/api/ai/crop-timing', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        },
+        body: JSON.stringify({
+            crop_type: cropType,
+            season: season
+        })
+    })
+    .then(response => {
+        debugOutput.innerHTML += 'Got response: ' + response.status + '\n';
+        return response.json();
+    })
+    .then(data => {
+        debugOutput.innerHTML += 'Response data: ' + JSON.stringify(data) + '\n';
+        
+        if (data.success && data.timing) {
+            debugOutput.innerHTML += 'Updating form fields...\n';
+            
+            const seedingField = document.getElementById('seedingToTransplant');
+            const harvestField = document.getElementById('transplantToHarvest');
+            const windowField = document.getElementById('harvestDuration');
+            
+            if (seedingField && data.timing.days_to_transplant !== undefined) {
+                seedingField.value = data.timing.days_to_transplant;
+                debugOutput.innerHTML += 'Set seeding to transplant: ' + data.timing.days_to_transplant + '\n';
+            }
+            
+            if (harvestField && data.timing.days_to_harvest !== undefined) {
+                harvestField.value = data.timing.days_to_harvest;
+                debugOutput.innerHTML += 'Set transplant to harvest: ' + data.timing.days_to_harvest + '\n';
+            }
+            
+            if (windowField && data.timing.harvest_window !== undefined) {
+                windowField.value = data.timing.harvest_window;
+                debugOutput.innerHTML += 'Set harvest window: ' + data.timing.harvest_window + '\n';
+            }
+            
+            debugOutput.innerHTML += 'Form fields updated successfully!\n';
+        } else {
+            debugOutput.innerHTML += 'AI response error: ' + (data.message || 'Unknown error') + '\n';
+        }
+    })
+    .catch(error => {
+        debugOutput.innerHTML += 'Fetch error: ' + error.message + '\n';
+    });
 }
 </script>
 
