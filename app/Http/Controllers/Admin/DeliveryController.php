@@ -47,74 +47,41 @@ class DeliveryController extends Controller
                 $totalCollections += count($dateData['collections'] ?? []);
             }
             
-            // Calculate status counts for collections subtabs
-            $statusCounts = [
-                'active' => 0,
-                'processing' => 0,  // Add processing status
-                'on-hold' => 0,
-                'cancelled' => 0,
-                'pending' => 0,
-                'completed' => 0,   // Add completed status
-                'refunded' => 0,    // Add refunded status
-                'other' => 0
-            ];
-            
-            if (isset($scheduleData['collectionsByStatus'])) {
-                foreach ($scheduleData['collectionsByStatus'] as $status => $statusData) {
-                    foreach ($statusData as $dateData) {
-                        $statusCounts[$status] += count($dateData['collections'] ?? []);
+            // Get ALL subscription statuses via WooCommerce API (simple and clean)
+            try {
+                $allStatuses = ['active', 'on-hold', 'cancelled', 'pending', 'completed', 'processing', 'refunded'];
+                $statusCounts = [];
+                
+                foreach ($allStatuses as $statusToCheck) {
+                    $response = Http::timeout(10)
+                        ->withBasicAuth(config('services.woocommerce.consumer_key'), config('services.woocommerce.consumer_secret'))
+                        ->get(config('services.woocommerce.api_url') . '/wp-json/wc/v3/subscriptions', [
+                            'status' => $statusToCheck,
+                            'per_page' => 100
+                        ]);
+                    
+                    if ($response->successful()) {
+                        $subscriptions = $response->json();
+                        $count = count($subscriptions);
+                        // Keep the original key format that the template expects
+                        \Log::info("Setting key '$statusToCheck' to count $count");
+                        $statusCounts[$statusToCheck] = $count;
+                    } else {
+                        // Set to 0 if API call fails for this status
+                        $statusCounts[$statusToCheck] = 0;
                     }
                 }
-            }
-            
-            // Calculate status counts for delivery subtabs AFTER week filtering
-            $deliveryStatusCounts = [
-                'active' => 0,      // Add active for deliveries (processing = active)
-                'processing' => 0,
-                'pending' => 0,
-                'completed' => 0,
-                'on-hold' => 0,
-                'cancelled' => 0,
-                'refunded' => 0,
-                'other' => 0
-            ];
-            
-            // Count only deliveries that are actually displayed (after week filtering)
-            foreach ($scheduleData['data'] as $dateData) {
-                foreach ($dateData['deliveries'] ?? [] as $delivery) {
-                    $status = strtolower($delivery['status']);
-                    $status = str_replace('wc-', '', $status);
-                    
-                    // Map statuses consistently - handle WooCommerce subscription statuses
-                    if (in_array($status, ['active', 'processing'])) {
-                        // Both 'active' and 'processing' are considered active for deliveries
-                        $mappedStatus = 'active';
-                    } elseif ($status === 'on-hold') {
-                        $mappedStatus = 'on-hold';
-                    } elseif ($status === 'cancelled') {
-                        $mappedStatus = 'cancelled';
-                    } elseif ($status === 'pending') {
-                        $mappedStatus = 'pending';
-                    } elseif ($status === 'completed') {
-                        $mappedStatus = 'completed';
-                    } elseif ($status === 'refunded') {
-                        $mappedStatus = 'refunded';
-                    } else {
-                        $mappedStatus = 'other';
-                    }
-                    
-                    // Count for the mapped status
-                    if (isset($deliveryStatusCounts[$mappedStatus])) {
-                        $deliveryStatusCounts[$mappedStatus]++;
-                    } else {
-                        $deliveryStatusCounts['other']++;
-                    }
-                    
-                    // Also keep separate processing count for the processing tab
-                    if ($status === 'processing' && isset($deliveryStatusCounts['processing'])) {
-                        $deliveryStatusCounts['processing']++;
-                    }
-                }
+                
+                // Use the same counts for both deliveries and collections
+                $deliveryStatusCounts = $statusCounts;
+                
+                \Log::info('Final Status Counts (with correct keys)', $statusCounts);
+                
+            } catch (\Exception $e) {
+                \Log::error('WooCommerce API failed: ' . $e->getMessage());
+                // Simple fallback with correct keys
+                $statusCounts = ['active' => 0, 'processing' => 0, 'on-hold' => 0, 'cancelled' => 0, 'pending' => 0, 'completed' => 0, 'refunded' => 0];
+                $deliveryStatusCounts = $statusCounts;
             }            
             // Direct database connection status
             $directDbStatus = [

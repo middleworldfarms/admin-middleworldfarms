@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\WpApiService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
+use Exception;
 
 class LoginController extends Controller
 {
@@ -126,7 +127,7 @@ class LoginController extends Controller
                     $welcomeMessage .= ' - WordPress authentication failed (manual login required)';
                 }
 
-                return redirect()->intended(config('app.url') . '/admin')->with('success', $welcomeMessage);
+                return redirect()->intended(route('admin.dashboard'))->with('success', $welcomeMessage);
             }
         }
 

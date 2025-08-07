@@ -114,6 +114,7 @@ class ModelsCommand extends Command
 
     protected $write_model_magic_where;
     protected $write_model_relation_count_properties;
+    protected $write_model_relation_exists_properties;
     protected $properties = [];
     protected $methods = [];
     protected $write = false;
@@ -173,6 +174,8 @@ class ModelsCommand extends Command
         $this->write_model_external_builder_methods = $this->laravel['config']->get('ide-helper.write_model_external_builder_methods', true);
         $this->write_model_relation_count_properties =
             $this->laravel['config']->get('ide-helper.write_model_relation_count_properties', true);
+        $this->write_model_relation_exists_properties =
+            $this->laravel['config']->get('ide-helper.write_model_relation_exists_properties', false);
 
         $this->write = $this->write_mixin ? true : $this->write;
         //If filename is default and Write is not specified, ask what to do
@@ -410,9 +413,6 @@ class ModelsCommand extends Command
             $params = [];
 
             switch ($type) {
-                case 'encrypted':
-                    $realType = 'mixed';
-                    break;
                 case 'boolean':
                 case 'bool':
                     $realType = 'bool';
@@ -420,6 +420,7 @@ class ModelsCommand extends Command
                 case 'decimal':
                     $realType = 'numeric';
                     break;
+                case 'encrypted':
                 case 'string':
                 case 'hashed':
                     $realType = 'string';
@@ -453,7 +454,7 @@ class ModelsCommand extends Command
                     $realType = '\Illuminate\Support\Collection<array-key, mixed>';
                     break;
                 case AsArrayObject::class:
-                    $realType = '\ArrayObject<array-key, mixed>';
+                    $realType = '\Illuminate\Database\Eloquent\Casts\ArrayObject<array-key, mixed>';
                     break;
                 default:
                     // In case of an optional custom cast parameter , only evaluate
@@ -475,7 +476,11 @@ class ModelsCommand extends Command
             }
 
             if (Str::startsWith($type, AsCollection::class)) {
-                $realType = $this->getTypeInModel($model, $params[0] ?? null) ?? '\Illuminate\Support\Collection';
+                $realType = $this->getTypeInModel($model, $params[0] ?? null) ?: '\Illuminate\Support\Collection';
+                $relatedModel = $this->getTypeInModel($model, $params[1] ?? null);
+                if ($relatedModel) {
+                    $realType = $this->getCollectionTypeHint($realType, $relatedModel);
+                }
             }
 
             if (Str::startsWith($type, AsEnumCollection::class)) {
@@ -669,9 +674,11 @@ class ModelsCommand extends Command
                         $comment = $this->getCommentFromDocBlock($reflection);
                         $this->setProperty($name, null, null, true, $comment);
                     }
-                } elseif (Str::startsWith($method, 'scope') && $method !== 'scopeQuery' && $method !== 'scope' && $method !== 'scopes') {
+                } elseif (!empty($reflection->getAttributes('Illuminate\Database\Eloquent\Attributes\Scope')) || (Str::startsWith($method, 'scope') && $method !== 'scopeQuery' && $method !== 'scope' && $method !== 'scopes')) {
+                    $scopeUsingAttribute = !empty($reflection->getAttributes('Illuminate\Database\Eloquent\Attributes\Scope'));
+
                     //Magic scope<name>Attribute
-                    $name = Str::camel(substr($method, 5));
+                    $name = $scopeUsingAttribute ? $method : Str::camel(substr($method, 5));
                     if (!empty($name)) {
                         $comment = $this->getCommentFromDocBlock($reflection);
                         $args = $this->getParameters($reflection);
@@ -811,6 +818,15 @@ class ModelsCommand extends Command
                                         $this->setProperty(
                                             Str::snake($method) . '_count',
                                             'int|null',
+                                            true,
+                                            false
+                                            // What kind of comments should be added to the relation count here?
+                                        );
+                                    }
+                                    if ($this->write_model_relation_exists_properties) {
+                                        $this->setProperty(
+                                            Str::snake($method) . '_exists',
+                                            'bool|null',
                                             true,
                                             false
                                             // What kind of comments should be added to the relation count here?
@@ -1184,7 +1200,7 @@ class ModelsCommand extends Command
                     $default = '[]';
                 } elseif (is_null($default)) {
                     $default = 'null';
-                } elseif (is_int($default)) {
+                } elseif (is_int($default) || is_float($default)) {
                     //$default = $default;
                 } elseif ($default instanceof \UnitEnum) {
                     $default = '\\' . get_class($default) . '::' . $default->name;
@@ -1405,7 +1421,7 @@ class ModelsCommand extends Command
         if (in_array('Illuminate\\Database\\Eloquent\\SoftDeletes', $traits)) {
             $modelName = $this->getClassNameInDestinationFile($model, get_class($model));
             $builder = $this->getClassNameInDestinationFile($model, \Illuminate\Database\Eloquent\Builder::class);
-            $this->setMethod('withTrashed', $builder . '<static>|' . $modelName, []);
+            $this->setMethod('withTrashed', $builder . '<static>|' . $modelName, ['bool $withTrashed = true']);
             $this->setMethod('withoutTrashed', $builder . '<static>|' . $modelName, []);
             $this->setMethod('onlyTrashed', $builder . '<static>|' . $modelName, []);
         }

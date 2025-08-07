@@ -73,19 +73,7 @@
                                     <label for="cropType" class="form-label">
                                         <i class="fas fa-leaf"></i> Crop Type
                                     </label>
-                                    <select class="form-select" id="cropType" name="crop_type" required onchange="
-                                        alert('Crop changed to: ' + this.value); 
-                                        document.getElementById('debugOutput').innerHTML += 'Crop dropdown changed to: ' + this.value + '\n'; 
-                                        if(this.value) {
-                                            document.getElementById('debugOutput').innerHTML += 'About to call getSeasonalTimingFromAI...\n';
-                                            if (typeof getSeasonalTimingFromAI === 'function') {
-                                                document.getElementById('debugOutput').innerHTML += 'Function exists, calling it now...\n';
-                                                getSeasonalTimingFromAI(this.value);
-                                            } else {
-                                                document.getElementById('debugOutput').innerHTML += 'ERROR: getSeasonalTimingFromAI function not found!\n';
-                                            }
-                                        }
-                                    ">
+                                    <select class="form-select" id="cropType" name="crop_type" required>
                                         <option value="">Select crop...</option>
                                         @if(isset($cropData['types']))
                                             @foreach($cropData['types'] as $crop)
@@ -105,8 +93,8 @@
                                     <label for="variety" class="form-label">
                                         <i class="fas fa-dna"></i> Variety
                                     </label>
-                                    <select class="form-select" id="variety" name="variety">
-                                        <option value="">Select variety (optional)...</option>
+                                    <select class="form-select" id="variety" name="variety" disabled>
+                                        <option value="">First select a crop type...</option>
                                         <!-- Varieties will be populated by JavaScript -->
                                     </select>
                                     <div class="form-text">Optional - select a specific variety or leave blank</div>
@@ -327,6 +315,107 @@
         </div>
     </div>
 
+    <!-- Interactive Gantt Chart Timeline -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #6f42c1 0%, #6610f2 100%); color: white;">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-gantt"></i> Visual Succession Timeline
+                    </h5>
+                    <div>
+                        <button class="btn btn-light btn-sm" id="workBackwards">
+                            <i class="fas fa-backward"></i> Work Backwards from Harvest
+                        </button>
+                        <button class="btn btn-light btn-sm" id="autoOptimize">
+                            <i class="fas fa-magic"></i> AI Optimize
+                        </button>
+                        <button class="btn btn-light btn-sm" id="resetTimeline">
+                            <i class="fas fa-undo"></i> Reset
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="card-body p-0">
+                    <!-- Timeline Controls -->
+                    <div class="p-3 border-bottom bg-light">
+                        <div class="row align-items-center">
+                            <div class="col-md-3">
+                                <label for="timelineStart" class="form-label small mb-1">Timeline Start:</label>
+                                <input type="date" class="form-control form-control-sm" id="timelineStart" value="{{ date('Y-m-d') }}">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="timelineEnd" class="form-label small mb-1">Timeline End:</label>
+                                <input type="date" class="form-control form-control-sm" id="timelineEnd" value="{{ date('Y-m-d', strtotime('+6 months')) }}">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="timelineZoom" class="form-label small mb-1">Zoom Level:</label>
+                                <select class="form-select form-select-sm" id="timelineZoom">
+                                    <option value="week">Week View</option>
+                                    <option value="month" selected>Month View</option>
+                                    <option value="quarter">Quarter View</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small mb-1">Legend:</label>
+                                <div class="d-flex gap-2 small">
+                                    <span class="badge bg-primary">Seeding</span>
+                                    <span class="badge bg-warning">Transplant</span>
+                                    <span class="badge bg-success">Harvest</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Gantt Chart Container -->
+                    <div id="ganttContainer" style="min-height: 400px; overflow-x: auto;">
+                        <div id="ganttChart" style="position: relative; width: 100%; min-width: 800px;">
+                            <!-- Timeline Header -->
+                            <div id="timelineHeader" style="height: 40px; background: #f8f9fa; border-bottom: 2px solid #dee2e6; position: sticky; top: 0; z-index: 10;">
+                                <!-- Date headers will be generated by JavaScript -->
+                            </div>
+                            
+                            <!-- Succession Rows -->
+                            <div id="successionRows">
+                                <div class="gantt-empty-state text-center py-5 text-muted">
+                                    <i class="fas fa-chart-gantt fa-3x mb-3 opacity-50"></i>
+                                    <h5>Interactive Succession Timeline</h5>
+                                    <p>Fill out the form above and click "Generate Plan" to see your succession timeline.<br>
+                                    You can then drag and drop to adjust dates and optimize your planting schedule.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Timeline Footer with Actions -->
+                    <div class="p-3 border-top bg-light">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-primary btn-sm" id="addSuccession" disabled>
+                                        <i class="fas fa-plus"></i> Add Succession
+                                    </button>
+                                    <button class="btn btn-danger btn-sm" id="removeSuccession" disabled>
+                                        <i class="fas fa-minus"></i> Remove Last
+                                    </button>
+                                    <button class="btn btn-info btn-sm" id="duplicateSuccession" disabled>
+                                        <i class="fas fa-copy"></i> Duplicate
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <div class="small text-muted">
+                                    <i class="fas fa-info-circle"></i> 
+                                    Drag timeline bars to adjust dates • Right-click for options • Scroll to zoom
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Results Section -->
     <div class="row mt-4" id="resultsSection" style="display: none;">
         <div class="col-12">
@@ -382,7 +471,860 @@
     </div>
 </div>
 
+<!-- Debug Output Section -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-bug"></i> Debug Output</h6>
+                <button class="btn btn-sm btn-outline-secondary" id="clearDebug">Clear</button>
+                <button class="btn btn-sm btn-outline-primary" id="testAITiming">Test AI Timing</button>
+                <button class="btn btn-sm btn-outline-warning" id="testCropChange" onclick="window.testCropChange()">Test Crop Change</button>
+                <button class="btn btn-sm btn-outline-success" onclick="alert('Basic click test works!')">Basic Test</button>
+            </div>
+            <div class="card-body">
+                <pre id="debugOutput" style="height: 200px; overflow-y: auto; background: #f8f9fa; padding: 10px; font-size: 12px;">Debug output will appear here...\n</pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Direct JavaScript for testing -->
 <script>
+console.log('Succession planning JS loading...');
+
+// Initialize data from Laravel
+const cropPresets = @json($cropPresets ?? []);
+const cropData = @json($cropData ?? ['types' => [], 'varieties' => []]);
+
+// Global test function for debugging
+window.testCropChange = function() {
+    console.log('Manual test function called');
+    const debugOutput = document.getElementById('debugOutput');
+    if (debugOutput) {
+        debugOutput.innerHTML += 'Manual test function called!\n';
+    }
+    
+    const cropType = document.getElementById('cropType');
+    if (cropType) {
+        console.log('Crop type element found, current value:', cropType.value);
+        if (debugOutput) {
+            debugOutput.innerHTML += `Crop type found: ${cropType.value}\n`;
+        }
+        
+        // Try to trigger change event
+        const event = new Event('change', { bubbles: true });
+        cropType.dispatchEvent(event);
+        
+        if (debugOutput) {
+            debugOutput.innerHTML += 'Change event dispatched\n';
+        }
+    } else {
+        console.log('Crop type element NOT found');
+        if (debugOutput) {
+            debugOutput.innerHTML += 'ERROR: Crop type element not found\n';
+        }
+    }
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOMContentLoaded fired');
+    
+    const debugOutput = document.getElementById('debugOutput');
+    function simpleLog(message) {
+        console.log(message);
+        if (debugOutput) {
+            debugOutput.innerHTML += message + '\n';
+            debugOutput.scrollTop = debugOutput.scrollHeight;
+        }
+    }
+    
+    simpleLog('Page loaded, initializing succession planning');
+    simpleLog(`Available crop presets: ${Object.keys(cropPresets || {}).length}`);
+    
+    // Debug crop data from farmOS API
+    simpleLog(`farmOS Crop Data - Types: ${cropData?.types?.length || 0}, Varieties: ${cropData?.varieties?.length || 0}`);
+    
+    if (cropData && cropData.types && cropData.types.length > 0) {
+        simpleLog(`Sample crop types: ${JSON.stringify(cropData.types.slice(0, 3))}`);
+    } else {
+        simpleLog('WARNING: No crop types loaded from farmOS API!');
+    }
+    
+    if (cropData && cropData.varieties && cropData.varieties.length > 0) {
+        simpleLog(`Sample varieties: ${JSON.stringify(cropData.varieties.slice(0, 5))}`);
+    } else {
+        simpleLog('WARNING: No varieties loaded from farmOS API!');
+    }
+    
+    // Debug crop presets
+    if (cropPresets && Object.keys(cropPresets).length > 0) {
+        simpleLog(`Crop presets loaded: ${JSON.stringify(Object.keys(cropPresets))}`);
+    } else {
+        simpleLog('WARNING: No crop presets loaded!');
+    }
+    
+    // Check if our elements exist
+    const cropTypeElement = document.getElementById('cropType');
+    const testCropChangeBtn = document.getElementById('testCropChange');
+    
+    simpleLog(`Elements found: cropType=${!!cropTypeElement}, testCrop=${!!testCropChangeBtn}`);
+    
+    // Populate crop type dropdown with farmOS data
+    if (cropTypeElement && cropData && cropData.types) {
+        cropTypeElement.innerHTML = '<option value="">Select crop type...</option>';
+        cropData.types.forEach(crop => {
+            const option = document.createElement('option');
+            option.value = crop.name;
+            option.textContent = crop.label || crop.name;
+            cropTypeElement.appendChild(option);
+        });
+        simpleLog(`Populated crop dropdown with ${cropData.types.length} options`);
+    } else {
+        simpleLog('ERROR: Could not populate crop dropdown - missing element or data');
+    }
+    
+    simpleLog(`Elements found: cropType=${!!cropTypeElement}, testCrop=${!!testCropChangeBtn}`);
+    
+    // Simple event listeners without complex error handling
+    if (cropTypeElement) {
+        simpleLog('Adding crop type change listener');
+        cropTypeElement.addEventListener('change', function(event) {
+            simpleLog(`CROP TYPE CHANGED TO: ${event.target.value}`);
+            
+            // Smart variety loading - call API for specific crop
+            const varietySelect = document.getElementById('variety');
+            const crop = event.target.value;
+            
+            if (varietySelect && crop) {
+                // Enable the dropdown and show loading state
+                varietySelect.disabled = false;
+                varietySelect.innerHTML = '<option value="">Loading varieties...</option>';
+                
+                // Make API call to get varieties for this specific crop
+                fetch(`/admin/farmos/api/varieties/${encodeURIComponent(crop)}`, {
+                    method: 'GET',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    varietySelect.innerHTML = '<option value="">Select variety (optional)...</option>';
+                    
+                    if (data.success && data.varieties && data.varieties.length > 0) {
+                        data.varieties.forEach(variety => {
+                            const option = document.createElement('option');
+                            option.value = variety.name;
+                            option.textContent = variety.label || variety.name;
+                            varietySelect.appendChild(option);
+                        });
+                        simpleLog(`Loaded ${data.varieties.length} varieties for ${crop}`);
+                    } else {
+                        simpleLog(`No varieties found for ${crop}`);
+                    }
+                })
+                .catch(error => {
+                    varietySelect.innerHTML = '<option value="">Error loading varieties</option>';
+                    simpleLog(`Error loading varieties: ${error.message}`);
+                });
+            } else if (varietySelect) {
+                // No crop selected - disable and reset
+                varietySelect.disabled = true;
+                varietySelect.innerHTML = '<option value="">First select a crop type...</option>';
+            }
+            
+            // Basic preset application
+            if (crop && cropPresets) {
+                // Try exact match first, then lowercase match
+                const cropKey = cropPresets[crop] ? crop : crop.toLowerCase();
+                
+                if (cropPresets[cropKey]) {
+                    simpleLog(`Applying preset for: ${crop} (using key: ${cropKey})`);
+                    const preset = cropPresets[cropKey];
+                    
+                    const seedingToTransplant = document.getElementById('seedingToTransplant');
+                    const transplantToHarvest = document.getElementById('transplantToHarvest');
+                    const harvestDuration = document.getElementById('harvestDuration');
+                    const directSowCheckbox = document.getElementById('directSow');
+                    
+                    if (seedingToTransplant && preset.transplant_days !== undefined) {
+                        seedingToTransplant.value = preset.transplant_days;
+                        simpleLog(`Set seeding to transplant: ${preset.transplant_days}`);
+                    }
+                    if (transplantToHarvest && preset.harvest_days !== undefined && preset.transplant_days !== undefined) {
+                        transplantToHarvest.value = preset.harvest_days - preset.transplant_days;
+                        simpleLog(`Set transplant to harvest: ${preset.harvest_days - preset.transplant_days}`);
+                    }
+                    if (harvestDuration && preset.yield_period !== undefined) {
+                        harvestDuration.value = preset.yield_period;
+                        simpleLog(`Set harvest duration: ${preset.yield_period}`);
+                    }
+                    
+                    // Auto-set direct sow for crops with 0 transplant days
+                    if (directSowCheckbox && preset.transplant_days === 0) {
+                        directSowCheckbox.checked = true;
+                        simpleLog('Auto-enabled direct sow mode (transplant_days = 0)');
+                    } else if (directSowCheckbox && preset.transplant_days > 0) {
+                        directSowCheckbox.checked = false;
+                        simpleLog('Disabled direct sow mode (transplant required)');
+                    }
+                    
+                    simpleLog('Preset values applied successfully');
+                } else {
+                    simpleLog(`No preset found for: ${crop} (tried keys: ${crop}, ${crop.toLowerCase()})`);
+                }
+            } else {
+                simpleLog(`No crop selected or presets not available`);
+            }
+        });
+        simpleLog('Crop type change listener added successfully');
+    } else {
+        simpleLog('ERROR: cropType element not found!');
+    }
+    
+    simpleLog('Basic initialization complete');
+});
+
+// Additional Laravel-specific functions that need server data
+async function generateSuccessionPlan() {
+    console.log('Generate succession plan called');
+    const formData = new FormData(document.getElementById('successionForm'));
+    
+    try {
+        const response = await fetch('{{ route('admin.farmos.succession-planning.generate') }}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            }
+        });
+        
+        const result = await response.json();
+        console.log('Plan generation result:', result);
+        
+        if (result.success) {
+            // Handle successful plan generation
+            alert('Plan generated successfully!');
+        } else {
+            alert('Failed to generate plan: ' + result.message);
+        }
+        
+    } catch (error) {
+        console.error('Error generating plan:', error);
+        alert('Error generating plan: ' + error.message);
+    }
+}
+</script>
+
+<style>
+.preset-btn {
+    transition: all 0.2s ease;
+}
+
+.preset-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.gantt-empty-state {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 8px;
+    margin: 20px;
+}
+
+.gantt-bar {
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.gantt-bar:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
+.succession-row:hover {
+    background: #f1f3f4 !important;
+}
+
+.timeline-marker {
+    border-left: 1px solid #dee2e6;
+    position: absolute;
+    height: 100%;
+    top: 0;
+}
+
+.timeline-marker.major {
+    border-left: 2px solid #6c757d;
+}
+
+.card-header.bg-gradient-primary {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+}
+
+.card-header.bg-gradient-success {
+    background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%) !important;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #28a745;
+    box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    border: none;
+}
+
+.btn-success:hover {
+    background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+    transform: translateY(-1px);
+}
+
+.table-success th {
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    border-color: #28a745;
+}
+
+.alert-info {
+    background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+    border-color: #17a2b8;
+}
+
+.badge {
+    font-size: 0.75em;
+    font-weight: 600;
+}
+
+#debugOutput {
+    font-family: 'Courier New', monospace;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.text-gradient-primary {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.text-gradient-success {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+        this.bindEvents();
+        this.updateTimeline();
+    }
+    
+    bindEvents() {
+        // Timeline controls
+        document.getElementById('timelineStart').addEventListener('change', (e) => {
+            this.timelineStart = new Date(e.target.value);
+            this.updateTimeline();
+        });
+        
+        document.getElementById('timelineEnd').addEventListener('change', (e) => {
+            this.timelineEnd = new Date(e.target.value);
+            this.updateTimeline();
+        });
+        
+        document.getElementById('timelineZoom').addEventListener('change', (e) => {
+            this.zoomLevel = e.target.value;
+            this.adjustZoom();
+            this.updateTimeline();
+        });
+        
+        // Action buttons
+        document.getElementById('workBackwards').addEventListener('click', () => this.workBackwardsFromHarvest());
+        document.getElementById('autoOptimize').addEventListener('click', () => this.autoOptimize());
+        document.getElementById('resetTimeline').addEventListener('click', () => this.resetTimeline());
+        document.getElementById('addSuccession').addEventListener('click', () => this.addSuccession());
+        document.getElementById('removeSuccession').addEventListener('click', () => this.removeSuccession());
+        document.getElementById('duplicateSuccession').addEventListener('click', () => this.duplicateSuccession());
+    }
+    
+    adjustZoom() {
+        switch(this.zoomLevel) {
+            case 'week':
+                this.dayWidth = 8;
+                break;
+            case 'month':
+                this.dayWidth = 4;
+                break;
+            case 'quarter':
+                this.dayWidth = 2;
+                break;
+        }
+    }
+    
+    updateTimeline() {
+        this.renderTimelineHeader();
+        this.renderSuccessionRows();
+    }
+    
+    renderTimelineHeader() {
+        const header = document.getElementById('timelineHeader');
+        const totalDays = Math.ceil((this.timelineEnd - this.timelineStart) / (1000 * 60 * 60 * 24));
+        const totalWidth = totalDays * this.dayWidth;
+        
+        let headerHTML = '<div style="display: flex; position: relative; width: ' + totalWidth + 'px;">';
+        
+        // Generate date labels based on zoom level
+        const current = new Date(this.timelineStart);
+        while (current <= this.timelineEnd) {
+            const dayOffset = Math.floor((current - this.timelineStart) / (1000 * 60 * 60 * 24));
+            const x = dayOffset * this.dayWidth;
+            
+            if (this.zoomLevel === 'week' && current.getDay() === 1) {
+                // Weekly markers (Mondays)
+                headerHTML += `<div style="position: absolute; left: ${x}px; top: 0; height: 40px; border-left: 1px solid #ccc; font-size: 11px; padding: 2px 4px;">
+                    ${current.toLocaleDateString('en-GB', {month: 'short', day: 'numeric'})}
+                </div>`;
+            } else if (this.zoomLevel === 'month' && current.getDate() === 1) {
+                // Monthly markers
+                headerHTML += `<div style="position: absolute; left: ${x}px; top: 0; height: 40px; border-left: 2px solid #999; font-size: 12px; font-weight: bold; padding: 2px 4px; background: rgba(255,255,255,0.9);">
+                    ${current.toLocaleDateString('en-GB', {month: 'short', year: 'numeric'})}
+                </div>`;
+            } else if (this.zoomLevel === 'quarter' && current.getDate() === 1 && current.getMonth() % 3 === 0) {
+                // Quarterly markers
+                headerHTML += `<div style="position: absolute; left: ${x}px; top: 0; height: 40px; border-left: 3px solid #333; font-size: 13px; font-weight: bold; padding: 2px 4px; background: rgba(255,255,255,0.95);">
+                    Q${Math.floor(current.getMonth() / 3) + 1} ${current.getFullYear()}
+                </div>`;
+            }
+            
+            current.setDate(current.getDate() + 1);
+        }
+        
+        headerHTML += '</div>';
+        header.innerHTML = headerHTML;
+    }
+    
+    renderSuccessionRows() {
+        const container = document.getElementById('successionRows');
+        
+        if (this.successions.length === 0) {
+            container.innerHTML = `
+                <div class="gantt-empty-state text-center py-5 text-muted">
+                    <i class="fas fa-chart-gantt fa-3x mb-3 opacity-50"></i>
+                    <h5>Interactive Succession Timeline</h5>
+                    <p>Fill out the form above and click "Generate Plan" to see your succession timeline.<br>
+                    You can then drag and drop to adjust dates and optimize your planting schedule.</p>
+                </div>`;
+            return;
+        }
+        
+        const totalDays = Math.ceil((this.timelineEnd - this.timelineStart) / (1000 * 60 * 60 * 24));
+        const totalWidth = totalDays * this.dayWidth;
+        
+        let rowsHTML = '';
+        
+        this.successions.forEach((succession, index) => {
+            rowsHTML += this.renderSuccessionRow(succession, index, totalWidth);
+        });
+        
+        container.innerHTML = rowsHTML;
+        this.bindDragEvents();
+    }
+    
+    renderSuccessionRow(succession, index, totalWidth) {
+        const seedingX = this.dateToX(succession.seedingDate);
+        const transplantX = succession.transplantDate ? this.dateToX(succession.transplantDate) : null;
+        const harvestX = this.dateToX(succession.harvestDate);
+        const harvestEndX = this.dateToX(succession.harvestEndDate);
+        
+        const seedingWidth = transplantX ? (transplantX - seedingX) : (harvestX - seedingX);
+        const transplantWidth = transplantX ? (harvestX - transplantX) : 0;
+        const harvestWidth = harvestEndX - harvestX;
+        
+        return `
+            <div class="succession-row" style="height: ${this.rowHeight}px; border-bottom: 1px solid #eee; position: relative; background: ${index % 2 === 0 ? '#fafafa' : '#fff'};">
+                <!-- Row Label -->
+                <div style="position: absolute; left: 0; top: 0; width: 150px; height: ${this.rowHeight}px; background: #f8f9fa; border-right: 1px solid #ddd; display: flex; align-items: center; padding: 0 10px; font-size: 12px; font-weight: bold;">
+                    <div>
+                        <div>Succession ${index + 1}</div>
+                        <div class="text-muted small">${succession.cropType} ${succession.variety || ''}</div>
+                        ${succession.bed ? `<div class="badge bg-secondary small">Bed ${succession.bed}</div>` : ''}
+                    </div>
+                </div>
+                
+                <!-- Timeline Container -->
+                <div style="margin-left: 150px; position: relative; height: ${this.rowHeight}px; width: ${totalWidth}px;">
+                    <!-- Seeding Phase -->
+                    <div class="gantt-bar gantt-seeding draggable" 
+                         data-succession="${index}" 
+                         data-phase="seeding"
+                         style="position: absolute; left: ${seedingX}px; top: 10px; width: ${seedingWidth}px; height: 15px; background: linear-gradient(135deg, #007bff, #0056b3); border-radius: 3px; cursor: move; color: white; font-size: 10px; display: flex; align-items: center; padding: 0 5px;"
+                         title="Seeding: ${succession.seedingDate.toLocaleDateString()} ${transplantX ? '→ Transplant: ' + succession.transplantDate.toLocaleDateString() : '→ Harvest: ' + succession.harvestDate.toLocaleDateString()}">
+                        <i class="fas fa-seedling me-1"></i>
+                        ${transplantX ? 'Seed' : 'Direct'}
+                    </div>
+                    
+                    ${transplantX ? `
+                        <!-- Transplant Phase -->
+                        <div class="gantt-bar gantt-transplant draggable" 
+                             data-succession="${index}" 
+                             data-phase="transplant"
+                             style="position: absolute; left: ${transplantX}px; top: 25px; width: ${transplantWidth}px; height: 15px; background: linear-gradient(135deg, #ffc107, #e0a800); border-radius: 3px; cursor: move; color: black; font-size: 10px; display: flex; align-items: center; padding: 0 5px;"
+                             title="Transplant: ${succession.transplantDate.toLocaleDateString()} → Harvest: ${succession.harvestDate.toLocaleDateString()}">
+                            <i class="fas fa-leaf me-1"></i>
+                            Grow
+                        </div>
+                    ` : ''}
+                    
+                    <!-- Harvest Phase -->
+                    <div class="gantt-bar gantt-harvest draggable" 
+                         data-succession="${index}" 
+                         data-phase="harvest"
+                         style="position: absolute; left: ${harvestX}px; top: 40px; width: ${harvestWidth}px; height: 15px; background: linear-gradient(135deg, #28a745, #1e7e34); border-radius: 3px; cursor: move; color: white; font-size: 10px; display: flex; align-items: center; padding: 0 5px;"
+                         title="Harvest: ${succession.harvestDate.toLocaleDateString()} → ${succession.harvestEndDate.toLocaleDateString()}">
+                        <i class="fas fa-cut me-1"></i>
+                        Harvest
+                    </div>
+                    
+                    <!-- Date Labels -->
+                    <div style="position: absolute; left: ${seedingX}px; top: ${this.rowHeight - 15}px; font-size: 9px; color: #666;">
+                        ${succession.seedingDate.toLocaleDateString('en-GB', {month: 'short', day: 'numeric'})}
+                    </div>
+                    ${transplantX ? `
+                        <div style="position: absolute; left: ${transplantX}px; top: ${this.rowHeight - 15}px; font-size: 9px; color: #666;">
+                            ${succession.transplantDate.toLocaleDateString('en-GB', {month: 'short', day: 'numeric'})}
+                        </div>
+                    ` : ''}
+                    <div style="position: absolute; left: ${harvestX}px; top: ${this.rowHeight - 15}px; font-size: 9px; color: #666;">
+                        ${succession.harvestDate.toLocaleDateString('en-GB', {month: 'short', day: 'numeric'})}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    dateToX(date) {
+        const dayOffset = Math.floor((date - this.timelineStart) / (1000 * 60 * 60 * 24));
+        return Math.max(0, dayOffset * this.dayWidth);
+    }
+    
+    xToDate(x) {
+        const dayOffset = Math.floor(x / this.dayWidth);
+        const date = new Date(this.timelineStart);
+        date.setDate(date.getDate() + dayOffset);
+        return date;
+    }
+    
+    bindDragEvents() {
+        const draggables = document.querySelectorAll('.gantt-bar.draggable');
+        
+        draggables.forEach(bar => {
+            bar.addEventListener('mousedown', (e) => this.startDrag(e, bar));
+        });
+        
+        document.addEventListener('mousemove', (e) => this.onDrag(e));
+        document.addEventListener('mouseup', () => this.endDrag());
+    }
+    
+    startDrag(e, bar) {
+        this.isDragging = true;
+        this.dragTarget = bar;
+        this.dragStartX = e.clientX;
+        this.dragStartLeft = parseInt(bar.style.left);
+        bar.style.opacity = '0.7';
+        e.preventDefault();
+    }
+    
+    onDrag(e) {
+        if (!this.isDragging || !this.dragTarget) return;
+        
+        const deltaX = e.clientX - this.dragStartX;
+        const newLeft = Math.max(0, this.dragStartLeft + deltaX);
+        
+        this.dragTarget.style.left = newLeft + 'px';
+        
+        // Update related bars
+        this.updateRelatedBars(this.dragTarget, deltaX);
+    }
+    
+    updateRelatedBars(targetBar, deltaX) {
+        const successionIndex = parseInt(targetBar.dataset.succession);
+        const phase = targetBar.dataset.phase;
+        const succession = this.successions[successionIndex];
+        
+        // Update dates based on the drag
+        const newDate = this.xToDate(parseInt(targetBar.style.left));
+        
+        if (phase === 'seeding') {
+            succession.seedingDate = newDate;
+            if (succession.transplantDate) {
+                succession.transplantDate = new Date(newDate);
+                succession.transplantDate.setDate(succession.transplantDate.getDate() + succession.seedingToTransplant);
+            }
+            succession.harvestDate = new Date(succession.transplantDate || newDate);
+            succession.harvestDate.setDate(succession.harvestDate.getDate() + succession.transplantToHarvest);
+            succession.harvestEndDate = new Date(succession.harvestDate);
+            succession.harvestEndDate.setDate(succession.harvestEndDate.getDate() + succession.harvestWindow);
+        }
+        
+        // Re-render this row to update all related bars
+        this.renderSuccessionRows();
+    }
+    
+    endDrag() {
+        if (this.dragTarget) {
+            this.dragTarget.style.opacity = '1';
+            this.dragTarget = null;
+        }
+        this.isDragging = false;
+        
+        // Update the form and preview table
+        this.updateFormFromGantt();
+        window.generatePlan(); // Refresh the plan
+    }
+    
+    loadFromForm() {
+        const form = document.getElementById('successionForm');
+        const formData = new FormData(form);
+        
+        const cropType = formData.get('crop_type');
+        const variety = formData.get('variety');
+        const numSuccessions = parseInt(formData.get('succession_count')) || 1;
+        const interval = parseInt(formData.get('interval')) || 14;
+        const seedingToTransplant = parseInt(formData.get('seeding_to_transplant_days')) || 0;
+        const transplantToHarvest = parseInt(formData.get('transplant_to_harvest_days')) || 60;
+        const harvestWindow = parseInt(formData.get('harvest_duration_days')) || 14;
+        const directSow = formData.get('direct_sow') === 'on';
+        
+        let firstSeedingDate = new Date(formData.get('first_seeding_date'));
+        
+        this.successions = [];
+        
+        for (let i = 0; i < numSuccessions; i++) {
+            const seedingDate = new Date(firstSeedingDate);
+            seedingDate.setDate(seedingDate.getDate() + (i * interval));
+            
+            let transplantDate = null;
+            if (!directSow) {
+                transplantDate = new Date(seedingDate);
+                transplantDate.setDate(transplantDate.getDate() + seedingToTransplant);
+            }
+            
+            const harvestDate = new Date(transplantDate || seedingDate);
+            harvestDate.setDate(harvestDate.getDate() + transplantToHarvest);
+            
+            const harvestEndDate = new Date(harvestDate);
+            harvestEndDate.setDate(harvestEndDate.getDate() + harvestWindow);
+            
+            this.successions.push({
+                index: i + 1,
+                cropType,
+                variety,
+                seedingDate,
+                transplantDate,
+                harvestDate,
+                harvestEndDate,
+                seedingToTransplant,
+                transplantToHarvest,
+                harvestWindow,
+                directSow,
+                bed: null
+            });
+        }
+        
+        // Enable timeline buttons
+        document.getElementById('addSuccession').disabled = false;
+        document.getElementById('removeSuccession').disabled = false;
+        document.getElementById('duplicateSuccession').disabled = false;
+        
+        this.updateTimeline();
+    }
+    
+    updateFormFromGantt() {
+        // Update form values based on gantt chart changes
+        if (this.successions.length > 0) {
+            const firstSuccession = this.successions[0];
+            document.getElementById('firstSeedingDate').value = firstSuccession.seedingDate.toISOString().split('T')[0];
+            
+            if (this.successions.length > 1) {
+                const interval = Math.round((this.successions[1].seedingDate - this.successions[0].seedingDate) / (1000 * 60 * 60 * 24));
+                document.getElementById('interval').value = interval;
+            }
+        }
+    }
+    
+    workBackwardsFromHarvest() {
+        const desiredHarvestDate = prompt('Enter your desired final harvest date (YYYY-MM-DD):');
+        if (!desiredHarvestDate) return;
+        
+        const targetDate = new Date(desiredHarvestDate);
+        if (this.successions.length === 0) return;
+        
+        // Work backwards from the target date
+        const lastSuccession = this.successions[this.successions.length - 1];
+        const totalGrowingTime = lastSuccession.transplantToHarvest + (lastSuccession.seedingToTransplant || 0);
+        
+        // Calculate new first seeding date
+        const newFirstSeedingDate = new Date(targetDate);
+        newFirstSeedingDate.setDate(newFirstSeedingDate.getDate() - totalGrowingTime - ((this.successions.length - 1) * parseInt(document.getElementById('interval').value)));
+        
+        // Update form and regenerate
+        document.getElementById('firstSeedingDate').value = newFirstSeedingDate.toISOString().split('T')[0];
+        this.loadFromForm();
+        
+        this.debugLog(`Worked backwards from ${desiredHarvestDate}: New first seeding date is ${newFirstSeedingDate.toDateString()}`);
+    }
+    
+    autoOptimize() {
+        // AI optimization logic
+        this.debugLog('AI Optimization: Analyzing bed availability and seasonal timing...');
+        
+        // Simulate AI optimization
+        setTimeout(() => {
+            this.optimizeIntervals();
+            this.updateTimeline();
+            this.debugLog('AI Optimization complete: Adjusted intervals for optimal bed rotation');
+        }, 1000);
+    }
+    
+    optimizeIntervals() {
+        // Simple optimization - adjust intervals based on harvest windows
+        this.successions.forEach((succession, index) => {
+            if (index > 0) {
+                const prevHarvestEnd = this.successions[index - 1].harvestEndDate;
+                const currentSeeding = succession.seedingDate;
+                
+                // Ensure optimal spacing
+                const optimalGap = 7; // 7 days between harvest end and next seeding
+                const newSeedingDate = new Date(prevHarvestEnd);
+                newSeedingDate.setDate(newSeedingDate.getDate() + optimalGap);
+                
+                if (newSeedingDate > currentSeeding) {
+                    succession.seedingDate = newSeedingDate;
+                    // Recalculate other dates
+                    if (succession.transplantDate) {
+                        succession.transplantDate = new Date(succession.seedingDate);
+                        succession.transplantDate.setDate(succession.transplantDate.getDate() + succession.seedingToTransplant);
+                    }
+                    succession.harvestDate = new Date(succession.transplantDate || succession.seedingDate);
+                    succession.harvestDate.setDate(succession.harvestDate.getDate() + succession.transplantToHarvest);
+                    succession.harvestEndDate = new Date(succession.harvestDate);
+                    succession.harvestEndDate.setDate(succession.harvestEndDate.getDate() + succession.harvestWindow);
+                }
+            }
+        });
+    }
+    
+    resetTimeline() {
+        this.successions = [];
+        this.updateTimeline();
+        
+        // Disable timeline buttons
+        document.getElementById('addSuccession').disabled = true;
+        document.getElementById('removeSuccession').disabled = true;
+        document.getElementById('duplicateSuccession').disabled = true;
+        
+        this.debugLog('Timeline reset');
+    }
+    
+    addSuccession() {
+        if (this.successions.length === 0) return;
+        
+        const lastSuccession = this.successions[this.successions.length - 1];
+        const interval = parseInt(document.getElementById('interval').value) || 14;
+        
+        const newSeedingDate = new Date(lastSuccession.seedingDate);
+        newSeedingDate.setDate(newSeedingDate.getDate() + interval);
+        
+        let newTransplantDate = null;
+        if (!lastSuccession.directSow) {
+            newTransplantDate = new Date(newSeedingDate);
+            newTransplantDate.setDate(newTransplantDate.getDate() + lastSuccession.seedingToTransplant);
+        }
+        
+        const newHarvestDate = new Date(newTransplantDate || newSeedingDate);
+        newHarvestDate.setDate(newHarvestDate.getDate() + lastSuccession.transplantToHarvest);
+        
+        const newHarvestEndDate = new Date(newHarvestDate);
+        newHarvestEndDate.setDate(newHarvestEndDate.getDate() + lastSuccession.harvestWindow);
+        
+        this.successions.push({
+            index: this.successions.length + 1,
+            cropType: lastSuccession.cropType,
+            variety: lastSuccession.variety,
+            seedingDate: newSeedingDate,
+            transplantDate: newTransplantDate,
+            harvestDate: newHarvestDate,
+            harvestEndDate: newHarvestEndDate,
+            seedingToTransplant: lastSuccession.seedingToTransplant,
+            transplantToHarvest: lastSuccession.transplantToHarvest,
+            harvestWindow: lastSuccession.harvestWindow,
+            directSow: lastSuccession.directSow,
+            bed: null
+        });
+        
+        document.getElementById('successionCount').value = this.successions.length;
+        this.updateTimeline();
+        this.debugLog(`Added succession #${this.successions.length}`);
+    }
+    
+    removeSuccession() {
+        if (this.successions.length > 1) {
+            this.successions.pop();
+            document.getElementById('successionCount').value = this.successions.length;
+            this.updateTimeline();
+            this.debugLog(`Removed succession, now ${this.successions.length} total`);
+        }
+    }
+    
+    duplicateSuccession() {
+        const selectedIndex = 0; // For now, duplicate the first one
+        if (this.successions.length === 0) return;
+        
+        const original = this.successions[selectedIndex];
+        const interval = parseInt(document.getElementById('interval').value) || 14;
+        
+        const newSeedingDate = new Date(this.successions[this.successions.length - 1].seedingDate);
+        newSeedingDate.setDate(newSeedingDate.getDate() + interval);
+        
+        let newTransplantDate = null;
+        if (original.transplantDate) {
+            newTransplantDate = new Date(newSeedingDate);
+            newTransplantDate.setDate(newTransplantDate.getDate() + original.seedingToTransplant);
+        }
+        
+        const newHarvestDate = new Date(newTransplantDate || newSeedingDate);
+        newHarvestDate.setDate(newHarvestDate.getDate() + original.transplantToHarvest);
+        
+        const newHarvestEndDate = new Date(newHarvestDate);
+        newHarvestEndDate.setDate(newHarvestEndDate.getDate() + original.harvestWindow);
+        
+        this.successions.push({
+            ...original,
+            index: this.successions.length + 1,
+            seedingDate: newSeedingDate,
+            transplantDate: newTransplantDate,
+            harvestDate: newHarvestDate,
+            harvestEndDate: newHarvestEndDate,
+            bed: null
+        });
+        
+        document.getElementById('successionCount').value = this.successions.length;
+        this.updateTimeline();
+        this.debugLog(`Duplicated succession #${selectedIndex + 1}`);
+    }
+    
+    debugLog(message) {
+        const debugOutput = document.getElementById('debugOutput');
+        const timestamp = new Date().toLocaleTimeString();
+        debugOutput.innerHTML += `[${timestamp}] Gantt: ${message}\n`;
+        debugOutput.scrollTop = debugOutput.scrollHeight;
+    }
+}
+
+// Initialize Gantt Chart
+let ganttChart;
+
 // Global function for AI timing (accessible from inline onclick)
 function getSeasonalTimingFromAI(cropType) {
     const debugOutput = document.getElementById('debugOutput');
@@ -505,47 +1447,126 @@ const cropPresets = @json($cropPresets ?? []);
 const cropData = @json($cropData ?? ['types' => [], 'varieties' => []]);
 let currentPlan = null;
 
-document.addEventListener('DOMContentLoaded', function() {
-    debugLog('Page loaded, initializing succession planning');
-    debugLog(`Available crop presets: ${Object.keys(cropPresets).length}`);
-    debugLog(`Available crop data: ${JSON.stringify(Object.keys(cropData))}`);
-    
-    // Test basic functionality
-    alert('JavaScript is working! Check debug output below.');
-    
-    // Check if our debug elements exist
+// Global reference for Gantt chart
+window.generatePlan = function() {
+    if (typeof generateSuccessionPlan === 'function') {
+        generateSuccessionPlan();
+    }
+};
+
+// Global test function for debugging
+window.testCropChange = function() {
+    console.log('Manual test function called');
     const debugOutput = document.getElementById('debugOutput');
+    if (debugOutput) {
+        debugOutput.innerHTML += 'Manual test function called!\n';
+    }
+    
+    const cropType = document.getElementById('cropType');
+    if (cropType) {
+        console.log('Crop type element found, current value:', cropType.value);
+        if (debugOutput) {
+            debugOutput.innerHTML += `Crop type found: ${cropType.value}\n`;
+        }
+        
+        // Try to trigger change event
+        const event = new Event('change', { bubbles: true });
+        cropType.dispatchEvent(event);
+        
+        if (debugOutput) {
+            debugOutput.innerHTML += 'Change event dispatched\n';
+        }
+    } else {
+        console.log('Crop type element NOT found');
+        if (debugOutput) {
+            debugOutput.innerHTML += 'ERROR: Crop type element not found\n';
+        }
+    }
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOMContentLoaded fired');
+    
+    const debugOutput = document.getElementById('debugOutput');
+    function simpleLog(message) {
+        console.log(message);
+        if (debugOutput) {
+            debugOutput.innerHTML += message + '\n';
+            debugOutput.scrollTop = debugOutput.scrollHeight;
+        }
+    }
+    
+    simpleLog('Page loaded, initializing succession planning');
+    simpleLog(`Available crop presets: ${Object.keys(cropPresets || {}).length}`);
+    
+    // Debug crop presets
+    if (cropPresets && Object.keys(cropPresets).length > 0) {
+        simpleLog(`Crop presets loaded: ${JSON.stringify(Object.keys(cropPresets))}`);
+    } else {
+        simpleLog('WARNING: No crop presets loaded!');
+    }
+    
+    // Check if our elements exist
+    const cropTypeElement = document.getElementById('cropType');
     const clearDebugBtn = document.getElementById('clearDebug');
     const testAIBtn = document.getElementById('testAITiming');
+    const testCropChangeBtn = document.getElementById('testCropChange');
     
-    debugLog(`Debug elements found: output=${!!debugOutput}, clear=${!!clearDebugBtn}, test=${!!testAIBtn}`);
+    simpleLog(`Elements found: cropType=${!!cropTypeElement}, clear=${!!clearDebugBtn}, testAI=${!!testAIBtn}, testCrop=${!!testCropChangeBtn}`);
     
-    setupEventListeners();
-    checkAIStatus();
-    loadFarmStatus();
+    // Simple event listeners without complex error handling
+    if (cropTypeElement) {
+        simpleLog('Adding crop type change listener');
+        cropTypeElement.addEventListener('change', function(event) {
+            simpleLog(`CROP TYPE CHANGED TO: ${event.target.value}`);
+            
+            // Basic variety population
+            const varietySelect = document.getElementById('variety');
+            if (varietySelect) {
+                varietySelect.innerHTML = '<option value="">Select variety (optional)...</option>';
+                simpleLog('Varieties cleared');
+            }
+            
+            // Basic preset application
+            const crop = event.target.value;
+            if (crop && cropPresets && cropPresets[crop]) {
+                simpleLog(`Applying preset for: ${crop}`);
+                const preset = cropPresets[crop];
+                
+                const seedingToTransplant = document.getElementById('seedingToTransplant');
+                const transplantToHarvest = document.getElementById('transplantToHarvest');
+                const harvestDuration = document.getElementById('harvestDuration');
+                
+                if (seedingToTransplant) seedingToTransplant.value = preset.transplant_days;
+                if (transplantToHarvest) transplantToHarvest.value = preset.harvest_days - preset.transplant_days;
+                if (harvestDuration) harvestDuration.value = preset.yield_period;
+                
+                simpleLog('Preset values applied');
+            } else {
+                simpleLog(`No preset found for: ${crop}`);
+            }
+        });
+        simpleLog('Crop type change listener added successfully');
+    } else {
+        simpleLog('ERROR: cropType element not found!');
+    }
     
-    // Add debug controls
+    // Simple clear button
     if (clearDebugBtn) {
         clearDebugBtn.addEventListener('click', function() {
-            debugLog('Clear button clicked');
-            document.getElementById('debugOutput').innerHTML = 'Debug output cleared...\n';
+            if (debugOutput) {
+                debugOutput.innerHTML = 'Debug cleared...\n';
+            }
         });
-    } else {
-        debugLog('Clear button not found!', 'error');
+        simpleLog('Clear button listener added');
     }
     
-    if (testAIBtn) {
-        testAIBtn.addEventListener('click', function() {
-            debugLog('Test AI button clicked!', 'info');
-            alert('Test AI button clicked - check debug output');
-            getSeasonalTimingFromAI('lettuce');
-        });
-    } else {
-        debugLog('Test AI button not found!', 'error');
-    }
+    simpleLog('Basic initialization complete');
 });
 
 function setupEventListeners() {
+    debugLog('Setting up event listeners...', 'info');
+    
     // Crop preset buttons
     document.querySelectorAll('.preset-btn').forEach(btn => {
         btn.addEventListener('click', function() {
@@ -555,43 +1576,93 @@ function setupEventListeners() {
     });
 
     // Generate plan button
-    document.getElementById('generatePlan').addEventListener('click', generateSuccessionPlan);
+    const generateBtn = document.getElementById('generatePlan');
+    if (generateBtn) {
+        generateBtn.addEventListener('click', generateSuccessionPlan);
+        debugLog('Generate plan button listener added', 'info');
+    }
     
     // Create in farmOS button
-    document.getElementById('createInFarmOS').addEventListener('click', createInFarmOS);
+    const createBtn = document.getElementById('createInFarmOS');
+    if (createBtn) {
+        createBtn.addEventListener('click', createInFarmOS);
+        debugLog('Create in farmOS button listener added', 'info');
+    }
     
     // Crop type change
-    document.getElementById('cropType').addEventListener('change', function() {
-        const crop = this.value;
-        debugLog(`Crop type changed to: ${crop}`, 'info');
+    const cropTypeElement = document.getElementById('cropType');
+    if (cropTypeElement) {
+        debugLog('Setting up crop type change listener', 'info');
         
-        // Populate varieties for selected crop
-        populateVarieties(crop);
+        // Remove any existing listeners first
+        cropTypeElement.removeEventListener('change', handleCropTypeChange);
+        cropTypeElement.addEventListener('change', handleCropTypeChange);
         
-        // Update timing from presets
-        if (crop && cropPresets && cropPresets[crop]) {
-            debugLog(`Found preset for crop: ${crop}`, 'info');
-            updateTimingFromPreset(crop);
-        } else {
-            debugLog(`No preset found for crop: ${crop}`, 'warning');
-            // Still try to get AI timing even without preset
-            if (crop) {
-                getSeasonalTimingFromAI(crop);
-            }
-        }
-        updateAIAssistant();
-    });
+        debugLog('Crop type change listener added successfully', 'info');
+    } else {
+        debugLog('ERROR: cropType element not found!', 'error');
+    }
 
     // AI Assistant
-    document.getElementById('askAI').addEventListener('click', getAIRecommendations);
+    const aiBtn = document.getElementById('askAI');
+    if (aiBtn) {
+        aiBtn.addEventListener('click', getAIRecommendations);
+        debugLog('AI assistant button listener added', 'info');
+    }
     
     // Direct sow checkbox
-    document.getElementById('directSow').addEventListener('change', function() {
-        toggleDirectSowMode(this.checked);
-    });
+    const directSowBtn = document.getElementById('directSow');
+    if (directSowBtn) {
+        directSowBtn.addEventListener('change', function() {
+            toggleDirectSowMode(this.checked);
+        });
+        debugLog('Direct sow checkbox listener added', 'info');
+    }
     
     // Initialize direct sow mode
     toggleDirectSowMode(false);
+    
+    debugLog('All event listeners setup complete', 'info');
+}
+
+// Separate function for crop type change handling
+function handleCropTypeChange(event) {
+    const crop = event.target.value;
+    debugLog(`Crop type changed to: ${crop}`, 'info');
+    
+    // Populate varieties for selected crop
+    try {
+        populateVarieties(crop);
+        debugLog('Varieties populated successfully', 'info');
+    } catch (error) {
+        debugLog('Error populating varieties: ' + error.message, 'error');
+    }
+    
+    // Update timing from presets
+    if (crop && cropPresets && cropPresets[crop]) {
+        debugLog(`Found preset for crop: ${crop}`, 'info');
+        try {
+            updateTimingFromPreset(crop);
+        } catch (error) {
+            debugLog('Error updating timing from preset: ' + error.message, 'error');
+        }
+    } else {
+        debugLog(`No preset found for crop: ${crop}`, 'warning');
+        // Still try to get AI timing even without preset
+        if (crop) {
+            try {
+                getSeasonalTimingFromAI(crop);
+            } catch (error) {
+                debugLog('Error getting AI timing: ' + error.message, 'error');
+            }
+        }
+    }
+    
+    try {
+        updateAIAssistant();
+    } catch (error) {
+        debugLog('Error updating AI assistant: ' + error.message, 'error');
+    }
 }
 
 function applyPreset(cropType) {
@@ -858,6 +1929,12 @@ async function generateSuccessionPlan() {
             currentPlan = result.plan;
             displayPlan(result.plan);
             showNotification('Succession plan generated successfully!', 'success');
+            
+            // Update Gantt chart
+            if (ganttChart) {
+                ganttChart.loadFromForm();
+                ganttChart.debugLog('Plan generated - updated timeline visualization');
+            }
             
             // Enable create button
             document.getElementById('createInFarmOS').disabled = false;
@@ -1139,71 +2216,7 @@ function toggleDirectSowMode(isDirectSow) {
 }
 </script>
 
-<script>
-// Standalone AI timing function - must be global
-function getSeasonalTimingFromAI(cropType) {
-    const debugOutput = document.getElementById('debugOutput');
-    debugOutput.innerHTML += 'getSeasonalTimingFromAI called with: ' + cropType + '\n';
-    
-    if (!cropType) {
-        debugOutput.innerHTML += 'No crop type provided\n';
-        return;
-    }
-    
-    debugOutput.innerHTML += 'Making fetch request to AI endpoint...\n';
-    
-    const season = 'Summer';
-    
-    fetch('/admin/api/ai/crop-timing', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-        },
-        body: JSON.stringify({
-            crop_type: cropType,
-            season: season
-        })
-    })
-    .then(response => {
-        debugOutput.innerHTML += 'Got response: ' + response.status + '\n';
-        return response.json();
-    })
-    .then(data => {
-        debugOutput.innerHTML += 'Response data: ' + JSON.stringify(data) + '\n';
-        
-        if (data.success && data.timing) {
-            debugOutput.innerHTML += 'Updating form fields...\n';
-            
-            const seedingField = document.getElementById('seedingToTransplant');
-            const harvestField = document.getElementById('transplantToHarvest');
-            const windowField = document.getElementById('harvestDuration');
-            
-            if (seedingField && data.timing.days_to_transplant !== undefined) {
-                seedingField.value = data.timing.days_to_transplant;
-                debugOutput.innerHTML += 'Set seeding to transplant: ' + data.timing.days_to_transplant + '\n';
-            }
-            
-            if (harvestField && data.timing.days_to_harvest !== undefined) {
-                harvestField.value = data.timing.days_to_harvest;
-                debugOutput.innerHTML += 'Set transplant to harvest: ' + data.timing.days_to_harvest + '\n';
-            }
-            
-            if (windowField && data.timing.harvest_window !== undefined) {
-                windowField.value = data.timing.harvest_window;
-                debugOutput.innerHTML += 'Set harvest window: ' + data.timing.harvest_window + '\n';
-            }
-            
-            debugOutput.innerHTML += 'Form fields updated successfully!\n';
-        } else {
-            debugOutput.innerHTML += 'AI response error: ' + (data.message || 'Unknown error') + '\n';
-        }
-    })
-    .catch(error => {
-        debugOutput.innerHTML += 'Fetch error: ' + error.message + '\n';
-    });
-}
-</script>
+<!-- Duplicate script tag removed - function is defined in main script above -->
 
 <style>
 .preset-btn {

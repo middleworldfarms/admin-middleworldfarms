@@ -805,4 +805,86 @@ class SuccessionPlanningController extends Controller
             return 'winter';
         }
     }
+
+    /**
+     * Get varieties for a specific crop type from farmOS API
+     */
+    public function getVarietiesByCropType($cropType): JsonResponse
+    {
+        try {
+            Log::info("Getting varieties for crop type: $cropType");
+            
+            // Get all plant varieties from farmOS
+            $varieties = $this->farmOSApi->getPlantVarieties();
+            
+            if (!$varieties || empty($varieties)) {
+                Log::warning("No varieties found in farmOS");
+                return new JsonResponse([
+                    'success' => false,
+                    'varieties' => [],
+                    'message' => 'No varieties found in farmOS'
+                ]);
+            }
+
+            // Filter varieties for the specific crop type
+            $filteredVarieties = [];
+            foreach ($varieties as $variety) {
+                // Check if this variety belongs to the requested crop type
+                if ($this->isVarietyForCropType($variety, $cropType)) {
+                    $filteredVarieties[] = [
+                        'name' => $variety['name'] ?? $variety['attributes']['name'] ?? 'Unknown',
+                        'label' => $variety['attributes']['name'] ?? $variety['name'] ?? 'Unknown',
+                        'id' => $variety['id'] ?? null
+                    ];
+                }
+            }
+
+            Log::info("Found " . count($filteredVarieties) . " varieties for $cropType");
+            
+            return new JsonResponse([
+                'success' => true,
+                'varieties' => $filteredVarieties,
+                'cropType' => $cropType
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error("Failed to get varieties for $cropType: " . $e->getMessage());
+            return new JsonResponse([
+                'success' => false,
+                'varieties' => [],
+                'error' => 'Failed to fetch varieties'
+            ]);
+        }
+    }
+
+    /**
+     * Check if a variety belongs to a specific crop type
+     */
+    private function isVarietyForCropType($variety, $cropType): bool
+    {
+        // Try multiple ways to match variety to crop type
+        $varietyName = strtolower($variety['name'] ?? $variety['attributes']['name'] ?? '');
+        $cropTypeLower = strtolower($cropType);
+
+        // Direct name match
+        if (strpos($varietyName, $cropTypeLower) !== false) {
+            return true;
+        }
+
+        // Check parent relationship if available
+        if (isset($variety['relationships']['parent']['data']['id'])) {
+            $parentId = $variety['relationships']['parent']['data']['id'];
+            // You might need to fetch parent details here if needed
+        }
+
+        // Check if variety description or other attributes mention the crop
+        if (isset($variety['attributes']['description'])) {
+            $description = strtolower($variety['attributes']['description']);
+            if (strpos($description, $cropTypeLower) !== false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

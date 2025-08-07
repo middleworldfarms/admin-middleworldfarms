@@ -347,8 +347,8 @@ class WpApiService
             // WooCommerce API has a maximum per_page limit of 100
             $perPage = min($limit, 100);
             
-            // Fetch active subscriptions via WooCommerce REST with full context to get billing/shipping data
-            // Use shorter timeout to prevent 504 Gateway timeout and filter for only active subscriptions
+            // Fetch ALL subscriptions via WooCommerce REST with full context to get billing/shipping data
+            // Use shorter timeout to prevent 504 Gateway timeout and include ALL statuses
             $response = Http::timeout(15)
                 ->withBasicAuth($this->wcConsumerKey, $this->wcConsumerSecret)
                 ->get("{$this->wcApiUrl}/wp-json/wc/v3/subscriptions", [
@@ -356,7 +356,7 @@ class WpApiService
                     'orderby'  => 'date',
                     'order'    => 'desc',
                     'context'  => 'edit', // This should include billing and shipping data
-                    'status'   => 'active', // Only fetch active subscriptions
+                    // Remove status filter - get ALL subscriptions
                 ]);
              
             $data = $response->json();

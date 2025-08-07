@@ -22,6 +22,7 @@ use Illuminate\Config\Repository as ConfigRepository;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\Facade;
+use Illuminate\Support\Traits\Macroable;
 use ReflectionClass;
 use Throwable;
 
@@ -36,6 +37,7 @@ class Alias
     protected $classType = 'class';
     protected $short;
     protected $namespace = '__root';
+    protected $parentClass;
     protected $root = null;
     protected $classes = [];
     protected $methods = [];
@@ -45,8 +47,6 @@ class Alias
     protected $interfaces = [];
     protected $phpdoc = null;
     protected $classAliases = [];
-
-    protected $isMacroable = false;
 
     /** @var ConfigRepository  */
     protected $config;
@@ -62,13 +62,12 @@ class Alias
      * @param array            $magicMethods
      * @param array            $interfaces
      */
-    public function __construct($config, $alias, $facade, $magicMethods = [], $interfaces = [], $isMacroable = false)
+    public function __construct($config, $alias, $facade, $magicMethods = [], $interfaces = [])
     {
         $this->alias = $alias;
         $this->magicMethods = $magicMethods;
         $this->interfaces = $interfaces;
         $this->config = $config;
-        $this->isMacroable = $isMacroable;
 
         // Make the class absolute
         $facade = '\\' . ltrim($facade, '\\');
@@ -87,6 +86,7 @@ class Alias
         $this->detectNamespace();
         $this->detectClassType();
         $this->detectExtendsNamespace();
+        $this->detectParentClass();
 
         if (!empty($this->namespace)) {
             try {
@@ -169,6 +169,25 @@ class Alias
     public function getExtendsNamespace()
     {
         return $this->extendsNamespace;
+    }
+
+    /**
+     * Get the parent class of the class which this alias extends
+     *
+     * @return null|string
+     */
+    public function getParentClass()
+    {
+        return $this->parentClass;
+    }
+
+    /**
+     * Check if this class should extend the parent class
+     */
+    public function shouldExtendParentClass()
+    {
+        return $this->parentClass
+            && $this->getExtendsNamespace() !== '\\Illuminate\\Support\\Facades';
     }
 
     /**
@@ -266,6 +285,18 @@ class Alias
             $this->extendsClass = array_pop($nsParts);
             $this->extendsNamespace = implode('\\', $nsParts);
         }
+    }
+
+    /**
+     * Detect the parent class
+     */
+    protected function detectParentClass()
+    {
+        $reflection = new ReflectionClass($this->root);
+
+        $parentClass = $reflection->getParentClass();
+
+        $this->parentClass = $parentClass ? '\\' . $parentClass->getName() : null;
     }
 
     /**
@@ -398,7 +429,7 @@ class Alias
 
             // Check if the class is macroable
             // (Eloquent\Builder is also macroable but doesn't use Macroable trait)
-            if ($this->isMacroable || $class === EloquentBuilder::class) {
+            if ($class === EloquentBuilder::class || in_array(Macroable::class, $reflection->getTraitNames())) {
                 $properties = $reflection->getStaticProperties();
                 $macros = isset($properties['macros']) ? $properties['macros'] : [];
                 foreach ($macros as $macro_name => $macro_func) {

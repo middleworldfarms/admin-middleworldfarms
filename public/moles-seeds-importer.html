@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Moles Seeds PDF Importer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .drop-zone {
+            border: 2px dashed #28a745;
+            border-radius: 10px;
+            padding: 3rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: #f8f9fa;
+        }
+        .drop-zone:hover {
+            background: #e9ecef;
+            border-color: #20c997;
+        }
+        .drop-zone.dragover {
+            border-color: #17a2b8;
+            background: #d1ecf1;
+        }
+        .file-preview {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        .progress-section {
+            display: none;
+        }
+        .results-section {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-8 mx-auto">
+                <div class="text-center mb-4">
+                    <h1 class="display-4">🌱 Moles Seeds PDF Importer</h1>
+                    <p class="lead text-muted">Upload your Moles Seeds PDF catalogs and we'll extract the variety data automatically</p>
+                </div>
+
+                <!-- Upload Section -->
+                <div class="card mb-4" id="uploadSection">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="fas fa-upload"></i> Upload PDF Catalogs</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="drop-zone" id="dropZone">
+                            <i class="fas fa-file-pdf fa-4x text-success mb-3"></i>
+                            <h4>Drop Moles Seeds PDF files here</h4>
+                            <p class="text-muted">or click to browse for files</p>
+                            <input type="file" id="fileInput" multiple accept=".pdf" style="display: none;">
+                            <button class="btn btn-outline-success" onclick="document.getElementById('fileInput').click()">
+                                <i class="fas fa-folder-open"></i> Browse Files
+                            </button>
+                        </div>
+
+                        <!-- File Preview -->
+                        <div id="filePreview"></div>
+
+                        <!-- Import Options -->
+                        <div id="importOptions" style="display: none;">
+                            <hr>
+                            <h6><i class="fas fa-cogs"></i> Import Options</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="dryRun" checked>
+                                        <label class="form-check-label" for="dryRun">
+                                            <strong>Dry Run</strong> - Preview extraction without importing
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="autoCorrect" checked>
+                                        <label class="form-check-label" for="autoCorrect">
+                                            <strong>Auto-correct</strong> - Fix common OCR errors
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="estimateTiming" checked>
+                                        <label class="form-check-label" for="estimateTiming">
+                                            <strong>Estimate timing</strong> - Fill missing days to maturity
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="skipDuplicates" checked>
+                                        <label class="form-check-label" for="skipDuplicates">
+                                            <strong>Skip duplicates</strong> - Don't import existing varieties
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-3">
+                                <button class="btn btn-primary" id="startExtraction" disabled>
+                                    <i class="fas fa-magic"></i> Extract & Import Data
+                                </button>
+                                <button class="btn btn-outline-secondary" id="previewOnly">
+                                    <i class="fas fa-eye"></i> Preview Only
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Progress Section -->
+                <div class="card mb-4 progress-section" id="progressSection">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="fas fa-cog fa-spin"></i> Processing PDFs</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="progress mb-3">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 id="progressBar" style="width: 0%"></div>
+                        </div>
+                        <div id="progressText">Starting extraction...</div>
+                        
+                        <div class="mt-3" id="extractionLog">
+                            <!-- Extraction steps will appear here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Section -->
+                <div class="card results-section" id="resultsSection">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="fas fa-check-circle"></i> Extraction Results</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Summary Stats -->
+                        <div class="row mb-4" id="summaryStats">
+                            <!-- Will be populated by JavaScript -->
+                        </div>
+
+                        <!-- Extracted Data Preview -->
+                        <div class="alert alert-info">
+                            <strong>📋 Review the extracted data below.</strong> 
+                            Check variety names, crop types, and timing data. Select only the varieties you want to import.
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="selectAllVarieties" onchange="toggleAllVarieties()">
+                                    <label class="form-check-label" for="selectAllVarieties">
+                                        <strong>Select All Varieties</strong>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <div id="selectionStats" class="small text-muted">
+                                    0 of 0 varieties selected
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover" id="extractedDataTable">
+                                <thead class="table-success">
+                                    <tr>
+                                        <th width="40">
+                                            <input type="checkbox" id="headerCheckbox" onchange="toggleAllRows()">
+                                        </th>
+                                        <th>Variety Name</th>
+                                        <th>Crop Type</th>
+                                        <th>Days to Maturity</th>
+                                        <th>Days to Transplant</th>
+                                        <th>Direct Sow?</th>
+                                        <th>Succession Interval</th>
+                                        <th>Description</th>
+                                        <th width="80">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Will be populated by JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Import Statistics -->
+                        <div class="row mt-4">
+                            <div class="col-md-6">
+                                <div class="card border-info">
+                                    <div class="card-body">
+                                        <h6 class="card-title">📊 Import Statistics</h6>
+                                        <div id="importStats">
+                                            <p class="mb-1"><strong>Total varieties:</strong> <span id="totalVarieties">0</span></p>
+                                            <p class="mb-1"><strong>Selected for import:</strong> <span id="selectedVarieties">0</span></p>
+                                            <p class="mb-0"><strong>Unique crop types:</strong> <span id="uniqueCropTypes">0</span></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card border-warning">
+                                    <div class="card-body">
+                                        <h6 class="card-title">⚠️ Review Checklist</h6>
+                                        <ul class="small mb-0">
+                                            <li>Verify crop types are correctly identified</li>
+                                            <li>Check days to maturity make sense</li>
+                                            <li>Ensure variety names are clean</li>
+                                            <li>Only select varieties you actually use</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="mt-4 d-flex gap-2 flex-wrap">
+                            <button class="btn btn-success" id="confirmImport" style="display: none;" disabled>
+                                <i class="fas fa-database"></i> Import Selected to farmOS (<span id="selectedCount">0</span>)
+                            </button>
+                            <button class="btn btn-outline-primary" id="downloadCSV">
+                                <i class="fas fa-download"></i> Export Selected to CSV
+                            </button>
+                            <button class="btn btn-outline-info" id="previewChanges">
+                                <i class="fas fa-eye"></i> Preview farmOS Changes
+                            </button>
+                            <button class="btn btn-outline-secondary" id="startOver">
+                                <i class="fas fa-redo"></i> Start Over
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Help Section -->
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-question-circle"></i> How it works</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>📄 PDF Processing</h6>
+                                <ul class="small">
+                                    <li>Extracts text from PDF files</li>
+                                    <li>Identifies variety names and timing</li>
+                                    <li>Handles OCR errors automatically</li>
+                                    <li>Groups varieties by crop type</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>🌱 Data Enhancement</h6>
+                                <ul class="small">
+                                    <li>Estimates missing timing data</li>
+                                    <li>Standardizes crop type names</li>
+                                    <li>Adds succession intervals</li>
+                                    <li>Calculates harvest windows</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info mt-3">
+                            <strong>Tip:</strong> For best results, ensure your PDF files have clear text (not scanned images). 
+                            If you have scanned PDFs, run them through OCR software first.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let uploadedFiles = [];
+        let extractedData = [];
+
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+        });
+
+        function setupEventListeners() {
+            const dropZone = document.getElementById('dropZone');
+            const fileInput = document.getElementById('fileInput');
+
+            // File drop handling
+            dropZone.addEventListener('click', () => fileInput.click());
+            dropZone.addEventListener('dragover', handleDragOver);
+            dropZone.addEventListener('drop', handleDrop);
+            dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+
+            fileInput.addEventListener('change', handleFileSelect);
+
+            // Button event listeners
+            document.getElementById('startExtraction').addEventListener('click', startExtraction);
+            document.getElementById('previewOnly').addEventListener('click', () => startExtraction(true));
+            document.getElementById('confirmImport').addEventListener('click', confirmImport);
+            document.getElementById('downloadCSV').addEventListener('click', downloadCSV);
+            document.getElementById('startOver').addEventListener('click', startOver);
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('dragover');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('dragover');
+            
+            const files = Array.from(e.dataTransfer.files).filter(file => file.type === 'application/pdf');
+            if (files.length > 0) {
+                processFiles(files);
+            } else {
+                showAlert('Please drop PDF files only', 'warning');
+            }
+        }
+
+        function handleFileSelect(e) {
+            const files = Array.from(e.target.files).filter(file => file.type === 'application/pdf');
+            if (files.length > 0) {
+                processFiles(files);
+            }
+        }
+
+        function processFiles(files) {
+            uploadedFiles = files;
+            
+            // Show file preview
+            const preview = document.getElementById('filePreview');
+            preview.innerHTML = '';
+            
+            files.forEach((file, index) => {
+                const fileDiv = document.createElement('div');
+                fileDiv.className = 'file-preview';
+                fileDiv.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-file-pdf text-danger"></i>
+                            <strong>${file.name}</strong>
+                            <div class="text-muted small">${formatFileSize(file.size)}</div>
+                        </div>
+                        <button class="btn btn-outline-danger btn-sm" onclick="removeFile(${index})">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                `;
+                preview.appendChild(fileDiv);
+            });
+
+            // Show import options
+            document.getElementById('importOptions').style.display = 'block';
+            document.getElementById('startExtraction').disabled = false;
+        }
+
+        function removeFile(index) {
+            uploadedFiles.splice(index, 1);
+            if (uploadedFiles.length > 0) {
+                processFiles(uploadedFiles);
+            } else {
+                document.getElementById('filePreview').innerHTML = '';
+                document.getElementById('importOptions').style.display = 'none';
+            }
+        }
+
+        async function startExtraction(previewOnly = false) {
+            // Show progress section
+            document.getElementById('progressSection').style.display = 'block';
+            document.getElementById('uploadSection').style.display = 'none';
+            
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            const extractionLog = document.getElementById('extractionLog');
+            
+            let progress = 0;
+            const totalSteps = uploadedFiles.length * 3; // Extract, Parse, Process for each file
+            
+            extractedData = [];
+            
+            for (let i = 0; i < uploadedFiles.length; i++) {
+                const file = uploadedFiles[i];
+                
+                // Step 1: Upload and extract text
+                progressText.textContent = `Extracting text from ${file.name}...`;
+                addLogEntry(`📄 Processing ${file.name}`, 'info');
+                
+                try {
+                    const formData = new FormData();
+                    formData.append('pdf_file', file);
+                    formData.append('action', 'extract_text');
+                    
+                    const extractResponse = await fetch('seed-data-importer.php', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const extractResult = await extractResponse.json();
+                    progress += 1;
+                    updateProgress(progress, totalSteps);
+                    
+                    if (extractResult.success) {
+                        addLogEntry(`✅ Text extracted: ${extractResult.text_length} characters`, 'success');
+                        
+                        // Step 2: Parse seed data
+                        progressText.textContent = `Parsing seed varieties from ${file.name}...`;
+                        addLogEntry(`🔍 Parsing varieties...`, 'info');
+                        
+                        const parseData = {
+                            action: 'parse_moles_seeds',
+                            text: extractResult.text,
+                            auto_correct: document.getElementById('autoCorrect').checked,
+                            estimate_timing: document.getElementById('estimateTiming').checked
+                        };
+                        
+                        const parseResponse = await fetch('seed-data-importer.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(parseData)
+                        });
+                        
+                        const parseResult = await parseResponse.json();
+                        progress += 1;
+                        updateProgress(progress, totalSteps);
+                        
+                        if (parseResult.success && parseResult.varieties) {
+                            addLogEntry(`✅ Found ${parseResult.varieties.length} varieties`, 'success');
+                            extractedData = extractedData.concat(parseResult.varieties);
+                        } else {
+                            addLogEntry(`⚠️ No varieties found in ${file.name}`, 'warning');
+                        }
+                        
+                    } else {
+                        addLogEntry(`❌ Failed to extract text from ${file.name}: ${extractResult.error}`, 'danger');
+                    }
+                    
+                    progress += 1;
+                    updateProgress(progress, totalSteps);
+                    
+                } catch (error) {
+                    addLogEntry(`❌ Error processing ${file.name}: ${error.message}`, 'danger');
+                    progress += 3; // Skip remaining steps for this file
+                    updateProgress(progress, totalSteps);
+                }
+            }
+            
+            // Show results
+            progressText.textContent = 'Processing complete!';
+            addLogEntry(`🎉 Extraction complete: ${extractedData.length} total varieties found`, 'success');
+            
+            setTimeout(() => {
+                showResults(previewOnly);
+            }, 1000);
+        }
+
+        function showResults(previewOnly = false) {
+            document.getElementById('progressSection').style.display = 'none';
+            document.getElementById('resultsSection').style.display = 'block';
+            
+            // Update summary stats
+            const cropTypes = [...new Set(extractedData.map(v => v.crop_type))];
+            const avgMaturity = extractedData.reduce((sum, v) => sum + (v.days_to_maturity || 0), 0) / extractedData.length;
+            
+            document.getElementById('summaryStats').innerHTML = `
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <h4 class="text-primary">${extractedData.length}</h4>
+                        <small class="text-muted">Varieties Found</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <h4 class="text-success">${cropTypes.length}</h4>
+                        <small class="text-muted">Crop Types</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <h4 class="text-warning">${Math.round(avgMaturity)}</h4>
+                        <small class="text-muted">Avg. Maturity Days</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <h4 class="text-info">${uploadedFiles.length}</h4>
+                        <small class="text-muted">PDF Files</small>
+                    </div>
+                </div>
+            `;
+            
+            // Add selection tracking to each variety
+            extractedData.forEach((variety, index) => {
+                variety.selected = true; // Default to selected
+                variety.index = index;
+            });
+            
+            // Populate data table with interactive checkboxes
+            const tbody = document.getElementById('extractedDataTable').querySelector('tbody');
+            tbody.innerHTML = '';
+            
+            extractedData.forEach((variety, index) => {
+                const row = tbody.insertRow();
+                row.setAttribute('data-index', index);
+                row.innerHTML = `
+                    <td>
+                        <input type="checkbox" class="variety-checkbox" data-index="${index}" 
+                               onchange="updateSelection()" ${variety.selected ? 'checked' : ''}>
+                    </td>
+                    <td>
+                        <strong class="variety-name" data-index="${index}" onclick="editVarietyInline(${index})" 
+                                style="cursor: pointer;" title="Click to edit">${variety.name}</strong>
+                    </td>
+                    <td>
+                        <span class="badge bg-secondary crop-type" data-index="${index}" 
+                              onclick="editCropTypeInline(${index})" style="cursor: pointer;" 
+                              title="Click to edit">${variety.crop_type}</span>
+                    </td>
+                    <td>
+                        <span class="maturity-days" data-index="${index}" onclick="editMaturityInline(${index})" 
+                              style="cursor: pointer;" title="Click to edit">${variety.days_to_maturity || 'N/A'}</span>
+                    </td>
+                    <td>
+                        <span class="badge ${variety.days_to_transplant > 0 ? 'bg-info' : 'bg-secondary'}"
+                              title="${variety.days_to_transplant > 0 ? variety.days_to_transplant + ' days' : 'Not applicable'}">${variety.days_to_transplant || 0}</span>
+                    </td>
+                    <td>
+                        <span class="badge ${variety.direct_sow ? 'bg-success' : 'bg-warning'}">${variety.direct_sow ? 'Yes' : 'No'}</span>
+                    </td>
+                    <td>
+                        <span class="badge bg-light text-dark">${variety.succession_interval || 14} days</span>
+                    </td>
+                    <td class="small" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;" 
+                        title="${variety.description}">${variety.description || ''}</td>
+                    <td>
+                        <button class="btn btn-outline-danger btn-sm" onclick="removeVariety(${index})" 
+                                title="Remove this variety">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+            });
+            
+            // Update statistics
+            updateSelectionStats();
+            
+            // Show import button if not preview only
+            if (!previewOnly && !document.getElementById('dryRun').checked) {
+                document.getElementById('confirmImport').style.display = 'inline-block';
+            }
+        }
+
+        function downloadCSVOld() {
+            if (extractedData.length === 0) return;
+            
+            const headers = ['Name', 'Crop Type', 'Days to Maturity', 'Days to Transplant', 'Harvest Window', 'Direct Sow', 'Description'];
+            const rows = extractedData.map(variety => [
+                variety.name,
+                variety.crop_type,
+                variety.days_to_maturity || '',
+                variety.days_to_transplant || '',
+                variety.harvest_window || '',
+                variety.direct_sow ? 'Yes' : 'No',
+                variety.description || ''
+            ]);
+            
+            const csvContent = [headers, ...rows]
+                .map(row => row.map(field => `"${field}"`).join(','))
+                .join('\n');
+            
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'moles_seeds_varieties.csv';
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
+        function startOver() {
+            location.reload();
+        }
+
+        function updateProgress(current, total) {
+            const percentage = (current / total) * 100;
+            document.getElementById('progressBar').style.width = percentage + '%';
+        }
+
+        function addLogEntry(message, type = 'info') {
+            const log = document.getElementById('extractionLog');
+            const entry = document.createElement('div');
+            entry.className = `alert alert-${type} py-2 small`;
+            entry.textContent = message;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function showAlert(message, type) {
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; max-width: 400px;';
+            alert.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(alert);
+            
+            setTimeout(() => {
+                if (alert.parentNode) {
+                    alert.parentNode.removeChild(alert);
+                }
+            }, 5000);
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Interactive preview functions
+        function updateSelection() {
+            const checkboxes = document.querySelectorAll('.variety-checkbox');
+            const checkedBoxes = document.querySelectorAll('.variety-checkbox:checked');
+            
+            // Update variety selection status
+            extractedData.forEach((variety, index) => {
+                const checkbox = document.querySelector(`[data-index="${index}"]`);
+                variety.selected = checkbox ? checkbox.checked : false;
+            });
+            
+            updateSelectionStats();
+        }
+
+        function updateSelectionStats() {
+            const selectedCount = extractedData.filter(v => v.selected).length;
+            const totalCount = extractedData.length;
+            const cropTypes = [...new Set(extractedData.filter(v => v.selected).map(v => v.crop_type))];
+            
+            // Update statistics
+            document.getElementById('totalVarieties').textContent = totalCount;
+            document.getElementById('selectedVarieties').textContent = selectedCount;
+            document.getElementById('uniqueCropTypes').textContent = cropTypes.length;
+            document.getElementById('selectedCount').textContent = selectedCount;
+            document.getElementById('selectionStats').textContent = `${selectedCount} of ${totalCount} varieties selected`;
+            
+            // Enable/disable import button
+            const importBtn = document.getElementById('confirmImport');
+            if (selectedCount > 0) {
+                importBtn.disabled = false;
+                importBtn.classList.remove('btn-outline-success');
+                importBtn.classList.add('btn-success');
+            } else {
+                importBtn.disabled = true;
+                importBtn.classList.remove('btn-success');
+                importBtn.classList.add('btn-outline-success');
+            }
+            
+            // Update header checkbox
+            const headerCheckbox = document.getElementById('headerCheckbox');
+            if (selectedCount === 0) {
+                headerCheckbox.indeterminate = false;
+                headerCheckbox.checked = false;
+            } else if (selectedCount === totalCount) {
+                headerCheckbox.indeterminate = false;
+                headerCheckbox.checked = true;
+            } else {
+                headerCheckbox.indeterminate = true;
+            }
+        }
+
+        function toggleAllRows() {
+            const headerCheckbox = document.getElementById('headerCheckbox');
+            const checkboxes = document.querySelectorAll('.variety-checkbox');
+            
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = headerCheckbox.checked;
+            });
+            
+            updateSelection();
+        }
+
+        function toggleAllVarieties() {
+            const selectAllCheckbox = document.getElementById('selectAllVarieties');
+            const checkboxes = document.querySelectorAll('.variety-checkbox');
+            
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = selectAllCheckbox.checked;
+            });
+            
+            updateSelection();
+        }
+
+        function editVarietyInline(index) {
+            const nameElement = document.querySelector(`.variety-name[data-index="${index}"]`);
+            const currentName = extractedData[index].name;
+            
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'form-control form-control-sm';
+            input.value = currentName;
+            input.style.minWidth = '150px';
+            
+            input.onblur = input.onkeydown = function(e) {
+                if (e.type === 'blur' || e.key === 'Enter') {
+                    extractedData[index].name = input.value;
+                    nameElement.textContent = input.value;
+                    nameElement.style.display = 'inline';
+                    input.remove();
+                } else if (e.key === 'Escape') {
+                    nameElement.style.display = 'inline';
+                    input.remove();
+                }
+            };
+            
+            nameElement.style.display = 'none';
+            nameElement.parentNode.insertBefore(input, nameElement);
+            input.focus();
+            input.select();
+        }
+
+        function editCropTypeInline(index) {
+            const typeElement = document.querySelector(`.crop-type[data-index="${index}"]`);
+            const currentType = extractedData[index].crop_type;
+            
+            const select = document.createElement('select');
+            select.className = 'form-select form-select-sm';
+            select.style.minWidth = '120px';
+            
+            const cropTypes = ['lettuce', 'carrot', 'tomato', 'pepper', 'cucumber', 'radish', 'spinach', 
+                             'kale', 'arugula', 'beet', 'turnip', 'cabbage', 'broccoli', 'cauliflower', 
+                             'onion', 'scallion', 'leek', 'chard', 'peas', 'beans', 'zucchini', 'eggplant', 
+                             'herbs', 'basil', 'cilantro', 'parsley', 'dill'];
+            
+            cropTypes.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type;
+                option.textContent = type;
+                option.selected = type === currentType;
+                select.appendChild(option);
+            });
+            
+            select.onblur = select.onchange = function(e) {
+                if (e.type === 'blur' || e.type === 'change') {
+                    extractedData[index].crop_type = select.value;
+                    typeElement.textContent = select.value;
+                    typeElement.style.display = 'inline';
+                    select.remove();
+                    
+                    // Update related timing data based on crop type
+                    updateTimingDataForCropType(index, select.value);
+                }
+            };
+            
+            select.onkeydown = function(e) {
+                if (e.key === 'Escape') {
+                    typeElement.style.display = 'inline';
+                    select.remove();
+                }
+            };
+            
+            typeElement.style.display = 'none';
+            typeElement.parentNode.insertBefore(select, typeElement);
+            select.focus();
+        }
+
+        function editMaturityInline(index) {
+            const maturityElement = document.querySelector(`.maturity-days[data-index="${index}"]`);
+            const currentDays = extractedData[index].days_to_maturity || '';
+            
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.className = 'form-control form-control-sm';
+            input.value = currentDays;
+            input.style.width = '80px';
+            input.min = '1';
+            input.max = '365';
+            
+            input.onblur = input.onkeydown = function(e) {
+                if (e.type === 'blur' || e.key === 'Enter') {
+                    const newDays = parseInt(input.value) || null;
+                    extractedData[index].days_to_maturity = newDays;
+                    maturityElement.textContent = newDays || 'N/A';
+                    maturityElement.style.display = 'inline';
+                    input.remove();
+                } else if (e.key === 'Escape') {
+                    maturityElement.style.display = 'inline';
+                    input.remove();
+                }
+            };
+            
+            maturityElement.style.display = 'none';
+            maturityElement.parentNode.insertBefore(input, maturityElement);
+            input.focus();
+            input.select();
+        }
+
+        function updateTimingDataForCropType(index, cropType) {
+            // Update transplant days and direct sow based on crop type
+            const timingDefaults = {
+                'lettuce': { transplant: 21, directSow: false, succession: 7 },
+                'carrot': { transplant: 0, directSow: true, succession: 14 },
+                'radish': { transplant: 0, directSow: true, succession: 7 },
+                'spinach': { transplant: 14, directSow: false, succession: 10 },
+                'tomato': { transplant: 42, directSow: false, succession: 21 },
+                'pepper': { transplant: 56, directSow: false, succession: 21 },
+                'cucumber': { transplant: 21, directSow: false, succession: 14 },
+                'kale': { transplant: 28, directSow: false, succession: 14 },
+                'herbs': { transplant: 14, directSow: false, succession: 21 }
+            };
+            
+            const defaults = timingDefaults[cropType] || { transplant: 21, directSow: false, succession: 14 };
+            
+            extractedData[index].days_to_transplant = defaults.transplant;
+            extractedData[index].direct_sow = defaults.directSow;
+            extractedData[index].succession_interval = defaults.succession;
+        }
+
+        function removeVariety(index) {
+            if (confirm(`Remove "${extractedData[index].name}" from the import list?`)) {
+                extractedData.splice(index, 1);
+                showResults(); // Refresh the table
+            }
+        }
+
+        async function confirmImport() {
+            const selectedVarieties = extractedData.filter(v => v.selected);
+            
+            if (selectedVarieties.length === 0) {
+                showAlert('Please select at least one variety to import.', 'warning');
+                return;
+            }
+            
+            if (!confirm(`Import ${selectedVarieties.length} selected varieties to farmOS?\n\nThis will create new crop types and varieties in your farmOS database.`)) {
+                return;
+            }
+            
+            const importBtn = document.getElementById('confirmImport');
+            const originalText = importBtn.innerHTML;
+            importBtn.disabled = true;
+            importBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importing to farmOS...';
+            
+            try {
+                const response = await fetch('seed-data-importer.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: 'import_to_farmos',
+                        varieties: selectedVarieties,
+                        skip_duplicates: document.getElementById('skipDuplicates').checked
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert(`Successfully imported ${result.imported} varieties to farmOS!`, 'success');
+                    
+                    // Show import summary
+                    const summaryHtml = `
+                        <div class="alert alert-success mt-3">
+                            <h6>Import Summary:</h6>
+                            <ul class="mb-0">
+                                <li><strong>${result.imported}</strong> varieties created</li>
+                                <li><strong>${result.summary?.total_crop_types || 0}</strong> crop types processed</li>
+                                <li><strong>${result.errors?.length || 0}</strong> errors encountered</li>
+                            </ul>
+                        </div>
+                    `;
+                    
+                    document.querySelector('#resultsSection .card-body').insertAdjacentHTML('beforeend', summaryHtml);
+                    
+                    // Redirect to succession planning after delay
+                    setTimeout(() => {
+                        if (confirm('Import complete! Would you like to go to the succession planning page to use your new varieties?')) {
+                            window.location.href = '/admin/farmos/succession-planning';
+                        }
+                    }, 2000);
+                } else {
+                    showAlert(`Import failed: ${result.error}`, 'danger');
+                }
+                
+            } catch (error) {
+                showAlert(`Import error: ${error.message}`, 'danger');
+            } finally {
+                importBtn.disabled = false;
+                importBtn.innerHTML = originalText;
+            }
+        }
+
+        function downloadCSV() {
+            const selectedVarieties = extractedData.filter(v => v.selected);
+            
+            if (selectedVarieties.length === 0) {
+                showAlert('Please select at least one variety to export.', 'warning');
+                return;
+            }
+            
+            const headers = ['Name', 'Crop Type', 'Days to Maturity', 'Days to Transplant', 'Direct Sow', 'Succession Interval', 'Description'];
+            const rows = selectedVarieties.map(variety => [
+                variety.name,
+                variety.crop_type,
+                variety.days_to_maturity || '',
+                variety.days_to_transplant || '',
+                variety.direct_sow ? 'Yes' : 'No',
+                variety.succession_interval || '',
+                variety.description || ''
+            ]);
+            
+            const csvContent = [headers, ...rows].map(row => 
+                row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(',')
+            ).join('\n');
+            
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `moles_seeds_varieties_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('confirmImport')?.addEventListener('click', confirmImport);
+            document.getElementById('downloadCSV')?.addEventListener('click', downloadCSV);
+            document.getElementById('startOver')?.addEventListener('click', () => location.reload());
+        });
+    </script>
+</body>
+</html>

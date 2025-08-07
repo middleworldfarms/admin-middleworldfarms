@@ -404,64 +404,46 @@ body {
                                                     All ({{ $totalDeliveries }})
                                                 </button>
                                             </li>
-                                            @if(isset($deliveryStatusCounts))
-                                                @if($deliveryStatusCounts['active'] > 0)
-                                                <li class="nav-item" role="presentation">
-                                                    <button class="nav-link active btn-sm" id="deliveries-active-tab" data-bs-toggle="pill" data-bs-target="#deliveries-active" type="button" role="tab">
-                                                        Active ({{ $deliveryStatusCounts['active'] }})
-                                                    </button>
-                                                </li>
-                                                @endif
-                                                @if($deliveryStatusCounts['processing'] > 0)
-                                                <li class="nav-item" role="presentation">
-                                                    <button class="nav-link btn-sm" id="deliveries-processing-tab" data-bs-toggle="pill" data-bs-target="#deliveries-processing" type="button" role="tab">
-                                                        Processing ({{ $deliveryStatusCounts['processing'] }})
-                                                    </button>
-                                                </li>
-                                                @endif
-                                                @if($deliveryStatusCounts['pending'] > 0)
-                                                <li class="nav-item" role="presentation">
-                                                    <button class="nav-link btn-sm" id="deliveries-pending-tab" data-bs-toggle="pill" data-bs-target="#deliveries-pending" type="button" role="tab">
-                                                        Pending ({{ $deliveryStatusCounts['pending'] }})
-                                                    </button>
-                                                </li>
-                                                @endif
-                                                @if($deliveryStatusCounts['completed'] > 0)
-                                                <li class="nav-item" role="presentation">
-                                                    <button class="nav-link btn-sm" id="deliveries-completed-tab" data-bs-toggle="pill" data-bs-target="#deliveries-completed" type="button" role="tab">
-                                                        Completed ({{ $deliveryStatusCounts['completed'] }})
-                                                    </button>
-                                                </li>
-                                                @endif
-                                                @if($deliveryStatusCounts['on-hold'] > 0)
-                                                <li class="nav-item" role="presentation">
-                                                    <button class="nav-link btn-sm" id="deliveries-on-hold-tab" data-bs-toggle="pill" data-bs-target="#deliveries-on-hold" type="button" role="tab">
-                                                        On Hold ({{ $deliveryStatusCounts['on-hold'] }})
-                                                    </button>
-                                                </li>
-                                                @endif
-                                                @if($deliveryStatusCounts['cancelled'] > 0)
-                                                <li class="nav-item" role="presentation">
-                                                    <button class="nav-link btn-sm text-muted" id="deliveries-cancelled-tab" data-bs-toggle="pill" data-bs-target="#deliveries-cancelled" type="button" role="tab">
-                                                        Cancelled ({{ $deliveryStatusCounts['cancelled'] }})
-                                                    </button>
-                                                </li>
-                                                @endif
-                                                @if($deliveryStatusCounts['refunded'] > 0)
-                                                <li class="nav-item" role="presentation">
-                                                    <button class="nav-link btn-sm text-muted" id="deliveries-refunded-tab" data-bs-toggle="pill" data-bs-target="#deliveries-refunded" type="button" role="tab">
-                                                        Refunded ({{ $deliveryStatusCounts['refunded'] }})
-                                                    </button>
-                                                </li>
-                                                @endif
-                                                @if($deliveryStatusCounts['other'] > 0)
-                                                <li class="nav-item" role="presentation">
-                                                    <button class="nav-link btn-sm text-muted" id="deliveries-other-tab" data-bs-toggle="pill" data-bs-target="#deliveries-other" type="button" role="tab">
-                                                        Other ({{ $deliveryStatusCounts['other'] }})
-                                                    </button>
-                                                </li>
-                                                @endif
-                                            @endif
+                                            <li class="nav-item" role="presentation">
+                                                <button class="nav-link active btn-sm" id="deliveries-active-tab" data-bs-toggle="pill" data-bs-target="#deliveries-active" type="button" role="tab">
+                                                    Active ({{ $deliveryStatusCounts['active'] ?? 0 }})
+                                                </button>
+                                            </li>
+                                            <li class="nav-item" role="presentation">
+                                                <button class="nav-link btn-sm" id="deliveries-processing-tab" data-bs-toggle="pill" data-bs-target="#deliveries-processing" type="button" role="tab">
+                                                    Processing ({{ $deliveryStatusCounts['processing'] ?? 0 }})
+                                                </button>
+                                            </li>
+                                            <li class="nav-item" role="presentation">
+                                                <button class="nav-link btn-sm" id="deliveries-pending-tab" data-bs-toggle="pill" data-bs-target="#deliveries-pending" type="button" role="tab">
+                                                    Pending ({{ $deliveryStatusCounts['pending'] ?? 0 }})
+                                                </button>
+                                            </li>
+                                            <li class="nav-item" role="presentation">
+                                                <button class="nav-link btn-sm" id="deliveries-completed-tab" data-bs-toggle="pill" data-bs-target="#deliveries-completed" type="button" role="tab">
+                                                    Completed ({{ $deliveryStatusCounts['completed'] ?? 0 }})
+                                                </button>
+                                            </li>
+                                            <li class="nav-item" role="presentation">
+                                                <button class="nav-link btn-sm" id="deliveries-on-hold-tab" data-bs-toggle="pill" data-bs-target="#deliveries-on-hold" type="button" role="tab">
+                                                    On Hold ({{ $deliveryStatusCounts['on-hold'] ?? 0 }})
+                                                </button>
+                                            </li>
+                                            <li class="nav-item" role="presentation">
+                                                <button class="nav-link btn-sm text-muted" id="deliveries-cancelled-tab" data-bs-toggle="pill" data-bs-target="#deliveries-cancelled" type="button" role="tab">
+                                                    Cancelled ({{ $deliveryStatusCounts['cancelled'] ?? 0 }})
+                                                </button>
+                                            </li>
+                                            <li class="nav-item" role="presentation">
+                                                <button class="nav-link btn-sm text-muted" id="deliveries-refunded-tab" data-bs-toggle="pill" data-bs-target="#deliveries-refunded" type="button" role="tab">
+                                                    Refunded ({{ $deliveryStatusCounts['refunded'] ?? 0 }})
+                                                </button>
+                                            </li>
+                                            <li class="nav-item" role="presentation">
+                                                <button class="nav-link btn-sm text-muted" id="deliveries-other-tab" data-bs-toggle="pill" data-bs-target="#deliveries-other" type="button" role="tab">
+                                                    Other ({{ $deliveryStatusCounts['other'] ?? 0 }})
+                                                </button>
+                                            </li>
                                         </ul>
                                     </div>
                                     
@@ -645,64 +627,46 @@ body {
                                                     All ({{ $totalCollections }})
                                                 </button>
                                             </li>
-                                            @if(isset($statusCounts))
-                                                @if($statusCounts['active'] > 0)
-                                                <li class="nav-item" role="presentation">
-                                                    <button class="nav-link active btn-sm" id="collections-active-tab" data-bs-toggle="pill" data-bs-target="#collections-active" type="button" role="tab">
-                                                        📦 Active Collections ({{ $statusCounts['active'] }})
-                                                    </button>
-                                                </li>
-                                                @endif
-                                                @if($statusCounts['processing'] > 0)
-                                                <li class="nav-item" role="presentation">
-                                                    <button class="nav-link btn-sm" id="collections-processing-tab" data-bs-toggle="pill" data-bs-target="#collections-processing" type="button" role="tab">
-                                                        Processing ({{ $statusCounts['processing'] }})
-                                                    </button>
-                                                </li>
-                                                @endif
-                                                @if($statusCounts['on-hold'] > 0)
-                                                <li class="nav-item" role="presentation">
-                                                    <button class="nav-link btn-sm" id="collections-on-hold-tab" data-bs-toggle="pill" data-bs-target="#collections-on-hold" type="button" role="tab">
-                                                        On Hold ({{ $statusCounts['on-hold'] }})
-                                                    </button>
-                                                </li>
-                                                @endif
-                                                @if($statusCounts['pending'] > 0)
-                                                <li class="nav-item" role="presentation">
-                                                    <button class="nav-link btn-sm" id="collections-pending-tab" data-bs-toggle="pill" data-bs-target="#collections-pending" type="button" role="tab">
-                                                        Pending ({{ $statusCounts['pending'] }})
-                                                    </button>
-                                                </li>
-                                                @endif
-                                                @if($statusCounts['completed'] > 0)
-                                                <li class="nav-item" role="presentation">
-                                                    <button class="nav-link btn-sm" id="collections-completed-tab" data-bs-toggle="pill" data-bs-target="#collections-completed" type="button" role="tab">
-                                                        Completed ({{ $statusCounts['completed'] }})
-                                                    </button>
-                                                </li>
-                                                @endif
-                                                @if($statusCounts['cancelled'] > 0)
-                                                <li class="nav-item" role="presentation">
-                                                    <button class="nav-link btn-sm text-muted" id="collections-cancelled-tab" data-bs-toggle="pill" data-bs-target="#collections-cancelled" type="button" role="tab">
-                                                        Cancelled ({{ $statusCounts['cancelled'] }})
-                                                    </button>
-                                                </li>
-                                                @endif
-                                                @if($statusCounts['refunded'] > 0)
-                                                <li class="nav-item" role="presentation">
-                                                    <button class="nav-link btn-sm text-muted" id="collections-refunded-tab" data-bs-toggle="pill" data-bs-target="#collections-refunded" type="button" role="tab">
-                                                        Refunded ({{ $statusCounts['refunded'] }})
-                                                    </button>
-                                                </li>
-                                                @endif
-                                                @if($statusCounts['other'] > 0)
-                                                <li class="nav-item" role="presentation">
-                                                    <button class="nav-link btn-sm text-muted" id="collections-other-tab" data-bs-toggle="pill" data-bs-target="#collections-other" type="button" role="tab">
-                                                        Other ({{ $statusCounts['other'] }})
-                                                    </button>
-                                                </li>
-                                                @endif
-                                            @endif
+                                            <li class="nav-item" role="presentation">
+                                                <button class="nav-link active btn-sm" id="collections-active-tab" data-bs-toggle="pill" data-bs-target="#collections-active" type="button" role="tab">
+                                                    📦 Active Collections ({{ $statusCounts['active'] ?? 0 }})
+                                                </button>
+                                            </li>
+                                            <li class="nav-item" role="presentation">
+                                                <button class="nav-link btn-sm" id="collections-processing-tab" data-bs-toggle="pill" data-bs-target="#collections-processing" type="button" role="tab">
+                                                    Processing ({{ $statusCounts['processing'] ?? 0 }})
+                                                </button>
+                                            </li>
+                                            <li class="nav-item" role="presentation">
+                                                <button class="nav-link btn-sm" id="collections-on-hold-tab" data-bs-toggle="pill" data-bs-target="#collections-on-hold" type="button" role="tab">
+                                                    On Hold ({{ $statusCounts['on-hold'] ?? 0 }})
+                                                </button>
+                                            </li>
+                                            <li class="nav-item" role="presentation">
+                                                <button class="nav-link btn-sm" id="collections-pending-tab" data-bs-toggle="pill" data-bs-target="#collections-pending" type="button" role="tab">
+                                                    Pending ({{ $statusCounts['pending'] ?? 0 }})
+                                                </button>
+                                            </li>
+                                            <li class="nav-item" role="presentation">
+                                                <button class="nav-link btn-sm" id="collections-completed-tab" data-bs-toggle="pill" data-bs-target="#collections-completed" type="button" role="tab">
+                                                    Completed ({{ $statusCounts['completed'] ?? 0 }})
+                                                </button>
+                                            </li>
+                                            <li class="nav-item" role="presentation">
+                                                <button class="nav-link btn-sm text-muted" id="collections-cancelled-tab" data-bs-toggle="pill" data-bs-target="#collections-cancelled" type="button" role="tab">
+                                                    Cancelled ({{ $statusCounts['cancelled'] ?? 0 }})
+                                                </button>
+                                            </li>
+                                            <li class="nav-item" role="presentation">
+                                                <button class="nav-link btn-sm text-muted" id="collections-refunded-tab" data-bs-toggle="pill" data-bs-target="#collections-refunded" type="button" role="tab">
+                                                    Refunded ({{ $statusCounts['refunded'] ?? 0 }})
+                                                </button>
+                                            </li>
+                                            <li class="nav-item" role="presentation">
+                                                <button class="nav-link btn-sm text-muted" id="collections-other-tab" data-bs-toggle="pill" data-bs-target="#collections-other" type="button" role="tab">
+                                                    Other ({{ $statusCounts['other'] ?? 0 }})
+                                                </button>
+                                            </li>
                                         </ul>
                                     </div>
                                     
