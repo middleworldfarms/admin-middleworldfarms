@@ -7,6 +7,7 @@ use App\Services\WpApiService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Auth;
 
 class DeliveryController extends Controller
 {
@@ -614,8 +615,7 @@ class DeliveryController extends Controller
             $tests = [
                 'direct_database_connection' => $wpApi->testConnection(),
                 'recent_users' => $wpApi->getRecentUsers(3),
-                'delivery_data' => $wpApi->getDeliveryScheduleData(5),
-                'woocommerce_settings' => $wpApi->getWooCommerceSettings()
+                'delivery_data' => $wpApi->getDeliveryScheduleData(5)
             ];
             
             return response()->json([
@@ -2496,7 +2496,7 @@ class DeliveryController extends Controller
                 $request->delivery_date,
                 $request->customer_name,
                 $request->customer_email,
-                auth()->user()->name ?? 'Staff' // Get current user if available
+                Auth::user()->name ?? 'Staff' // Get current user if available
             );
             
             return response()->json([
