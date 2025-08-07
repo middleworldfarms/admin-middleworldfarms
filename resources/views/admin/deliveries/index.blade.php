@@ -299,7 +299,9 @@ body {
                                 {{-- Debug info --}}
                                 <div class="small text-muted mb-1">
                                     Schedule Data: {{ $totalDeliveryCount }} deliveries, {{ $totalCollectionCount }} collections<br>
-                                    API Counts: {{ $activeDeliveryCount }} active deliveries, {{ $activeCollectionCount }} active collections
+                                    API Counts: {{ $activeDeliveryCount }} active deliveries, {{ $activeCollectionCount }} active collections<br>
+                                    Debug - Unfiltered Delivery: @json($unfilteredDeliveryStatusCounts)<br>
+                                    Debug - Unfiltered Collection: @json($unfilteredStatusCounts)
                                 </div>
                                 <span class="badge bg-primary">{{ $activeDeliveryCount }} active deliveries</span>
                                 <span class="badge bg-success ms-1">{{ $activeCollectionCount }} active collections</span>

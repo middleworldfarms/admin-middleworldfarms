@@ -50,7 +50,7 @@ class DeliveryController extends Controller
             // Get ALL subscription statuses and split by delivery type (properly)
             try {
                 // Fetch all subscriptions from WooCommerce API
-                $allStatuses = ['active', 'on-hold', 'cancelled', 'pending', 'completed', 'processing', 'refunded'];
+                $allStatuses = ['wc-active', 'wc-on-hold', 'wc-cancelled', 'wc-pending', 'wc-completed', 'wc-processing', 'wc-refunded'];
                 $allSubscriptions = [];
                 
                 foreach ($allStatuses as $statusToCheck) {
@@ -84,7 +84,8 @@ class DeliveryController extends Controller
                 foreach ($allSubscriptions as $sub) {
                     // Determine delivery type (same logic as transform method)
                     $type = $this->determineCustomerType($sub['shipping_total'] ?? null, $sub);
-                    $status = $sub['api_status']; // Use the original status we queried for
+                    $rawStatus = $sub['api_status']; // Use the original status we queried for
+                    $status = str_replace('wc-', '', $rawStatus); // Normalize status
                     
                     // Always count for unfiltered totals (for overview badges)
                     if ($type === 'deliveries') {
