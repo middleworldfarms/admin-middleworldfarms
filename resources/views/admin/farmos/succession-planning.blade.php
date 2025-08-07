@@ -93,8 +93,8 @@
                                     <label for="variety" class="form-label">
                                         <i class="fas fa-dna"></i> Variety
                                     </label>
-                                    <select class="form-select" id="variety" name="variety" disabled>
-                                        <option value="">First select a crop type...</option>
+                                    <select class="form-select" id="variety" name="variety">
+                                        <option value="">Select variety (optional)...</option>
                                         <!-- Varieties will be populated by JavaScript -->
                                     </select>
                                     <div class="form-text">Optional - select a specific variety or leave blank</div>
@@ -542,21 +542,6 @@ document.addEventListener('DOMContentLoaded', function() {
     simpleLog('Page loaded, initializing succession planning');
     simpleLog(`Available crop presets: ${Object.keys(cropPresets || {}).length}`);
     
-    // Debug crop data from farmOS API
-    simpleLog(`farmOS Crop Data - Types: ${cropData?.types?.length || 0}, Varieties: ${cropData?.varieties?.length || 0}`);
-    
-    if (cropData && cropData.types && cropData.types.length > 0) {
-        simpleLog(`Sample crop types: ${JSON.stringify(cropData.types.slice(0, 3))}`);
-    } else {
-        simpleLog('WARNING: No crop types loaded from farmOS API!');
-    }
-    
-    if (cropData && cropData.varieties && cropData.varieties.length > 0) {
-        simpleLog(`Sample varieties: ${JSON.stringify(cropData.varieties.slice(0, 5))}`);
-    } else {
-        simpleLog('WARNING: No varieties loaded from farmOS API!');
-    }
-    
     // Debug crop presets
     if (cropPresets && Object.keys(cropPresets).length > 0) {
         simpleLog(`Crop presets loaded: ${JSON.stringify(Object.keys(cropPresets))}`);
@@ -570,72 +555,21 @@ document.addEventListener('DOMContentLoaded', function() {
     
     simpleLog(`Elements found: cropType=${!!cropTypeElement}, testCrop=${!!testCropChangeBtn}`);
     
-    // Populate crop type dropdown with farmOS data
-    if (cropTypeElement && cropData && cropData.types) {
-        cropTypeElement.innerHTML = '<option value="">Select crop type...</option>';
-        cropData.types.forEach(crop => {
-            const option = document.createElement('option');
-            option.value = crop.name;
-            option.textContent = crop.label || crop.name;
-            cropTypeElement.appendChild(option);
-        });
-        simpleLog(`Populated crop dropdown with ${cropData.types.length} options`);
-    } else {
-        simpleLog('ERROR: Could not populate crop dropdown - missing element or data');
-    }
-    
-    simpleLog(`Elements found: cropType=${!!cropTypeElement}, testCrop=${!!testCropChangeBtn}`);
-    
     // Simple event listeners without complex error handling
     if (cropTypeElement) {
         simpleLog('Adding crop type change listener');
         cropTypeElement.addEventListener('change', function(event) {
             simpleLog(`CROP TYPE CHANGED TO: ${event.target.value}`);
             
-            // Smart variety loading - call API for specific crop
+            // Basic variety population
             const varietySelect = document.getElementById('variety');
-            const crop = event.target.value;
-            
-            if (varietySelect && crop) {
-                // Enable the dropdown and show loading state
-                varietySelect.disabled = false;
-                varietySelect.innerHTML = '<option value="">Loading varieties...</option>';
-                
-                // Make API call to get varieties for this specific crop
-                fetch(`/admin/farmos/api/varieties/${encodeURIComponent(crop)}`, {
-                    method: 'GET',
-                    headers: {
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                        'Accept': 'application/json'
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    varietySelect.innerHTML = '<option value="">Select variety (optional)...</option>';
-                    
-                    if (data.success && data.varieties && data.varieties.length > 0) {
-                        data.varieties.forEach(variety => {
-                            const option = document.createElement('option');
-                            option.value = variety.name;
-                            option.textContent = variety.label || variety.name;
-                            varietySelect.appendChild(option);
-                        });
-                        simpleLog(`Loaded ${data.varieties.length} varieties for ${crop}`);
-                    } else {
-                        simpleLog(`No varieties found for ${crop}`);
-                    }
-                })
-                .catch(error => {
-                    varietySelect.innerHTML = '<option value="">Error loading varieties</option>';
-                    simpleLog(`Error loading varieties: ${error.message}`);
-                });
-            } else if (varietySelect) {
-                // No crop selected - disable and reset
-                varietySelect.disabled = true;
-                varietySelect.innerHTML = '<option value="">First select a crop type...</option>';
+            if (varietySelect) {
+                varietySelect.innerHTML = '<option value="">Select variety (optional)...</option>';
+                simpleLog('Varieties cleared');
             }
             
             // Basic preset application
+            const crop = event.target.value;
             if (crop && cropPresets) {
                 // Try exact match first, then lowercase match
                 const cropKey = cropPresets[crop] ? crop : crop.toLowerCase();

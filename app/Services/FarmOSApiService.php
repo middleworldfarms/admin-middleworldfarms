@@ -712,35 +712,6 @@ class FarmOSApiService
     }
 
     /**
-     * Get plant varieties from farmOS taxonomy
-     */
-    public function getPlantVarieties()
-    {
-        try {
-            $this->authenticate();
-            
-            $response = $this->client->get('/api/taxonomy_term/plant_variety', [
-                'headers' => [
-                    'Authorization' => 'Bearer ' . $this->token,
-                    'Accept' => 'application/vnd.api+json'
-                ]
-            ]);
-
-            $data = json_decode($response->getBody(), true);
-            
-            if (isset($data['data'])) {
-                return $data['data'];
-            }
-            
-            return [];
-
-        } catch (\Exception $e) {
-            Log::error('Failed to fetch plant varieties from farmOS: ' . $e->getMessage());
-            return [];
-        }
-    }
-
-    /**
      * Get plant assets from farmOS
      */
 

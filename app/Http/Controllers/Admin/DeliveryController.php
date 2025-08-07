@@ -47,10 +47,11 @@ class DeliveryController extends Controller
                 $totalCollections += count($dateData['collections'] ?? []);
             }
             
-            // Get ALL subscription statuses via WooCommerce API (simple and clean)
+            // Get ALL subscription statuses and split by delivery type (properly)
             try {
+                // Fetch all subscriptions from WooCommerce API
                 $allStatuses = ['active', 'on-hold', 'cancelled', 'pending', 'completed', 'processing', 'refunded'];
-                $statusCounts = [];
+                $allSubscriptions = [];
                 
                 foreach ($allStatuses as $statusToCheck) {
                     $response = Http::timeout(10)
@@ -62,26 +63,82 @@ class DeliveryController extends Controller
                     
                     if ($response->successful()) {
                         $subscriptions = $response->json();
-                        $count = count($subscriptions);
-                        // Keep the original key format that the template expects
-                        \Log::info("Setting key '$statusToCheck' to count $count");
-                        $statusCounts[$statusToCheck] = $count;
-                    } else {
-                        // Set to 0 if API call fails for this status
-                        $statusCounts[$statusToCheck] = 0;
+                        foreach ($subscriptions as $sub) {
+                            $sub['api_status'] = $statusToCheck; // Keep track of original status
+                            $allSubscriptions[] = $sub;
+                        }
                     }
                 }
                 
-                // Use the same counts for both deliveries and collections
-                $deliveryStatusCounts = $statusCounts;
+                // Now split all subscriptions by delivery type AND status AND week
+                $deliveryStatusCounts = ['active' => 0, 'processing' => 0, 'on-hold' => 0, 'cancelled' => 0, 'pending' => 0, 'completed' => 0, 'refunded' => 0];
+                $statusCounts = ['active' => 0, 'processing' => 0, 'on-hold' => 0, 'cancelled' => 0, 'pending' => 0, 'completed' => 0, 'refunded' => 0];
                 
-                \Log::info('Final Status Counts (with correct keys)', $statusCounts);
+                // ALSO calculate unfiltered totals for overview badges
+                $unfilteredDeliveryStatusCounts = ['active' => 0, 'processing' => 0, 'on-hold' => 0, 'cancelled' => 0, 'pending' => 0, 'completed' => 0, 'refunded' => 0];
+                $unfilteredStatusCounts = ['active' => 0, 'processing' => 0, 'on-hold' => 0, 'cancelled' => 0, 'pending' => 0, 'completed' => 0, 'refunded' => 0];
+                
+                $currentWeek = (int) date('W');
+                $currentWeekType = ($currentWeek % 2 === 1) ? 'A' : 'B';
+                
+                foreach ($allSubscriptions as $sub) {
+                    // Determine delivery type (same logic as transform method)
+                    $type = $this->determineCustomerType($sub['shipping_total'] ?? null, $sub);
+                    $status = $sub['api_status']; // Use the original status we queried for
+                    
+                    // Always count for unfiltered totals (for overview badges)
+                    if ($type === 'deliveries') {
+                        if (isset($unfilteredDeliveryStatusCounts[$status])) {
+                            $unfilteredDeliveryStatusCounts[$status]++;
+                        }
+                    } else { // collections
+                        if (isset($unfilteredStatusCounts[$status])) {
+                            $unfilteredStatusCounts[$status]++;
+                        }
+                    }
+                    
+                    // Determine frequency and week type (same logic as transform method)
+                    $frequency = 'Weekly';
+                    if (isset($sub['billing_period']) && strtolower($sub['billing_period']) === 'week') {
+                        $interval = intval($sub['billing_interval'] ?? 1);
+                        if ($interval === 2) {
+                            $frequency = 'Fortnightly';
+                        }
+                    }
+                    
+                    // Week filtering logic (same as transform method)
+                    $shouldIncludeInSelectedWeek = true;
+                    if (strtolower($frequency) === 'fortnightly') {
+                        $customerWeekType = ((int)$sub['id'] % 2 === 1) ? 'A' : 'B';
+                        $shouldIncludeInSelectedWeek = ($customerWeekType === $currentWeekType);
+                    }
+                    
+                    // Only count subscriptions that should appear in current week (for subtabs)
+                    if ($shouldIncludeInSelectedWeek) {
+                        if ($type === 'deliveries') {
+                            if (isset($deliveryStatusCounts[$status])) {
+                                $deliveryStatusCounts[$status]++;
+                            }
+                        } else { // collections
+                            if (isset($statusCounts[$status])) {
+                                $statusCounts[$status]++;
+                            }
+                        }
+                    }
+                }
+                
+                \Log::info('Delivery status counts (week-filtered)', $deliveryStatusCounts);
+                \Log::info('Collection status counts (week-filtered)', $statusCounts);
+                \Log::info('Unfiltered delivery status counts', $unfilteredDeliveryStatusCounts);
+                \Log::info('Unfiltered collection status counts', $unfilteredStatusCounts);
                 
             } catch (\Exception $e) {
                 \Log::error('WooCommerce API failed: ' . $e->getMessage());
-                // Simple fallback with correct keys
+                // Simple fallback
                 $statusCounts = ['active' => 0, 'processing' => 0, 'on-hold' => 0, 'cancelled' => 0, 'pending' => 0, 'completed' => 0, 'refunded' => 0];
                 $deliveryStatusCounts = $statusCounts;
+                $unfilteredStatusCounts = $statusCounts;
+                $unfilteredDeliveryStatusCounts = $statusCounts;
             }            
             // Direct database connection status
             $directDbStatus = [
@@ -101,6 +158,8 @@ class DeliveryController extends Controller
                 'totalCollections',
                 'statusCounts',
                 'deliveryStatusCounts',
+                'unfilteredStatusCounts',
+                'unfilteredDeliveryStatusCounts',
                 'directDbStatus',
                 'userSwitchingAvailable',
                 'error',
@@ -113,6 +172,8 @@ class DeliveryController extends Controller
             $totalCollections = 0;
             $statusCounts = ['active' => 0, 'processing' => 0, 'on-hold' => 0, 'cancelled' => 0, 'pending' => 0, 'completed' => 0, 'refunded' => 0, 'other' => 0];
             $deliveryStatusCounts = ['active' => 0, 'processing' => 0, 'pending' => 0, 'completed' => 0, 'on-hold' => 0, 'cancelled' => 0, 'refunded' => 0, 'other' => 0];
+            $unfilteredStatusCounts = $statusCounts;
+            $unfilteredDeliveryStatusCounts = $deliveryStatusCounts;
             $directDbStatus = ['success' => false, 'message' => 'Direct database connection failed: ' . $e->getMessage()];
             $userSwitchingAvailable = false;
             $error = $e->getMessage();
@@ -123,6 +184,8 @@ class DeliveryController extends Controller
                 'totalCollections',
                 'statusCounts',
                 'deliveryStatusCounts',
+                'unfilteredStatusCounts',
+                'unfilteredDeliveryStatusCounts',
                 'directDbStatus',
                 'userSwitchingAvailable',
                 'error',

@@ -117,51 +117,54 @@ body {
 
 /* Subtabs - 3D folder style the right way up */
 .nav-pills.nav-sm {
-    gap: 3px;
+    gap: 4px;
     margin-top: 15px; /* Add space below main tabs */
     padding-left: 30px; /* Indent subtabs slightly */
 }
 
 .nav-pills.nav-sm .nav-link {
     background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    border: 1px solid #ced4da;
+    border: 2px solid #ced4da;
     border-bottom: none;
     border-radius: 10px 10px 0 0; /* Right way up folder shape */
-    padding: 8px 14px;
-    font-size: 12px;
-    font-weight: 600;
-    color: #6c757d;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #495057;
     position: relative;
     margin-bottom: 0;
     transform: perspective(15px) rotateX(2deg); /* Right way up 3D effect */
-    box-shadow: 0 -2px 6px rgba(0,0,0,0.1);
-    transition: all 0.2s ease;
+    box-shadow: 0 -3px 8px rgba(0,0,0,0.15);
+    transition: all 0.3s ease;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
 .nav-pills.nav-sm .nav-link:hover {
-    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-    border-color: #adb5bd;
-    color: #495057;
-    transform: perspective(15px) rotateX(0deg) translateY(-1px); /* Lift up on hover */
-    box-shadow: 0 -3px 8px rgba(0,0,0,0.15);
+    background: linear-gradient(135deg, #ffffff 0%, #f1f3f5 100%);
+    border-color: #6c757d;
+    color: #212529;
+    transform: perspective(15px) rotateX(0deg) translateY(-2px); /* Lift up on hover */
+    box-shadow: 0 -4px 12px rgba(0,0,0,0.2);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.15);
 }
 
 .nav-pills.nav-sm .nav-link.active {
     background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-    border-color: #007bff;
+    border-color: #0056b3;
     color: #ffffff;
-    transform: perspective(15px) rotateX(0deg) translateY(-2px); /* Lift more when active */
-    box-shadow: 0 -4px 12px rgba(0,123,255,0.3);
+    transform: perspective(15px) rotateX(0deg) translateY(-3px); /* Lift more when active */
+    box-shadow: 0 -6px 16px rgba(0,123,255,0.4);
     z-index: 5;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
 
 .nav-pills.nav-sm .nav-link.active::after {
     content: '';
     position: absolute;
-    bottom: -1px;
+    bottom: -2px;
     left: 0;
     right: 0;
-    height: 2px;
+    height: 3px;
     background: #ffffff;
     z-index: 6;
 }
@@ -280,8 +283,26 @@ body {
                     <div class="col-md-4 text-end">
                         <div class="d-flex flex-column align-items-end">
                             <div class="mb-2">
-                                <span class="badge bg-primary">{{ $activeDeliveries }} active deliveries</span>
-                                <span class="badge bg-success ms-1">{{ $activeCollections }} active collections</span>
+                                {{-- Use the controller-provided unfiltered counts for overview badges --}}
+                                @php
+                                    $activeDeliveryCount = $unfilteredDeliveryStatusCounts['active'] ?? 0;
+                                    $activeCollectionCount = $unfilteredStatusCounts['active'] ?? 0;
+                                    
+                                    // Debug info to see what we have
+                                    $totalDeliveryCount = 0;
+                                    $totalCollectionCount = 0;
+                                    foreach($scheduleData['data'] as $dateKey => $dateData) {
+                                        $totalDeliveryCount += count($dateData['deliveries'] ?? []);
+                                        $totalCollectionCount += count($dateData['collections'] ?? []);
+                                    }
+                                @endphp
+                                {{-- Debug info --}}
+                                <div class="small text-muted mb-1">
+                                    Schedule Data: {{ $totalDeliveryCount }} deliveries, {{ $totalCollectionCount }} collections<br>
+                                    API Counts: {{ $activeDeliveryCount }} active deliveries, {{ $activeCollectionCount }} active collections
+                                </div>
+                                <span class="badge bg-primary">{{ $activeDeliveryCount }} active deliveries</span>
+                                <span class="badge bg-success ms-1">{{ $activeCollectionCount }} active collections</span>
                             </div>
                             
                             {{-- Week Navigation Buttons --}}
@@ -339,17 +360,17 @@ body {
                     <ul class="nav nav-tabs mt-3" id="scheduleTab" role="tablist">
                         <li class="nav-item" role="presentation">
                             <button class="nav-link active" id="all-tab" data-bs-toggle="tab" data-bs-target="#all" type="button" role="tab" aria-controls="all" aria-selected="true">
-                                📋 All Active ({{ $activeDeliveries + $activeCollections }})
+                                📋 All Subscriptions ({{ $totalDeliveries + $totalCollections }})
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
                             <button class="nav-link" id="deliveries-tab" data-bs-toggle="tab" data-bs-target="#deliveries" type="button" role="tab" aria-controls="deliveries" aria-selected="false">
-                                🚚 Deliveries ({{ $activeDeliveries }})
+                                🚚 Deliveries
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
                             <button class="nav-link" id="collections-tab" data-bs-toggle="tab" data-bs-target="#collections" type="button" role="tab" aria-controls="collections" aria-selected="false">
-                                📦 Collections ({{ $activeCollections }})
+                                📦 Collections
                             </button>
                         </li>
                     </ul>
@@ -393,21 +414,20 @@ body {
                         
                         {{-- Deliveries Only Tab --}}
                         <div class="tab-pane fade" id="deliveries" role="tabpanel" aria-labelledby="deliveries-tab">
-                            @if($totalDeliveries > 0)
-                                {{-- Deliveries Status Subtabs --}}
-                                <div class="card mt-3">
-                                    <div class="card-header">
-                                        <h5 class="mb-0">🚚 Deliveries by Status</h5>
-                                        <ul class="nav nav-pills nav-sm mt-2" id="deliveriesStatusTab" role="tablist">
-                                            <li class="nav-item" role="presentation">
-                                                <button class="nav-link btn-sm" id="deliveries-all-tab" data-bs-toggle="pill" data-bs-target="#deliveries-all" type="button" role="tab">
-                                                    All ({{ $totalDeliveries }})
-                                                </button>
-                                            </li>
-                                            <li class="nav-item" role="presentation">
-                                                <button class="nav-link active btn-sm" id="deliveries-active-tab" data-bs-toggle="pill" data-bs-target="#deliveries-active" type="button" role="tab">
-                                                    Active ({{ $deliveryStatusCounts['active'] ?? 0 }})
-                                                </button>
+                            {{-- Deliveries Status Subtabs --}}
+                            <div class="card mt-3">
+                                <div class="card-header">
+                                    <h5 class="mb-0">🚚 Deliveries by Status</h5>
+                                    <ul class="nav nav-pills nav-sm mt-2" id="deliveriesStatusTab" role="tablist">
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link btn-sm" id="deliveries-all-tab" data-bs-toggle="pill" data-bs-target="#deliveries-all" type="button" role="tab">
+                                                All ({{ $totalDeliveries }})
+                                            </button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link active btn-sm" id="deliveries-active-tab" data-bs-toggle="pill" data-bs-target="#deliveries-active" type="button" role="tab">
+                                                Active ({{ $deliveryStatusCounts['active'] ?? 0 }})
+                                            </button>
                                             </li>
                                             <li class="nav-item" role="presentation">
                                                 <button class="nav-link btn-sm" id="deliveries-processing-tab" data-bs-toggle="pill" data-bs-target="#deliveries-processing" type="button" role="tab">
@@ -831,7 +851,6 @@ body {
                     </div>
                 </div>
             </div>
-        @endif
     @else
         <div class="alert alert-info">
             <i class="fas fa-info-circle"></i> No schedule data available.
