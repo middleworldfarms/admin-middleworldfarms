@@ -133,7 +133,8 @@ class FarmOSApi
                             'name' => $name,
                             'label' => $name,
                             'description' => $description,
-                            'parent_id' => $parent
+                            'parent_id' => $parent,
+                            'crop_type' => $parent  // Add crop_type field for frontend compatibility
                         ];
                     }
                 }
