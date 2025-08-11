@@ -76,3 +76,4 @@ docker-compose.override.yml
 *.bak
 *.backup
 *.old
+ai_service/venv/
