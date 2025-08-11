@@ -11,20 +11,21 @@ use Carbon\Carbon;
 /**
  * FarmOS API Service
  * Integrates with FarmOS to sync harvest logs and update stock levels
+ * Now uses centralized FarmOSAuthService for authentication
  */
 class FarmOSApiService
 {
     private $client;
     private $baseUrl;
+    private $authService;
+    private $token;
     private $username;
     private $password;
-    private $token;
 
     public function __construct()
     {
         $this->baseUrl = Config::get('farmos.url', 'https://farmos.middleworldfarms.org');
-        $this->username = Config::get('farmos.username');
-        $this->password = Config::get('farmos.password');
+        $this->authService = FarmOSAuthService::getInstance();
         
         $this->client = new Client([
             'base_uri' => $this->baseUrl,
@@ -37,93 +38,19 @@ class FarmOSApiService
     }
 
     /**
-     * Authenticate with FarmOS using OAuth2 client credentials
-     * Falls back to basic auth if OAuth2 fails
+     * Authenticate using centralized auth service
      */
     public function authenticate()
     {
-        // Try OAuth2 first
-        $token = $this->getOAuth2Token();
-        if ($token) {
-            $this->token = $token;
-            Log::info('FarmOS OAuth2 authentication successful');
-            return true;
-        }
-        
-        // Fallback to basic auth
-        if (!$this->username || !$this->password) {
-            throw new \Exception('FarmOS OAuth2 failed and no basic auth credentials available');
-        }
-        
-        // Clear token since we're using basic auth
-        $this->token = null;
-        Log::info('FarmOS falling back to basic authentication');
-        return true;
+        return $this->authService->authenticate();
     }
 
     /**
-     * Get OAuth2 token using client credentials
+     * Get auth headers using centralized auth service
      */
-    private function getOAuth2Token()
+    private function getAuthHeaders()
     {
-        try {
-            $clientId = Config::get('farmos.client_id');
-            $clientSecret = Config::get('farmos.client_secret');
-            
-            if (!$clientId || !$clientSecret) {
-                Log::info('OAuth2 credentials not configured, skipping OAuth2');
-                return null;
-            }
-
-            // Check cache first
-            $cacheKey = 'farmos_oauth2_token';
-            if (Cache::has($cacheKey)) {
-                $this->token = Cache::get($cacheKey);
-                Log::info('Using cached OAuth2 token');
-                return $this->token;
-            }
-
-            // Request new token
-            $scope = Config::get('farmos.oauth_scope', 'farm_manager');
-            
-            Log::info('Requesting OAuth2 token', [
-                'client_id' => $clientId,
-                'scope' => $scope,
-                'url' => $this->baseUrl . '/oauth/token'
-            ]);
-            
-            $response = $this->client->post('/oauth/token', [
-                'form_params' => [
-                    'grant_type' => 'client_credentials',
-                    'client_id' => $clientId,
-                    'client_secret' => $clientSecret,
-                    'scope' => $scope
-                ],
-                'headers' => [
-                    'Content-Type' => 'application/x-www-form-urlencoded'
-                ]
-            ]);
-
-            $data = json_decode($response->getBody(), true);
-            
-            if (isset($data['access_token'])) {
-                $this->token = $data['access_token'];
-                $expiresIn = $data['expires_in'] ?? 3600;
-                
-                // Cache token for 90% of its lifetime (in seconds)
-                Cache::put($cacheKey, $this->token, intval($expiresIn * 0.9));
-                
-                Log::info('OAuth2 token acquired successfully', ['expires_in' => $expiresIn]);
-                return $this->token;
-            }
-
-            Log::warning('OAuth2 token request failed', ['response' => $data]);
-            return null;
-
-        } catch (\Exception $e) {
-            Log::warning('OAuth2 authentication failed: ' . $e->getMessage());
-            return null;
-        }
+        return $this->authService->getAuthHeaders();
     }
 
     /**
@@ -131,7 +58,7 @@ class FarmOSApiService
      */
     private function isTokenValid()
     {
-        return Cache::has('farmos_token');
+        return $this->authService->authenticate();
     }
 
     /**
@@ -147,15 +74,11 @@ class FarmOSApiService
             }
             
             $headers = ['Accept' => 'application/vnd.api+json'];
-            $requestOptions = ['headers' => $headers];
             
-            // Use OAuth2 token if available, otherwise fall back to basic auth
-            if ($this->token) {
-                $headers['Authorization'] = 'Bearer ' . $this->token;
-                $requestOptions['headers'] = $headers;
-            } else {
-                $requestOptions['auth'] = [$this->username, $this->password];
-            }
+            // Use centralized auth service
+            $authHeaders = $this->getAuthHeaders();
+            $headers = array_merge($headers, $authHeaders);
+            $requestOptions = ['headers' => $headers];
             
             $params = [
                 'filter[status]' => 'done',
@@ -220,33 +143,14 @@ class FarmOSApiService
     }
 
     /**
-     * Get plant assets (crops) from FarmOS
+     * Get plant assets (crops) from FarmOS (paginated)
      */
-    public function getPlantAssets()
+    public function getPlantAssets(array $filters = [])
     {
-        $token = $this->authenticate();
-        if (!$token) {
-            return [];
-        }
-        
-        try {
-            $response = $this->client->get('/api/asset/plant', [
-                'headers' => [
-                    'Authorization' => 'Bearer ' . $token,
-                    'Accept' => 'application/vnd.api+json',
-                    'Content-Type' => 'application/vnd.api+json',
-                ],
-                'query' => [
-                    'include' => 'plant_type,season',
-                    'filter[status]' => 'active'
-                ]
-            ]);
-
-            return json_decode($response->getBody(), true);
-        } catch (\Exception $e) {
-            Log::error('Failed to fetch plant assets: ' . $e->getMessage());
-            return [];
-        }
+        $params = $this->buildFilterParams($filters, ['status','type']);
+        $params['include'] = 'plant_type,season';
+        $raw = $this->jsonApiPaginatedFetch('/api/asset/plant', $params);
+        return ['data' => $raw];
     }
 
     /**
@@ -335,11 +239,23 @@ class FarmOSApiService
     /**
      * Get geometry assets (land/fields) for mapping
      */
-    public function getGeometryAssets()
+    public function getGeometryAssets($options = [])
     {
+        // Added $options to allow ['refresh'=>true] forcing cache bypass
         try {
-            $authSuccess = $this->authenticate();
-            if (!$authSuccess) {
+            $cacheKey = 'farmos.geometry.assets.v1';
+            $forceRefresh = $options['refresh'] ?? request()->boolean('refresh', false);
+            if (!$forceRefresh) {
+                $cached = \Cache::get($cacheKey);
+                if ($cached) {
+                    Log::info('FarmOS geometry assets cache hit', ['feature_count' => count($cached['features'])]);
+                    return $cached;
+                }
+            } else {
+                Log::info('FarmOS geometry assets forced refresh requested');
+            }
+
+            if (!$this->authenticate()) {
                 Log::warning('FarmOS authentication failed');
                 return [
                     'type' => 'FeatureCollection',
@@ -348,30 +264,56 @@ class FarmOSApiService
                 ];
             }
 
+            $result = $this->fetchGeometryAssetsInternal();
+            // If unauthorized, clear token + retry once
+            if (isset($result['__http_status']) && $result['__http_status'] === 401) {
+                Log::warning('FarmOS geometry first attempt 401 - purging token & retrying');
+                \Cache::forget('farmos_oauth2_token');
+                \Cache::forget('farmos_token');
+                $this->token = null;
+                if ($this->authenticate()) {
+                    $result = $this->fetchGeometryAssetsInternal();
+                }
+            }
+            unset($result['__http_status']);
+            if (!isset($result['error'])) {
+                \Cache::put($cacheKey, $result, now()->addMinutes(10));
+            }
+            return $result;
+        } catch (\Throwable $e) {
+            Log::error('Failed to load geometry assets: '.$e->getMessage());
+            return [
+                'type' => 'FeatureCollection',
+                'features' => [],
+                'error' => 'Exception: '.$e->getMessage()
+            ];
+        }
+    }
+
+    private function fetchGeometryAssetsInternal()
+    {
+        try {
             $headers = ['Accept' => 'application/vnd.api+json'];
-            $requestOptions = ['headers' => $headers];
-            
-            // Use OAuth2 token if available, otherwise fall back to basic auth
+            $requestOptions = ['headers' => $headers, 'http_errors' => false];
             if ($this->token) {
                 $headers['Authorization'] = 'Bearer ' . $this->token;
                 $requestOptions['headers'] = $headers;
             } else {
                 $requestOptions['auth'] = [$this->username, $this->password];
             }
-            
             $requestOptions['query'] = ['filter[status]' => 'active'];
-
             $response = $this->client->get('/api/asset/land', $requestOptions);
+            $status = $response->getStatusCode();
+            if ($status === 401 || $status === 403) {
+                return ['type' => 'FeatureCollection', 'features' => [], '__http_status' => $status, 'error' => 'Unauthorized'];
+            }
             $data = json_decode($response->getBody(), true);
-            
-            // Check for authorization issues
             if (isset($data['meta']['omitted'])) {
                 Log::warning('FarmOS API access denied - insufficient permissions for land assets', [
                     'available_assets' => count($data['meta']['omitted'] ?? []),
                     'user' => $this->username,
                     'auth_method' => $this->token ? 'OAuth2' : 'Basic'
                 ]);
-                
                 return [
                     'type' => 'FeatureCollection',
                     'features' => [],
@@ -383,19 +325,13 @@ class FarmOSApiService
                     'help_url' => 'https://www.drupal.org/docs/8/modules/json-api/filtering#filters-access-control'
                 ];
             }
-            
-            // Convert to GeoJSON format using WKT conversion
             $features = [];
             if (isset($data['data']) && is_array($data['data'])) {
                 foreach ($data['data'] as $asset) {
                     if (isset($asset['attributes']['geometry'])) {
                         $geometry = $this->convertWktToGeoJson($asset['attributes']['geometry']);
-                        
                         if ($geometry) {
-                            // Get additional asset details
-                            $assetId = $asset['id'];
-                            $assetDetails = $this->getAssetDetails($assetId);
-                            
+                            $areaSize = $this->calculateGeometryAreaSqM($geometry);
                             $features[] = [
                                 'type' => 'Feature',
                                 'properties' => [
@@ -406,14 +342,12 @@ class FarmOSApiService
                                     'notes' => $asset['attributes']['notes']['value'] ?? '',
                                     'created' => $asset['attributes']['created'] ?? null,
                                     'changed' => $asset['attributes']['changed'] ?? null,
-                                    'asset_details' => $assetDetails,
                                     'farmos_url' => $this->generateFarmOSAssetUrl($asset),
-                                    // Enhanced properties for smart selection
-                                    'is_bed' => $this->isBedAsset($asset),
-                                    'is_block' => $this->isBlockAsset($asset),
+                                    'is_bed' => ($asset['attributes']['land_type'] ?? '') === 'bed',
+                                    'is_block' => ($asset['attributes']['land_type'] ?? '') === 'field',
                                     'parent_block' => $this->getParentBlock($asset),
-                                    'area_size' => $this->calculateAssetArea($asset),
-                                    'asset_hierarchy' => $this->getAssetHierarchy($asset)
+                                    'area_size_sqm' => $areaSize,
+                                    'lazy_details' => true
                                 ],
                                 'geometry' => $geometry
                             ];
@@ -421,24 +355,9 @@ class FarmOSApiService
                     }
                 }
             }
-
-            Log::info('FarmOS geometry assets loaded successfully', [
-                'feature_count' => count($features),
-                'auth_method' => $this->token ? 'OAuth2' : 'Basic Auth'
-            ]);
-            
-            return [
-                'type' => 'FeatureCollection',
-                'features' => $features
-            ];
-
+            return ['type' => 'FeatureCollection', 'features' => $features];
         } catch (\Exception $e) {
-            Log::error('FarmOS geometry fetch failed: ' . $e->getMessage());
-            return [
-                'type' => 'FeatureCollection',
-                'features' => [],
-                'error' => $e->getMessage()
-            ];
+            return ['type' => 'FeatureCollection', 'features' => [], 'error' => $e->getMessage()];
         }
     }
 
@@ -638,31 +557,24 @@ class FarmOSApiService
                 }
             }
 
-            // Get crop varieties if available
+            // Get crop varieties using the fixed pagination method
             try {
-                $varietyResponse = $this->client->get('/api/taxonomy_term/plant_variety', [
-                    'headers' => [
-                        'Authorization' => 'Bearer ' . $this->token,
-                        'Accept' => 'application/vnd.api+json'
-                    ]
-                ]);
-
-                $varietyData = json_decode($varietyResponse->getBody(), true);
+                $varieties = $this->getVarieties();
                 
-                if (isset($varietyData['data'])) {
-                    foreach ($varietyData['data'] as $term) {
-                        $attributes = $term['attributes'] ?? [];
-                        $name = $attributes['name'] ?? '';
-                        $parent = $attributes['parent'] ?? null;
-                        
-                        if ($name) {
-                            $cropData['varieties'][] = [
-                                'id' => $term['id'] ?? '',
-                                'name' => $name,
-                                'label' => $name,
-                                'parent_id' => $parent
-                            ];
-                        }
+                foreach ($varieties as $variety) {
+                    $attributes = $variety['attributes'] ?? [];
+                    $name = $attributes['name'] ?? '';
+                    $description = $attributes['description']['value'] ?? '';
+                    $parent = $variety['relationships']['parent']['data'][0]['id'] ?? null;
+                    
+                    if ($name) {
+                        $cropData['varieties'][] = [
+                            'id' => $variety['id'] ?? '',
+                            'name' => $name,
+                            'label' => $name,
+                            'description' => $description,
+                            'parent_id' => $parent
+                        ];
                     }
                 }
             } catch (\Exception $e) {
@@ -710,10 +622,6 @@ class FarmOSApiService
             ];
         }
     }
-
-    /**
-     * Get plant assets from farmOS
-     */
 
     /**
      * Get available locations from land assets
@@ -1024,24 +932,24 @@ class FarmOSApiService
         try {
             $headers = ['Accept' => 'application/vnd.api+json'];
             $requestOptions = ['headers' => $headers];
-            
-            // Use OAuth2 token if available, otherwise fall back to basic auth
             if ($this->token) {
                 $headers['Authorization'] = 'Bearer ' . $this->token;
                 $requestOptions['headers'] = $headers;
             } else {
                 $requestOptions['auth'] = [$this->username, $this->password];
             }
-            
-            // Fetch related assets (like plants in this location)
             $requestOptions['query'] = [
                 'filter[location.id]' => $assetId,
                 'filter[status]' => 'active'
             ];
-
             $response = $this->client->get('/api/asset/plant', $requestOptions);
+            if ($response->getStatusCode() >= 500) {
+                return [
+                    'related_assets' => [],
+                    'asset_count' => 0
+                ];
+            }
             $data = json_decode($response->getBody(), true);
-            
             $relatedAssets = [];
             if (isset($data['data']) && is_array($data['data'])) {
                 foreach ($data['data'] as $asset) {
@@ -1055,18 +963,20 @@ class FarmOSApiService
                     ];
                 }
             }
-            
             return [
                 'related_assets' => $relatedAssets,
                 'asset_count' => count($relatedAssets)
             ];
-            
+        } catch (\GuzzleHttp\Exception\ServerException $se) {
+            return [
+                'related_assets' => [],
+                'asset_count' => 0
+            ];
         } catch (\Exception $e) {
             Log::error('Failed to fetch asset details for ' . $assetId . ': ' . $e->getMessage());
             return [
                 'related_assets' => [],
-                'asset_count' => 0,
-                'error' => $e->getMessage()
+                'asset_count' => 0
             ];
         }
     }
@@ -1182,6 +1092,37 @@ class FarmOSApiService
     }
 
     /**
+     * Calculate geometry area in square meters (approximate)
+     */
+    private function calculateGeometryAreaSqM($geometry)
+    {
+        if (!$geometry || !isset($geometry['type']) || !isset($geometry['coordinates'])) {
+            return 0;
+        }
+        if ($geometry['type'] !== 'Polygon') {
+            return 0;
+        }
+        $coords = $geometry['coordinates'][0];
+        if (count($coords) < 4) {
+            return 0;
+        }
+        // Approximate area using equirectangular projection around polygon centroid
+        $latSum = 0; $lonSum = 0; $n = count($coords)-1; // last point == first point
+        for ($i=0; $i<$n; $i++) { $lonSum += $coords[$i][0]; $latSum += $coords[$i][1]; }
+        $centroidLatRad = deg2rad($latSum / $n);
+        $earthRadius = 6378137; // meters
+        $area = 0;
+        for ($i=0; $i<$n; $i++) {
+            $x1 = deg2rad($coords[$i][0]) * $earthRadius * cos($centroidLatRad);
+            $y1 = deg2rad($coords[$i][1]) * $earthRadius;
+            $x2 = deg2rad($coords[($i+1)%$n][0]) * $earthRadius * cos($centroidLatRad);
+            $y2 = deg2rad($coords[($i+1)%$n][1]) * $earthRadius;
+            $area += ($x1 * $y2 - $x2 * $y1);
+        }
+        return abs($area) / 2.0;
+    }
+
+    /**
      * Get asset hierarchy information
      */
     private function getAssetHierarchy($asset)
@@ -1294,6 +1235,300 @@ class FarmOSApiService
                 'error' => $e->getMessage()
             ]);
             throw $e;
+        }
+    }
+
+    /**
+     * Generic JSON:API GET with pagination + 401 retry
+     */
+    private function jsonApiPaginatedFetch($path, $params = [], $maxPages = 20, $pageSize = 50)
+    {
+        $results = [];
+        $page = 0;
+        $retried = false;
+        
+        do {
+            $query = array_merge($params, [
+                'page[limit]' => $pageSize,
+                'page[offset]' => $page * $pageSize
+            ]);
+            $resp = $this->jsonApiRequest($path, $query);
+            
+            if ($resp['status'] === 401 && !$retried) {
+                // purge token and retry once total
+                \Cache::forget('farmos_oauth2_token');
+                $this->token = null;
+                $this->authenticate();
+                $retried = true;
+                continue; // redo same page
+            }
+            
+            if ($resp['status'] !== 200) {
+                Log::warning('FarmOS API pagination failed', [
+                    'path' => $path,
+                    'page' => $page,
+                    'status' => $resp['status']
+                ]);
+                break;
+            }
+            
+            $dataChunk = $resp['body']['data'] ?? [];
+            $results = array_merge($results, $dataChunk);
+            
+            // Check if there's a next page link
+            $hasNextPage = isset($resp['body']['links']['next']);
+            
+            // Stop if no next page or if we got no data
+            if (!$hasNextPage || count($dataChunk) === 0) {
+                break;
+            }
+            
+            $page++;
+            $retried = false; // reset retry flag for next page
+        } while ($page < $maxPages);
+        
+        if ($page >= $maxPages) {
+            Log::warning('FarmOS API pagination hit max pages limit', [
+                'path' => $path,
+                'maxPages' => $maxPages,
+                'totalFetched' => count($results)
+            ]);
+        }
+        
+        return $results;
+    }
+
+    private function jsonApiRequest($path, $query = [])
+    {
+        $this->authenticate();
+        $headers = ['Accept' => 'application/vnd.api+json'];
+        
+        // Use centralized auth service
+        $authHeaders = $this->getAuthHeaders();
+        $headers = array_merge($headers, $authHeaders);
+        $options = ['headers' => $headers, 'http_errors' => false];
+        
+        if (!empty($query)) $options['query'] = $query;
+        $response = $this->client->get($path, $options);
+        $status = $response->getStatusCode();
+        $body = json_decode($response->getBody(), true);
+        return ['status' => $status, 'body' => $body];
+    }
+
+    /** Asset fetchers **/
+    public function getLandAssets($filters = [])
+    {
+        $params = $this->buildFilterParams($filters, ['status']);
+        return $this->jsonApiPaginatedFetch('/api/asset/land', $params);
+    }
+
+    /** Log fetchers **/
+    public function getObservationLogs($filters = [])
+    {
+        $params = $this->buildLogFilterParams($filters);
+        return $this->jsonApiPaginatedFetch('/api/log/observation', $params);
+    }
+
+    public function getActivityLogs($filters = [])
+    {
+        $params = $this->buildLogFilterParams($filters);
+        return $this->jsonApiPaginatedFetch('/api/log/activity', $params);
+    }
+
+    public function getInputLogs($filters = [])
+    {
+        $params = $this->buildLogFilterParams($filters);
+        return $this->jsonApiPaginatedFetch('/api/log/input', $params);
+    }
+
+    public function getSeedingLogs($filters = [])
+    {
+        $params = $this->buildLogFilterParams($filters);
+        return $this->jsonApiPaginatedFetch('/api/log/seeding', $params);
+    }
+
+    public function getTransplantingLogs($filters = [])
+    {
+        $params = $this->buildLogFilterParams($filters);
+        return $this->jsonApiPaginatedFetch('/api/log/transplanting', $params);
+    }
+
+    /** Taxonomy **/
+    public function getPlantTypes()
+    {
+        return $this->jsonApiPaginatedFetch('/api/taxonomy_term/plant_type');
+    }
+
+    public function getVarieties()
+    {
+        return $this->jsonApiPaginatedFetch('/api/taxonomy_term/plant_variety');
+    }
+
+    public function getCropFamilies()
+    {
+        return $this->jsonApiPaginatedFetch('/api/taxonomy_term/crop_family');
+    }
+
+    public function getLocations()
+    {
+        return $this->jsonApiPaginatedFetch('/api/taxonomy_term/location');
+    }
+
+    private function buildFilterParams($filters, $allow)
+    {
+        $params = [];
+        foreach ($allow as $f) {
+            if (isset($filters[$f])) {
+                $params['filter['.$f.']'] = $filters[$f];
+            }
+        }
+        return $params;
+    }
+
+    private function buildLogFilterParams($filters)
+    {
+        return $this->buildFilterParams($filters, ['status','type','asset']);
+    }
+
+    /** AI convenience aggregate **/
+    public function getFullDataSnapshot()
+    {
+        return [
+            'land_assets' => $this->getLandAssets(['status' => 'active']),
+            'plant_assets' => $this->getPlantAssets(['status' => 'active']),
+            'logs' => [
+                'harvest' => $this->getHarvestLogs(),
+                'observation' => $this->getObservationLogs(),
+                'activity' => $this->getActivityLogs(),
+                'input' => $this->getInputLogs(),
+                'seeding' => $this->getSeedingLogs(),
+                'transplanting' => $this->getTransplantingLogs(),
+            ],
+            'taxonomy' => [
+                'plant_types' => $this->getPlantTypes(),
+                'varieties' => $this->getVarieties(),
+                'crop_families' => $this->getCropFamilies(),
+                'locations' => $this->getLocations(),
+            ]
+        ];
+    }
+    
+    /**
+     * Create a new plant asset (trusted_public_write)
+     * Required fields: name, plant_type_term_id (taxonomy_term--plant_type UUID), variety_term_id (taxonomy_term--variety UUID optional), location_asset_id (asset--land UUID optional), status (default active)
+     * Optional: notes
+     */
+    public function createPlantAsset(array $data)
+    {
+        $this->authenticate();
+        foreach (['name','plant_type_term_id'] as $required) {
+            if (empty($data[$required])) {
+                return ['error' => 'missing_field', 'field' => $required];
+            }
+        }
+        $asset = [
+            'data' => [
+                'type' => 'asset--plant',
+                'attributes' => [
+                    'name' => $data['name'],
+                    'status' => $data['status'] ?? 'active',
+                ],
+                'relationships' => [
+                    'plant_type' => [
+                        'data' => [
+                            'type' => 'taxonomy_term--plant_type',
+                            'id' => $data['plant_type_term_id']
+                        ]
+                    ]
+                ]
+            ]
+        ];
+        if (!empty($data['variety_term_id'])) {
+            $asset['data']['relationships']['variety'] = [
+                'data' => [
+                    'type' => 'taxonomy_term--variety',
+                    'id' => $data['variety_term_id']
+                ]
+            ];
+        }
+        if (!empty($data['location_asset_id'])) {
+            $asset['data']['relationships']['location'] = [
+                'data' => [
+                    'type' => 'asset--land',
+                    'id' => $data['location_asset_id']
+                ]
+            ];
+        }
+        if (!empty($data['notes'])) {
+            $asset['data']['attributes']['notes'] = [
+                'value' => $data['notes'],
+                'format' => 'default'
+            ];
+        }
+        try {
+            $response = $this->client->post('/api/asset/plant', [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $this->token,
+                    'Accept' => 'application/vnd.api+json',
+                    'Content-Type' => 'application/vnd.api+json'
+                ],
+                'json' => $asset
+            ]);
+            $status = $response->getStatusCode();
+            $body = json_decode($response->getBody(), true);
+            if ($status >= 200 && $status < 300) {
+                \Log::info('Created plant asset', ['name' => $data['name'], 'id' => $body['data']['id'] ?? null]);
+            } else {
+                \Log::warning('Plant asset creation non-2xx', ['status' => $status, 'body' => $body]);
+            }
+            return $body;
+        } catch (\Throwable $e) {
+            \Log::error('Failed to create plant asset: '.$e->getMessage(), ['name' => $data['name'] ?? 'unknown']);
+            return ['error' => 'exception', 'message' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Create a variety (plant type) in farmOS
+     */
+    public function createVariety($data)
+    {
+        try {
+            if (!$this->authenticate()) {
+                throw new \Exception('Authentication failed');
+            }
+
+            // Create taxonomy term for plant type
+            $variety = [
+                'type' => 'taxonomy_term--plant_type',
+                'attributes' => [
+                    'name' => $data['name'],
+                    'description' => $data['description'] ?? "Plant Type: {$data['plant_type']}",
+                    'status' => true
+                ]
+            ];
+
+            $response = $this->client->post('/api/taxonomy_term/plant_type', [
+                'headers' => array_merge($this->getAuthHeaders(), [
+                    'Accept' => 'application/vnd.api+json',
+                    'Content-Type' => 'application/vnd.api+json'
+                ]),
+                'json' => ['data' => $variety]
+            ]);
+
+            $status = $response->getStatusCode();
+            $body = json_decode($response->getBody(), true);
+            
+            if ($status >= 200 && $status < 300) {
+                Log::info('Created variety', ['name' => $data['name'], 'id' => $body['data']['id'] ?? null]);
+                return $body['data'] ?? true;
+            } else {
+                Log::warning('Variety creation non-2xx', ['status' => $status, 'body' => $body]);
+                return false;
+            }
+        } catch (\Throwable $e) {
+            Log::error('Failed to create variety: ' . $e->getMessage(), ['name' => $data['name'] ?? 'unknown']);
+            return false;
         }
     }
 }

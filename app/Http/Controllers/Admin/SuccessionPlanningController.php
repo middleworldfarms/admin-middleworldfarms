@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Services\FarmOSApiService;
+use App\Services\HolisticAICropService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -13,10 +14,12 @@ use Carbon\Carbon;
 class SuccessionPlanningController extends Controller
 {
     protected $farmOSApi;
+    protected $holisticAI;
 
-    public function __construct(FarmOSApiService $farmOSApi)
+    public function __construct(FarmOSApiService $farmOSApi, HolisticAICropService $holisticAI)
     {
         $this->farmOSApi = $farmOSApi;
+        $this->holisticAI = $holisticAI;
     }
 
     /**
@@ -804,5 +807,250 @@ class SuccessionPlanningController extends Controller
         } else {
             return 'winter';
         }
+    }
+
+    /**
+     * 🌟 Get holistic AI crop recommendations with sacred geometry and lunar wisdom
+     */
+    public function getHolisticRecommendations(Request $request): JsonResponse
+    {
+        try {
+            $cropType = $request->input('crop_type');
+            $season = $request->input('season', $this->getCurrentSeason());
+            
+            if (!$cropType) {
+                return response()->json(['error' => 'Crop type is required'], 400);
+            }
+
+            Log::info('🌙 Getting holistic recommendations', [
+                'crop' => $cropType,
+                'season' => $season,
+                'moon_phase' => 'checking'
+            ]);
+
+            // Get comprehensive holistic recommendations
+            $holisticRec = $this->holisticAI->getHolisticRecommendations($cropType, [
+                'season' => $season,
+                'include_sacred_geometry' => true,
+                'include_lunar_timing' => true,
+                'include_biodynamic' => true
+            ]);
+
+            // Get sacred geometry spacing
+            $spacing = $this->holisticAI->getSacredGeometrySpacing($cropType);
+
+            // Get companion mandala
+            $companions = $this->holisticAI->getCompanionMandala($cropType);
+
+            // Get current lunar timing
+            $lunarTiming = $this->holisticAI->getCurrentLunarTiming();
+
+            $response = [
+                'success' => true,
+                'crop' => $cropType,
+                'season' => $season,
+                'holistic_wisdom' => $holisticRec,
+                'sacred_spacing' => $spacing,
+                'companion_mandala' => $companions,
+                'lunar_timing' => $lunarTiming,
+                'integration_notes' => [
+                    '🌙 Plant during optimal lunar phase for maximum vitality',
+                    '🌀 Use golden ratio spacing (1:1.618) for harmonious energy flow', 
+                    '🌸 Create companion mandalas for living ecosystem balance',
+                    '⭐ Honor cosmic timing for enhanced growth and flavor'
+                ]
+            ];
+
+            Log::info('✨ Holistic recommendations generated successfully', [
+                'crop' => $cropType,
+                'has_sacred_geometry' => !empty($spacing),
+                'has_companions' => !empty($companions),
+                'lunar_phase' => $lunarTiming['current_phase'] ?? 'unknown'
+            ]);
+
+            return response()->json($response);
+
+        } catch (\Exception $e) {
+            Log::error('🚨 Holistic recommendations failed: ' . $e->getMessage());
+            
+            // Fallback to basic recommendations with mystical inspiration
+            return response()->json([
+                'success' => true,
+                'crop' => $request->input('crop_type'),
+                'holistic_wisdom' => $this->getFallbackHolisticWisdom($request->input('crop_type')),
+                'message' => '🌱 Using ancient wisdom while cosmic connections restore...'
+            ]);
+        }
+    }
+
+    /**
+     * 🌙 Get current moon phase and optimal planting timing
+     */
+    public function getMoonPhaseGuidance(Request $request): JsonResponse
+    {
+        try {
+            $guidance = $this->holisticAI->getCurrentLunarTiming();
+            
+            return response()->json([
+                'success' => true,
+                'lunar_guidance' => $guidance,
+                'cosmic_wisdom' => [
+                    'New Moon' => 'Perfect for planting seeds - earth energy is receptive to new beginnings',
+                    'Waxing Crescent' => 'Excellent for transplanting - growth energy is building',
+                    'First Quarter' => 'Time for balanced maintenance and strengthening plant support',
+                    'Waxing Gibbous' => 'Monitor and adjust - plants absorbing maximum cosmic energy',
+                    'Full Moon' => 'Optimal harvest time - maximum life force and flavor concentration',
+                    'Waning Gibbous' => 'Processing and preservation - cosmic energy moving inward',
+                    'Last Quarter' => 'Pruning and removing - releasing what no longer serves',
+                    'Waning Crescent' => 'Rest and soil restoration - preparing for next lunar cycle'
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::warning('Moon phase guidance unavailable: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => true,
+                'lunar_guidance' => $this->getBasicLunarWisdom(),
+                'message' => 'Using traditional lunar wisdom while cosmic connections restore...'
+            ]);
+        }
+    }
+
+    /**
+     * 🌀 Get sacred geometry spacing recommendations
+     */
+    public function getSacredSpacing(Request $request): JsonResponse
+    {
+        try {
+            $cropType = $request->input('crop_type');
+            
+            if (!$cropType) {
+                return response()->json(['error' => 'Crop type is required'], 400);
+            }
+
+            $spacing = $this->holisticAI->getSacredGeometrySpacing($cropType);
+            
+            return response()->json([
+                'success' => true,
+                'crop' => $cropType,
+                'sacred_spacing' => $spacing,
+                'geometry_wisdom' => [
+                    'Golden Ratio (φ = 1.618)' => 'Nature\'s perfect proportion found in sunflowers, nautilus shells, and galaxy spirals',
+                    'Fibonacci Sequence' => 'Sacred numbers: 1, 1, 2, 3, 5, 8, 13, 21, 34... for optimal plant arrangements',
+                    'Hexagonal Patterns' => 'Six-sided formations maximize energy exchange and space efficiency',
+                    'Spiral Arrangements' => 'Follow natural vortex patterns for enhanced vitality flow'
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::warning('Sacred spacing unavailable: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => true,
+                'sacred_spacing' => $this->getBasicSacredSpacing($request->input('crop_type')),
+                'message' => 'Using geometric principles while holistic service restores...'
+            ]);
+        }
+    }
+
+    /**
+     * 🌸 Enhance existing succession plan with holistic AI wisdom
+     */
+    private function enhanceWithHolisticWisdom(array $plan, array $params): array
+    {
+        try {
+            // Add holistic enhancements to the basic plan
+            $enhanced = $this->holisticAI->enhanceSuccessionPlan($plan, $params);
+            
+            if ($enhanced['success'] ?? false) {
+                Log::info('✨ Plan enhanced with holistic wisdom', [
+                    'crop' => $params['crop_type'],
+                    'enhancements' => count($enhanced['holistic_enhancements'] ?? [])
+                ]);
+                
+                return $enhanced;
+            }
+            
+            return $plan;
+            
+        } catch (\Exception $e) {
+            Log::warning('Holistic enhancement failed, using base plan: ' . $e->getMessage());
+            return $plan;
+        }
+    }
+
+    /**
+     * Fallback holistic wisdom when AI service is unavailable
+     */
+    private function getFallbackHolisticWisdom(string $cropType): array
+    {
+        return [
+            'ancient_wisdom' => "🌱 {$cropType} carries the wisdom of countless seasons. Plant with intention and gratitude.",
+            'elemental_guidance' => $this->getElementalGuidance($cropType),
+            'seasonal_harmony' => 'Align your planting with natural rhythms - early morning for peace, evening for reflection.',
+            'companion_spirits' => $this->getBasicCompanions($cropType),
+            'sacred_reminder' => 'Every seed contains infinite potential. Honor the mystery of growth.'
+        ];
+    }
+
+    private function getElementalGuidance(string $cropType): string
+    {
+        $elements = [
+            'lettuce' => 'Water element - flows with lunar cycles, thrives with gentle moisture',
+            'carrot' => 'Earth element - deep roots connect to underground wisdom',
+            'radish' => 'Fire element - quick transformation, cleansing energy',
+            'spinach' => 'Water element - cooling energy, lunar-responsive growth',
+            'kale' => 'Earth element - sturdy constitution, grounding energy',
+            'arugula' => 'Fire element - spicy life force, awakening energy'
+        ];
+        
+        return $elements[$cropType] ?? 'Mixed elements - balanced approach honors all aspects of nature';
+    }
+
+    private function getBasicCompanions(string $cropType): array
+    {
+        $companions = [
+            'lettuce' => ['Radish (pest protection)', 'Marigold (beneficial insects)', 'Chives (growth enhancement)'],
+            'carrot' => ['Chives (flavor improvement)', 'Rosemary (pest deterrent)', 'Sage (energetic protection)'],
+            'radish' => ['Lettuce (space sharing)', 'Spinach (soil improvement)', 'Calendula (healing energy)'],
+            'spinach' => ['Strawberry (ground cover)', 'Thyme (aromatic support)', 'Borage (mineral uptake)'],
+            'kale' => ['Nasturtium (pest control)', 'Dill (beneficial insects)', 'Chamomile (soil health)'],
+            'arugula' => ['Basil (flavor synergy)', 'Oregano (protection)', 'Parsley (companion support)']
+        ];
+        
+        return $companions[$cropType] ?? ['Marigold (universal companion)', 'Basil (harmony)', 'Chamomile (gentle healing)'];
+    }
+
+    private function getBasicLunarWisdom(): array
+    {
+        $currentDay = date('j');
+        $phase = $currentDay <= 7 ? 'waxing' : ($currentDay <= 14 ? 'full' : ($currentDay <= 21 ? 'waning' : 'new'));
+        
+        return [
+            'current_phase' => $phase,
+            'guidance' => "Current lunar energy supports {$phase} moon activities",
+            'planting_advice' => 'Plant seeds during new moon, transplant during waxing, harvest during full moon',
+            'cosmic_reminder' => 'Moon cycles guide the flow of water and energy in all living things'
+        ];
+    }
+
+    private function getBasicSacredSpacing(string $cropType): array
+    {
+        $baseSpacing = [
+            'lettuce' => 6, 'carrot' => 2, 'radish' => 1,
+            'spinach' => 4, 'kale' => 12, 'arugula' => 4
+        ];
+        
+        $spacing = $baseSpacing[$cropType] ?? 6;
+        $goldenRatio = 1.618;
+        
+        return [
+            'plant_spacing_inches' => $spacing,
+            'row_spacing_inches' => round($spacing * $goldenRatio, 1),
+            'bed_width_ratio' => $spacing * 8, // Fibonacci number
+            'path_width_ratio' => $spacing * 3, // Fibonacci number
+            'sacred_note' => 'Spacing based on golden ratio (φ = 1.618) and Fibonacci sequence'
+        ];
     }
 }

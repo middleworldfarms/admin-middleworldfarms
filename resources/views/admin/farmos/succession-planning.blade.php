@@ -65,148 +65,232 @@
                 </div>
                 
                 <div class="card-body">
-                    <form id="successionForm">
-                        <div class="row">
-                            <!-- Crop Selection -->
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="cropType" class="form-label">
-                                        <i class="fas fa-leaf"></i> Crop Type
-                                    </label>
-                                    <select class="form-select" id="cropType" name="crop_type" required>
-                                        <option value="">Select crop...</option>
-                                        @if(isset($cropData['types']))
-                                            @foreach($cropData['types'] as $crop)
-                                                <option value="{{ $crop['name'] }}">{{ $crop['label'] }}</option>
-                                            @endforeach
-                                        @else
-                                            @foreach(['lettuce', 'carrot', 'radish', 'spinach', 'kale', 'arugula', 'chard', 'beets', 'cilantro', 'dill', 'scallion', 'mesclun'] as $crop)
-                                                <option value="{{ $crop }}">{{ ucfirst($crop) }}</option>
-                                            @endforeach
-                                        @endif
-                                    </select>
-                                </div>
+                    <!-- Step Progress Indicator -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div class="step-indicator">
+                                <span class="badge bg-primary me-2" id="step1Badge">1</span>
+                                <span class="step-text" id="step1Text">Crop Selection</span>
                             </div>
-                            
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="variety" class="form-label">
-                                        <i class="fas fa-dna"></i> Variety
-                                    </label>
-                                    <select class="form-select" id="variety" name="variety">
-                                        <option value="">Select variety (optional)...</option>
-                                        <!-- Varieties will be populated by JavaScript -->
-                                    </select>
-                                    <div class="form-text">Optional - select a specific variety or leave blank</div>
-                                </div>
+                            <div class="step-indicator">
+                                <span class="badge bg-secondary me-2" id="step2Badge">2</span>
+                                <span class="step-text text-muted" id="step2Text">Variety & Method</span>
+                            </div>
+                            <div class="step-indicator">
+                                <span class="badge bg-secondary me-2" id="step3Badge">3</span>
+                                <span class="step-text text-muted" id="step3Text">Timeline Planning</span>
+                            </div>
+                            <div class="step-indicator">
+                                <span class="badge bg-secondary me-2" id="step4Badge">4</span>
+                                <span class="step-text text-muted" id="step4Text">Succession Details</span>
                             </div>
                         </div>
+                        <div class="progress" style="height: 4px;">
+                            <div class="progress-bar" role="progressbar" style="width: 25%" id="progressBar"></div>
+                        </div>
+                    </div>
 
-                        <!-- Planting Method -->
-                        <div class="row">
-                            <div class="col-md-12">
-                                <div class="mb-3">
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="directSow" name="direct_sow">
-                                        <label class="form-check-label" for="directSow">
-                                            <i class="fas fa-hand-paper"></i> <strong>Direct Sow Only</strong>
-                                            <small class="text-muted d-block">Check this for crops that are planted directly in the field (carrots, radishes, cut-and-come-again mixes, etc.)</small>
+                    <form id="successionForm">
+                        <!-- Step 1: Crop Selection -->
+                        <div class="step-section" id="step1Section">
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <div class="mb-3">
+                                        <label for="cropType" class="form-label">
+                                            <i class="fas fa-leaf"></i> Select Your Crop Type
                                         </label>
+                                        <select class="form-select form-select-lg" id="cropType" name="crop_type" required>
+                                            <option value="">Choose a crop to begin...</option>
+                                            @if(isset($cropData['types']))
+                                                @foreach($cropData['types'] as $crop)
+                                                    <option value="{{ $crop['name'] }}">{{ $crop['label'] }}</option>
+                                                @endforeach
+                                            @else
+                                                @foreach(['lettuce', 'carrot', 'radish', 'spinach', 'kale', 'arugula', 'chard', 'beets', 'cilantro', 'dill', 'scallion', 'mesclun'] as $crop)
+                                                    <option value="{{ $crop }}">{{ ucfirst($crop) }}</option>
+                                                @endforeach
+                                            @endif
+                                        </select>
+                                        <div class="form-text">Start by selecting the crop you want to plan successions for</div>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="row">
-                            <!-- Succession Parameters -->
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label for="successionCount" class="form-label">
-                                        <i class="fas fa-repeat"></i> Number of Successions
-                                    </label>
-                                    <input type="number" class="form-control" id="successionCount" 
-                                           name="succession_count" min="1" max="50" value="10" required>
-                                    <div class="form-text">Plan 1-50 successive plantings</div>
+                        <!-- Step 2: Variety & Planting Method -->
+                        <div class="step-section d-none" id="step2Section">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="variety" class="form-label">
+                                            <i class="fas fa-dna"></i> Variety (Optional)
+                                        </label>
+                                        <select class="form-select" id="variety" name="variety" disabled>
+                                            <option value="">Select variety (optional)...</option>
+                                            <!-- Varieties will be populated by JavaScript -->
+                                        </select>
+                                        <div class="form-text">Choose a specific variety or leave blank for general planning</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <div class="form-check form-switch mt-4">
+                                            <input class="form-check-input" type="checkbox" id="directSow" name="direct_sow" disabled>
+                                            <label class="form-check-label" for="directSow">
+                                                <i class="fas fa-hand-paper"></i> <strong>Direct Sow Only</strong>
+                                                <small class="text-muted d-block">For crops planted directly in the field</small>
+                                            </label>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label for="intervalDays" class="form-label">
-                                        <i class="fas fa-clock"></i> Interval (Days)
-                                    </label>
-                                    <input type="number" class="form-control" id="intervalDays" 
-                                           name="interval_days" min="1" max="365" value="14" required>
-                                    <div class="form-text">Days between each planting</div>
-                                </div>
-                            </div>
-                            
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label for="firstSeedingDate" class="form-label">
-                                        <i class="fas fa-calendar-day"></i> First Seeding Date
-                                    </label>
-                                    <input type="date" class="form-control" id="firstSeedingDate" 
-                                           name="first_seeding_date" value="{{ now()->format('Y-m-d') }}" required>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Crop Timing -->
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="mb-3" id="seedingToTransplantGroup">
-                                    <label for="seedingToTransplant" class="form-label">
-                                        <i class="fas fa-seedling"></i> Seeding to Transplant (Days)
-                                        <span class="badge bg-secondary ms-1" id="transplantOnlyBadge">Transplant Only</span>
-                                    </label>
-                                    <input type="number" class="form-control" id="seedingToTransplant" 
-                                           name="seeding_to_transplant_days" min="0" max="180" value="21">
-                                    <div class="form-text">Time from seeding to transplant (ignored for direct sow)</div>
-                                </div>
-                            </div>
-                            
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label for="transplantToHarvest" class="form-label">
-                                        <i class="fas fa-cut"></i> <span id="transplantToHarvestLabel">Transplant to Harvest (Days)</span>
-                                    </label>
-                                    <input type="number" class="form-control" id="transplantToHarvest" 
-                                           name="transplant_to_harvest_days" min="1" max="365" value="44" required>
-                                    <div class="form-text" id="transplantToHarvestHelp">Growing period from transplant to harvest</div>
-                                </div>
-                            </div>
-                            
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label for="harvestDuration" class="form-label">
-                                        <i class="fas fa-hourglass-half"></i> Harvest Window (Days)
-                                    </label>
-                                    <input type="number" class="form-control" id="harvestDuration" 
-                                           name="harvest_duration_days" min="1" max="90" value="14" required>
-                                    <div class="form-text">How long harvest lasts</div>
-                                </div>
+                            <div class="d-flex justify-content-end">
+                                <button type="button" class="btn btn-primary" id="proceedToTimeline" disabled>
+                                    Continue to Timeline <i class="fas fa-arrow-right"></i>
+                                </button>
                             </div>
                         </div>
 
-                        <!-- Bed Assignment -->
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="bedsPerPlanting" class="form-label">
-                                        <i class="fas fa-th-large"></i> Beds per Planting
-                                    </label>
-                                    <input type="number" class="form-control" id="bedsPerPlanting" 
-                                           name="beds_per_planting" min="1" max="10" value="1" required>
-                                    <div class="form-text">How many beds for each succession</div>
-                                </div>
+                        <!-- Step 3: Timeline Planning (Gantt Chart) -->
+                        <div class="step-section d-none" id="step3Section">
+                            <div class="mb-3">
+                                <h6><i class="fas fa-calendar-alt"></i> Drag & Drop Timeline Planning</h6>
+                                <p class="text-muted">Drag the start and end dates to set your succession timeline</p>
                             </div>
                             
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <div class="form-check mt-4">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="firstSeedingDate" class="form-label">
+                                            <i class="fas fa-calendar-day"></i> First Seeding Date
+                                        </label>
+                                        <input type="date" class="form-control" id="firstSeedingDate" 
+                                               name="first_seeding_date" value="{{ now()->format('Y-m-d') }}" required disabled>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="lastSeedingDate" class="form-label">
+                                            <i class="fas fa-calendar-check"></i> Last Seeding Date
+                                        </label>
+                                        <input type="date" class="form-control" id="lastSeedingDate" 
+                                               name="last_seeding_date" value="{{ now()->addMonths(3)->format('Y-m-d') }}" disabled>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Interactive Timeline (placeholder for Gantt chart) -->
+                            <div class="timeline-container mb-4" id="timelineContainer">
+                                <div class="timeline-header">
+                                    <div class="timeline-label">Timeline Overview</div>
+                                </div>
+                                <div class="timeline-body" style="height: 200px; border: 2px dashed #dee2e6; border-radius: 8px; background: #f8f9fa; display: flex; align-items: center; justify-content: center;">
+                                    <div class="text-muted">
+                                        <i class="fas fa-chart-gantt fa-3x mb-3"></i>
+                                        <p>Interactive Gantt Chart will appear here</p>
+                                        <small>Drag timeline markers to adjust your succession schedule</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-between">
+                                <button type="button" class="btn btn-outline-secondary" id="backToVariety">
+                                    <i class="fas fa-arrow-left"></i> Back to Variety
+                                </button>
+                                <button type="button" class="btn btn-primary" id="proceedToDetails" disabled>
+                                    Continue to Details <i class="fas fa-arrow-right"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Step 4: Succession Details (Numbers Section) -->
+                        <div class="step-section d-none" id="step4Section">
+                            <div class="mb-3">
+                                <h6><i class="fas fa-calculator"></i> Succession Numbers & Details</h6>
+                                <p class="text-muted">Configure the precise details of your succession plan</p>
+                            </div>
+
+                            <div class="row">
+                                <!-- Succession Parameters -->
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="successionCount" class="form-label">
+                                            <i class="fas fa-repeat"></i> Number of Successions
+                                        </label>
+                                        <input type="number" class="form-control" id="successionCount" 
+                                               name="succession_count" min="1" max="50" value="10" required disabled>
+                                        <div class="form-text">Plan 1-50 successive plantings</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="intervalDays" class="form-label">
+                                            <i class="fas fa-clock"></i> Interval (Days)
+                                        </label>
+                                        <input type="number" class="form-control" id="intervalDays" 
+                                               name="interval_days" min="1" max="365" value="14" required disabled>
+                                        <div class="form-text">Days between each planting</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="harvestDuration" class="form-label">
+                                            <i class="fas fa-hourglass-half"></i> Harvest Window (Days)
+                                        </label>
+                                        <input type="number" class="form-control" id="harvestDuration" 
+                                               name="harvest_duration_days" min="1" max="90" value="14" required disabled>
+                                        <div class="form-text">How long harvest lasts</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Crop Timing -->
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3" id="seedingToTransplantGroup">
+                                        <label for="seedingToTransplant" class="form-label">
+                                            <i class="fas fa-seedling"></i> Seeding to Transplant (Days)
+                                            <span class="badge bg-secondary ms-1" id="transplantOnlyBadge">Transplant Only</span>
+                                        </label>
+                                        <input type="number" class="form-control" id="seedingToTransplant" 
+                                               name="seeding_to_transplant_days" min="0" max="180" value="21" disabled>
+                                        <div class="form-text">Time from seeding to transplant (ignored for direct sow)</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="transplantToHarvest" class="form-label">
+                                            <i class="fas fa-cut"></i> <span id="transplantToHarvestLabel">Transplant to Harvest (Days)</span>
+                                        </label>
+                                        <input type="number" class="form-control" id="transplantToHarvest" 
+                                               name="transplant_to_harvest_days" min="1" max="365" value="44" required disabled>
+                                        <div class="form-text" id="transplantToHarvestHelp">Growing period from transplant to harvest</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="bedsPerPlanting" class="form-label">
+                                            <i class="fas fa-th-large"></i> Beds per Planting
+                                        </label>
+                                        <input type="number" class="form-control" id="bedsPerPlanting" 
+                                               name="beds_per_planting" min="1" max="10" value="1" required disabled>
+                                        <div class="form-text">How many beds for each succession</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Advanced Options -->
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-check">
                                         <input class="form-check-input" type="checkbox" id="autoAssignBeds" 
-                                               name="auto_assign_beds" checked>
+                                               name="auto_assign_beds" checked disabled>
                                         <label class="form-check-label" for="autoAssignBeds">
                                             <i class="fas fa-magic"></i> AI Auto-Assign Beds
                                         </label>
@@ -214,28 +298,33 @@
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Notes -->
-                        <div class="mb-3">
-                            <label for="notes" class="form-label">
-                                <i class="fas fa-sticky-note"></i> Notes
-                            </label>
-                            <textarea class="form-control" id="notes" name="notes" rows="2" 
-                                      placeholder="Additional notes for this succession plan..."></textarea>
-                        </div>
+                            <!-- Notes -->
+                            <div class="mb-3">
+                                <label for="notes" class="form-label">
+                                    <i class="fas fa-sticky-note"></i> Notes
+                                </label>
+                                <textarea class="form-control" id="notes" name="notes" rows="2" 
+                                          placeholder="Additional notes for this succession plan..." disabled></textarea>
+                            </div>
 
-                        <!-- Action Buttons -->
-                        <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-primary" id="generatePlan">
-                                <i class="fas fa-magic"></i> Generate Plan with AI
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary" id="usePreset">
-                                <i class="fas fa-download"></i> Use Crop Preset
-                            </button>
-                            <button type="reset" class="btn btn-outline-danger">
-                                <i class="fas fa-undo"></i> Reset
-                            </button>
+                            <!-- Final Action Buttons -->
+                            <div class="d-flex justify-content-between">
+                                <button type="button" class="btn btn-outline-secondary" id="backToTimeline">
+                                    <i class="fas fa-arrow-left"></i> Back to Timeline
+                                </button>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-primary" id="generatePlan" disabled>
+                                        <i class="fas fa-magic"></i> Generate Plan with AI
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" id="usePreset" disabled>
+                                        <i class="fas fa-download"></i> Use Crop Preset
+                                    </button>
+                                    <button type="reset" class="btn btn-outline-danger">
+                                        <i class="fas fa-undo"></i> Reset
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -267,25 +356,131 @@
                 </div>
             </div>
 
-            <!-- AI Assistant -->
-            <div class="card mb-3">
+            <!-- 🌟 Holistic AI Assistant - Symbiosis -->
+            <div class="card mb-3 border-primary">
                 <div class="card-header bg-gradient-primary text-white">
-                    <h6 class="mb-0"><i class="fas fa-robot"></i> AI Assistant</h6>
+                    <h6 class="mb-0">
+                        <i class="fas fa-moon"></i> Holistic AI Assistant - Symbiosis
+                        <small class="opacity-75 float-end">Sacred Geometry • Lunar Cycles</small>
+                    </h6>
                 </div>
                 <div class="card-body">
-                    <div id="aiAssistant">
-                        <p class="text-muted small">
-                            <i class="fas fa-lightbulb"></i> Select a crop to get AI-powered recommendations for:
-                        </p>
-                        <ul class="small text-muted">
-                            <li>Optimal planting intervals</li>
-                            <li>Best bed rotation strategy</li>
-                            <li>Seasonal timing adjustments</li>
-                            <li>Conflict resolution</li>
-                        </ul>
-                        <button class="btn btn-outline-primary btn-sm w-100" id="askAI" disabled>
-                            <i class="fas fa-brain"></i> Get AI Recommendations
-                        </button>
+                    <div id="holisticAI">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <p class="text-muted small mb-0">
+                                <i class="fas fa-star"></i> Select a crop to receive wisdom combining:
+                            </p>
+                            <span class="badge bg-success" title="Symbiosis now references Biodynamic Principles">
+                                <i class="fas fa-book-open"></i> Biodynamic Principles Referenced
+                            </span>
+                        </div>
+                        <div class="row small">
+                            <div class="col-6">
+                                <ul class="text-muted mb-2">
+                                    <li>🌀 Sacred geometry spacing</li>
+                                    <li>🌙 Lunar cycle timing</li>
+                                    <li>🌱 Biodynamic preparations</li>
+                                </ul>
+                            </div>
+                            <div class="col-6">
+                                <ul class="text-muted mb-2">
+                                    <li>🌸 Companion mandalas</li>
+                                    <li>⭐ Cosmic energy flows</li>
+                                    <li>🍃 Elemental harmonies</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <a href="https://www.researchgate.net/publication/381473107_Biodynamic_Farming_Principle_and_Practices" target="_blank" rel="noopener" class="small text-primary">
+                                <i class="fas fa-external-link-alt"></i> View Biodynamic Principles Source
+                            </a>
+                        </div>
+                        
+                        <!-- Current Lunar Phase Display -->
+                        <div class="alert alert-info py-2 mb-2" id="lunarPhaseDisplay">
+                            <small>
+                                <i class="fas fa-moon"></i> 
+                                <span id="currentMoonPhase">Loading lunar phase...</span>
+                            </small>
+                        </div>
+                        
+                        <div class="btn-group w-100" role="group">
+                            <button class="btn btn-outline-primary btn-sm" id="getHolisticWisdom" disabled>
+                                <i class="fas fa-star"></i> Holistic Wisdom
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" id="getSacredSpacing" disabled>
+                                <i class="fas fa-geometry"></i> Sacred Spacing
+                            </button>
+                            <button class="btn btn-outline-info btn-sm" id="getMoonGuidance">
+                                <i class="fas fa-moon"></i> Lunar Guide
+                            </button>
+                        </div>
+                        
+                        <!-- Holistic Recommendations Display -->
+                        <div id="holisticRecommendations" class="mt-3" style="display: none;">
+                            <div class="card border-light">
+                                <div class="card-body p-2">
+                                    <div id="holisticContent">
+                                        <!-- Dynamic holistic content will be loaded here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Chat with Symbiosis Interface -->
+                        <div class="mt-3">
+                            <div class="card border-success">
+                                <div class="card-header bg-light py-2">
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-comments text-success"></i> Chat with Symbiosis
+                                        <small class="text-muted">Ask anything about farming</small>
+                                    </h6>
+                                </div>
+                                <div class="card-body p-2">
+                                    <!-- Chat Messages Container -->
+                                    <div id="chatMessages" class="chat-container mb-2" style="height: 200px; overflow-y: auto; background: #f8f9fa; border-radius: 6px; padding: 8px;">
+                                        <div class="chat-message system-message">
+                                            <small class="text-muted">
+                                                <i class="fas fa-sparkles"></i> 
+                                                Symbiosis is ready to share agricultural wisdom. Ask about crops, timing, or cosmic farming insights!
+                                            </small>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Chat Input -->
+                                    <div class="input-group">
+                                        <input type="text" 
+                                               class="form-control form-control-sm" 
+                                               id="chatInput" 
+                                               placeholder="Ask Symbiosis about farming wisdom..."
+                                               maxlength="200">
+                                        <button class="btn btn-success btn-sm" 
+                                                type="button" 
+                                                id="sendChatMessage">
+                                            <i class="fas fa-paper-plane"></i>
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Quick Question Buttons -->
+                                    <div class="mt-2">
+                                        <div class="btn-group-vertical w-100" role="group">
+                                            <button class="btn btn-outline-success btn-sm mb-1 quick-question" 
+                                                    data-question="What should I plant this week?">
+                                                <i class="fas fa-calendar"></i> What should I plant this week?
+                                            </button>
+                                            <button class="btn btn-outline-success btn-sm mb-1 quick-question" 
+                                                    data-question="How do lunar cycles affect my crops?">
+                                                <i class="fas fa-moon"></i> How do lunar cycles affect crops?
+                                            </button>
+                                            <button class="btn btn-outline-success btn-sm quick-question" 
+                                                    data-question="Show me sacred geometry spacing for companion planting">
+                                                <i class="fas fa-geometry"></i> Sacred geometry spacing tips
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -497,6 +692,56 @@ console.log('Succession planning JS loading...');
 const cropPresets = @json($cropPresets ?? []);
 const cropData = @json($cropData ?? ['types' => [], 'varieties' => []]);
 
+// Populate varieties dropdown based on selected crop type
+function populateVarieties(cropType) {
+    const varietySelect = document.getElementById('variety');
+    
+    // Clear existing options
+    varietySelect.innerHTML = '<option value="">Select variety...</option>';
+    
+    if (!cropType || !cropData.varieties) {
+        return;
+    }
+    
+    console.log('Populating varieties for crop type:', cropType);
+    console.log('Available varieties:', cropData.varieties.length);
+    
+    // Since parent relationships show "virtual", we'll match varieties by description content
+    // that contains the plant type information
+    const availableVarieties = cropData.varieties.filter(variety => {
+        // Look for crop type in the variety description
+        const description = variety.description || '';
+        const varietyName = variety.name.toLowerCase();
+        const searchTerm = cropType.toLowerCase();
+        
+        // Check if description contains "Plant Type: [cropType]"
+        return description.toLowerCase().includes('plant type: ' + searchTerm) ||
+               varietyName.includes(searchTerm);
+    });
+    
+    console.log('Filtered varieties for', cropType, ':', availableVarieties.length);
+    
+    // Add varieties to dropdown
+    availableVarieties.forEach(variety => {
+        const option = document.createElement('option');
+        option.value = variety.name;
+        option.textContent = variety.name;
+        varietySelect.appendChild(option);
+    });
+    
+    // If no specific varieties found, show message
+    if (availableVarieties.length === 0) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = 'No varieties found for ' + cropType;
+        option.disabled = true;
+        varietySelect.appendChild(option);
+    }
+    
+    // Make variety selection required
+    varietySelect.required = true;
+}
+
 // Global test function for debugging
 window.testCropChange = function() {
     console.log('Manual test function called');
@@ -619,7 +864,458 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     simpleLog('Basic initialization complete');
+    
+    // Step-by-step workflow initialization
+    initializeStepWorkflow();
+    
+    // Initialize Symbiosis chat interface
+    initializeChatInterface();
 });
+
+// Step-by-step workflow functionality
+function initializeStepWorkflow() {
+    let currentStep = 1;
+    const totalSteps = 4;
+    
+    // Update progress and step states
+    function updateStepProgress(step) {
+        currentStep = step;
+        const progressBar = document.getElementById('progressBar');
+        const progressPercentage = (step / totalSteps) * 100;
+        
+        if (progressBar) {
+            progressBar.style.width = progressPercentage + '%';
+        }
+        
+        // Update step badges and text colors
+        for (let i = 1; i <= totalSteps; i++) {
+            const badge = document.getElementById(`step${i}Badge`);
+            const text = document.getElementById(`step${i}Text`);
+            
+            if (badge && text) {
+                if (i <= step) {
+                    badge.className = 'badge bg-primary me-2';
+                    text.className = 'step-text';
+                } else {
+                    badge.className = 'badge bg-secondary me-2';
+                    text.className = 'step-text text-muted';
+                }
+            }
+        }
+        
+        // Show/hide step sections
+        for (let i = 1; i <= totalSteps; i++) {
+            const section = document.getElementById(`step${i}Section`);
+            if (section) {
+                if (i === step) {
+                    section.classList.remove('d-none');
+                } else {
+                    section.classList.add('d-none');
+                }
+            }
+        }
+    }
+    
+    // Step 1: Crop selection enables Step 2
+    const cropTypeSelect = document.getElementById('cropType');
+    if (cropTypeSelect) {
+        cropTypeSelect.addEventListener('change', function() {
+            if (this.value) {
+                // Enable variety selection and direct sow option
+                const varietySelect = document.getElementById('variety');
+                const directSowCheckbox = document.getElementById('directSow');
+                const proceedBtn = document.getElementById('proceedToTimeline');
+                
+                if (varietySelect) varietySelect.disabled = false;
+                if (directSowCheckbox) directSowCheckbox.disabled = false;
+                if (proceedBtn) proceedBtn.disabled = false;
+                
+                // Move to step 2
+                updateStepProgress(2);
+                
+                // Populate varieties for selected crop
+                populateVarieties(this.value);
+                
+                // Apply preset if available
+                handleCropTypeChange({ target: this });
+            }
+        });
+    }
+    
+    // Step 2: Proceed to timeline
+    const proceedToTimelineBtn = document.getElementById('proceedToTimeline');
+    if (proceedToTimelineBtn) {
+        proceedToTimelineBtn.addEventListener('click', function() {
+            // Enable timeline controls
+            const firstSeedingDate = document.getElementById('firstSeedingDate');
+            const lastSeedingDate = document.getElementById('lastSeedingDate');
+            const proceedToDetailsBtn = document.getElementById('proceedToDetails');
+            
+            if (firstSeedingDate) firstSeedingDate.disabled = false;
+            if (lastSeedingDate) lastSeedingDate.disabled = false;
+            if (proceedToDetailsBtn) proceedToDetailsBtn.disabled = false;
+            
+            // Move to step 3
+            updateStepProgress(3);
+            
+            // Initialize simple timeline visualization
+            initializeTimelineVisualization();
+        });
+    }
+    
+    // Step 3: Proceed to details
+    const proceedToDetailsBtn = document.getElementById('proceedToDetails');
+    if (proceedToDetailsBtn) {
+        proceedToDetailsBtn.addEventListener('click', function() {
+            // Enable all detail inputs
+            const detailInputs = document.querySelectorAll('#step4Section input, #step4Section textarea, #step4Section select');
+            detailInputs.forEach(input => {
+                input.disabled = false;
+            });
+            
+            // Move to step 4
+            updateStepProgress(4);
+        });
+    }
+    
+    // Back buttons
+    const backToVarietyBtn = document.getElementById('backToVariety');
+    if (backToVarietyBtn) {
+        backToVarietyBtn.addEventListener('click', function() {
+            updateStepProgress(2);
+        });
+    }
+    
+    const backToTimelineBtn = document.getElementById('backToTimeline');
+    if (backToTimelineBtn) {
+        backToTimelineBtn.addEventListener('click', function() {
+            updateStepProgress(3);
+        });
+    }
+    
+    // Initialize with step 1
+    updateStepProgress(1);
+}
+
+// Simple timeline visualization for step 3
+function initializeTimelineVisualization() {
+    const timelineContainer = document.querySelector('#timelineContainer .timeline-body');
+    if (timelineContainer) {
+        const firstDate = document.getElementById('firstSeedingDate').value;
+        const lastDate = document.getElementById('lastSeedingDate').value;
+        
+        if (firstDate && lastDate) {
+            const start = new Date(firstDate);
+            const end = new Date(lastDate);
+            const diffTime = Math.abs(end - start);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            timelineContainer.innerHTML = `
+                <div class="timeline-visualization p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="timeline-marker">
+                            <i class="fas fa-play-circle text-success"></i>
+                            <small class="d-block">Start: ${start.toLocaleDateString()}</small>
+                        </div>
+                        <div class="timeline-duration">
+                            <div class="progress" style="width: 200px; height: 20px;">
+                                <div class="progress-bar bg-success" style="width: 100%">${diffDays} days</div>
+                            </div>
+                        </div>
+                        <div class="timeline-marker">
+                            <i class="fas fa-stop-circle text-danger"></i>
+                            <small class="d-block">End: ${end.toLocaleDateString()}</small>
+                        </div>
+                    </div>
+                    <p class="text-center text-muted mb-0">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Timeline spans ${diffDays} days - adjust dates above to modify
+                    </p>
+                </div>
+            `;
+        }
+    }
+    
+    // Add listeners for date changes to update timeline
+    const firstSeedingDate = document.getElementById('firstSeedingDate');
+    const lastSeedingDate = document.getElementById('lastSeedingDate');
+    
+    if (firstSeedingDate && lastSeedingDate) {
+        [firstSeedingDate, lastSeedingDate].forEach(dateInput => {
+            dateInput.addEventListener('change', initializeTimelineVisualization);
+        });
+    }
+}
+
+// Symbiosis Chat Functionality
+function initializeChatInterface() {
+    const chatInput = document.getElementById('chatInput');
+    const sendButton = document.getElementById('sendChatMessage');
+    const chatMessages = document.getElementById('chatMessages');
+    const quickQuestionButtons = document.querySelectorAll('.quick-question');
+    
+    // Handle send button click
+    if (sendButton) {
+        sendButton.addEventListener('click', sendChatMessage);
+    }
+    
+    // Handle enter key in chat input
+    if (chatInput) {
+        chatInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendChatMessage();
+            }
+        });
+    }
+    
+    // Handle quick question buttons
+    quickQuestionButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const question = this.getAttribute('data-question');
+            document.getElementById('chatInput').value = question;
+            sendChatMessage();
+        });
+    });
+}
+
+async function sendChatMessage() {
+    const chatInput = document.getElementById('chatInput');
+    const chatMessages = document.getElementById('chatMessages');
+    const message = chatInput.value.trim();
+    
+    if (!message) return;
+    
+    // Add user message to chat
+    addChatMessage('user', message);
+    
+    // Clear input
+    chatInput.value = '';
+    
+    // Show typing indicator
+    addTypingIndicator();
+    
+    try {
+        // Get current crop context
+        const cropType = document.getElementById('cropType').value;
+        const season = getCurrentSeason();
+        
+        // Try multiple ports for Symbiosis AI service
+        let response;
+        let aiServiceUrl;
+        
+        // Try port 8001 first, then 8002
+        for (const port of [8001, 8002]) {
+            try {
+                aiServiceUrl = `http://localhost:${port}/ask`;
+                response = await fetch(aiServiceUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        question: message,
+                        crop_type: cropType || null,
+                        season: season,
+                        context: 'succession_planning'
+                    }),
+                    signal: AbortSignal.timeout(10000) // 10 second timeout
+                });
+                
+                if (response.ok) {
+                    console.log(`Connected to Symbiosis AI on port ${port}`);
+                    break;
+                }
+            } catch (portError) {
+                console.log(`Port ${port} failed:`, portError.message);
+                continue;
+            }
+        }
+        
+        if (response && response.ok) {
+            const data = await response.json();
+            
+            // Remove typing indicator
+            removeTypingIndicator();
+            
+            // Add AI response
+            addChatMessage('ai', data.answer || data.wisdom, data);
+        } else {
+            removeTypingIndicator();
+            
+            // Provide fallback wisdom when AI service is unavailable
+            const fallbackWisdom = getFallbackWisdom(message, cropType);
+            addChatMessage('ai', fallbackWisdom, null, false);
+        }
+        
+    } catch (error) {
+        console.error('Chat error:', error);
+        removeTypingIndicator();
+        
+        // Provide fallback wisdom instead of error message
+        const fallbackWisdom = getFallbackWisdom(message, cropType);
+        addChatMessage('ai', `💫 ${fallbackWisdom} (Fallback wisdom - AI service unavailable)`, null, false);
+    }
+}
+
+function addChatMessage(type, message, data = null, isError = false) {
+    const chatMessages = document.getElementById('chatMessages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `chat-message ${type}-message mb-2`;
+    
+    const timestamp = new Date().toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+    });
+    
+    if (type === 'user') {
+        messageDiv.innerHTML = `
+            <div class="d-flex justify-content-end">
+                <div class="bg-primary text-white rounded px-2 py-1 small" style="max-width: 80%;">
+                    ${message}
+                    <div class="text-end mt-1 opacity-75" style="font-size: 0.7rem;">${timestamp}</div>
+                </div>
+            </div>
+        `;
+    } else {
+        const errorClass = isError ? 'bg-warning text-dark' : 'bg-light border';
+        const icon = isError ? 'fas fa-exclamation-triangle' : 'fas fa-sparkles';
+        
+        let responseContent = message;
+        
+        // If we have structured data, format it nicely
+        if (data && data.recommendation) {
+            responseContent += `
+                <div class="mt-2">
+                    <small class="text-muted">
+                        <i class="fas fa-moon"></i> Moon Phase: ${data.moon_phase || 'Unknown'}
+                    </small>
+                </div>
+            `;
+        }
+        
+        messageDiv.innerHTML = `
+            <div class="d-flex">
+                <div class="${errorClass} rounded px-2 py-1 small" style="max-width: 80%;">
+                    <i class="${icon} me-1"></i>
+                    ${responseContent}
+                    <div class="mt-1 text-muted" style="font-size: 0.7rem;">${timestamp}</div>
+                </div>
+            </div>
+        `;
+    }
+    
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function addTypingIndicator() {
+    const chatMessages = document.getElementById('chatMessages');
+    const typingDiv = document.createElement('div');
+    typingDiv.id = 'typingIndicator';
+    typingDiv.className = 'chat-message ai-message mb-2';
+    typingDiv.innerHTML = `
+        <div class="d-flex">
+            <div class="bg-light border rounded px-2 py-1 small">
+                <i class="fas fa-sparkles me-1"></i>
+                <span class="typing-dots">Symbiosis is thinking</span>
+                <span class="dots">...</span>
+            </div>
+        </div>
+    `;
+    
+    chatMessages.appendChild(typingDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+    // Animate dots
+    const dots = typingDiv.querySelector('.dots');
+    let dotCount = 0;
+    typingDiv.dotAnimation = setInterval(() => {
+        dotCount = (dotCount + 1) % 4;
+        dots.textContent = '.'.repeat(dotCount);
+    }, 500);
+}
+
+function removeTypingIndicator() {
+    const typingIndicator = document.getElementById('typingIndicator');
+    if (typingIndicator) {
+        if (typingIndicator.dotAnimation) {
+            clearInterval(typingIndicator.dotAnimation);
+        }
+        typingIndicator.remove();
+    }
+}
+
+function getCurrentSeason() {
+    const month = new Date().getMonth();
+    if (month >= 2 && month <= 4) return 'spring';
+    if (month >= 5 && month <= 7) return 'summer';
+    if (month >= 8 && month <= 10) return 'fall';
+    return 'winter';
+}
+
+function getFallbackWisdom(question, cropType) {
+    const lowerQuestion = question.toLowerCase();
+    const crop = cropType || 'your crops';
+    
+    // Moon phase wisdom
+    if (lowerQuestion.includes('moon') || lowerQuestion.includes('lunar') || lowerQuestion.includes('phase')) {
+        const currentPhase = getCurrentMoonPhase();
+        return `🌙 Current moon phase is ${currentPhase}. ${getMoonPhaseAdvice(currentPhase, crop)}`;
+    }
+    
+    // Planting timing
+    if (lowerQuestion.includes('plant') || lowerQuestion.includes('when') || lowerQuestion.includes('timing')) {
+        const season = getCurrentSeason();
+        return `🌱 For ${crop} in ${season}: Consider moon phases for optimal timing. New moon for seeds, first quarter for transplants, full moon for harvest. Sacred geometry suggests Fibonacci spacing: 1, 1, 2, 3, 5, 8 inches for companion arrangements.`;
+    }
+    
+    // Sacred geometry and spacing
+    if (lowerQuestion.includes('spacing') || lowerQuestion.includes('geometry') || lowerQuestion.includes('fibonacci')) {
+        return `📐 Sacred geometry for ${crop}: Use golden ratio (1:1.618) for row spacing. Plant in spiral patterns or hexagonal arrangements. Fibonacci sequence (1,1,2,3,5,8,13) creates natural harmony. Consider companion plants in concentric circles.`;
+    }
+    
+    // Companion planting
+    if (lowerQuestion.includes('companion') || lowerQuestion.includes('together') || lowerQuestion.includes('mandala')) {
+        return `🌸 Companion mandala for ${crop}: Create circular patterns with protective herbs on the outside, beneficial flowers in middle rings, and your main crop at center. Use triangular, square, pentagonal formations for different energy flows.`;
+    }
+    
+    // General wisdom
+    const wisdomResponses = [
+        `🌟 Agricultural wisdom flows through natural patterns. Consider the sacred geometry in ${crop} - the spiral of leaves, the fibonacci arrangement of seeds. Work with these patterns, not against them.`,
+        `🌙 The cosmos guides farming through lunar cycles. ${crop} responds to moon phases - new moon for planting, full moon for harvesting. Honor these ancient rhythms.`,
+        `🌱 Biodynamic principles suggest ${crop} has elemental associations. Root crops connect to earth, leafy greens to water, flowers to air, fruits to fire. Work with these energies.`,
+        `⭐ Sacred spacing creates harmony. Plant ${crop} using golden ratio proportions - 1:1.618. This creates natural flow and reduces competition while enhancing cooperation.`,
+        `🍃 Every plant is a bridge between earth and sky. ${crop} draws cosmic forces down while lifting earth energy up. Consider this energy flow in your garden design.`
+    ];
+    
+    return wisdomResponses[Math.floor(Math.random() * wisdomResponses.length)];
+}
+
+function getCurrentMoonPhase() {
+    const day = new Date().getDate();
+    if (day <= 3) return 'New Moon';
+    if (day <= 7) return 'Waxing Crescent';
+    if (day <= 10) return 'First Quarter';
+    if (day <= 14) return 'Waxing Gibbous';
+    if (day <= 17) return 'Full Moon';
+    if (day <= 21) return 'Waning Gibbous';
+    if (day <= 24) return 'Last Quarter';
+    return 'Waning Crescent';
+}
+
+function getMoonPhaseAdvice(phase, crop) {
+    const advice = {
+        'New Moon': `Perfect time to plant ${crop} seeds with intention and blessing ceremonies.`,
+        'Waxing Crescent': `Excellent for transplanting ${crop} seedlings - growth energy is building.`,
+        'First Quarter': `Good time for thinning ${crop} and applying growth preparations.`,
+        'Waxing Gibbous': `Focus on supporting ${crop} growth - pruning and strengthening.`,
+        'Full Moon': `Ideal for harvesting ${crop} at peak vitality and life force.`,
+        'Waning Gibbous': `Time to process ${crop} harvest and begin preservation work.`,
+        'Last Quarter': `Good for removing weak ${crop} plants and composting.`,
+        'Waning Crescent': `Rest period - plan future ${crop} plantings and restore soil energy.`
+    };
+    return advice[phase] || `Work with the natural rhythms for ${crop} cultivation.`;
+}
 
 // Additional Laravel-specific functions that need server data
 async function generateSuccessionPlan() {
@@ -653,6 +1349,138 @@ async function generateSuccessionPlan() {
 </script>
 
 <style>
+/* Step Workflow Styles */
+.step-indicator {
+    display: flex;
+    align-items: center;
+}
+
+.step-text {
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+.step-section {
+    transition: opacity 0.3s ease;
+    padding: 1.5rem;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    background: #fff;
+    margin-bottom: 1rem;
+}
+
+.step-section.d-none {
+    display: none !important;
+}
+
+.timeline-visualization {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 8px;
+    min-height: 120px;
+}
+
+.timeline-marker {
+    text-align: center;
+}
+
+.timeline-duration .progress {
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.step-section input:disabled,
+.step-section select:disabled,
+.step-section textarea:disabled {
+    background-color: #f8f9fa;
+    opacity: 0.6;
+}
+
+.badge {
+    font-size: 0.875rem;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+.progress {
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    transition: width 0.5s ease;
+}
+
+/* Chat Interface Styles */
+.chat-container {
+    border: 1px solid #dee2e6;
+    background: #f8f9fa;
+}
+
+.chat-message {
+    margin-bottom: 8px;
+}
+
+.user-message .bg-primary {
+    max-width: 85%;
+    word-wrap: break-word;
+}
+
+.ai-message .bg-light {
+    max-width: 85%;
+    word-wrap: break-word;
+}
+
+.quick-question {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    text-align: left;
+}
+
+.quick-question:hover {
+    transform: translateX(2px);
+    transition: transform 0.2s ease;
+}
+
+.typing-dots {
+    color: #6c757d;
+}
+
+.dots {
+    display: inline-block;
+    width: 20px;
+    text-align: left;
+}
+
+.chat-container::-webkit-scrollbar {
+    width: 4px;
+}
+
+.chat-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.chat-container::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.chat-container::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+.system-message {
+    text-align: center;
+    padding: 8px;
+    background: rgba(25, 135, 84, 0.1);
+    border-radius: 4px;
+    margin-bottom: 12px;
+}
+
 .preset-btn {
     transition: all 0.2s ease;
 }
@@ -1537,12 +2365,34 @@ function setupEventListeners() {
         debugLog('ERROR: cropType element not found!', 'error');
     }
 
-    // AI Assistant
+    // 🌟 Holistic AI Assistant Event Listeners
+    const holisticWisdomBtn = document.getElementById('getHolisticWisdom');
+    if (holisticWisdomBtn) {
+        holisticWisdomBtn.addEventListener('click', getHolisticWisdom);
+        debugLog('Holistic wisdom button listener added', 'info');
+    }
+    
+    const sacredSpacingBtn = document.getElementById('getSacredSpacing');
+    if (sacredSpacingBtn) {
+        sacredSpacingBtn.addEventListener('click', getSacredSpacing);
+        debugLog('Sacred spacing button listener added', 'info');
+    }
+    
+    const moonGuidanceBtn = document.getElementById('getMoonGuidance');
+    if (moonGuidanceBtn) {
+        moonGuidanceBtn.addEventListener('click', getMoonGuidance);
+        debugLog('Moon guidance button listener added', 'info');
+    }
+
+    // AI Assistant (keep for backward compatibility)
     const aiBtn = document.getElementById('askAI');
     if (aiBtn) {
         aiBtn.addEventListener('click', getAIRecommendations);
         debugLog('AI assistant button listener added', 'info');
     }
+    
+    // Initialize lunar phase display
+    loadCurrentMoonPhase();
     
     // Direct sow checkbox
     const directSowBtn = document.getElementById('directSow');
@@ -2147,6 +2997,418 @@ function toggleDirectSowMode(isDirectSow) {
         transplantToHarvestLabel.innerHTML = '<i class="fas fa-cut"></i> Transplant to Harvest (Days)';
         transplantToHarvestHelp.textContent = 'Growing period from transplant to harvest';
     }
+}
+
+// 🌟 Holistic AI Functions - Sacred Geometry, Lunar Cycles, Biodynamic Wisdom
+
+async function loadCurrentMoonPhase() {
+    try {
+        debugLog('Loading current moon phase...', 'info');
+        
+        const response = await fetch('/admin/api/ai/moon-phase', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            const phaseDisplay = document.getElementById('currentMoonPhase');
+            
+            if (phaseDisplay && data.lunar_guidance) {
+                const phase = data.lunar_guidance.current_phase || 'unknown';
+                const advice = data.lunar_guidance.guidance || 'Cosmic energies flowing...';
+                
+                phaseDisplay.innerHTML = `<strong>${formatMoonPhase(phase)}</strong> - ${advice}`;
+                debugLog(`Moon phase loaded: ${phase}`, 'success');
+            }
+        } else {
+            document.getElementById('currentMoonPhase').textContent = 'Cosmic timing guidance available upon crop selection';
+        }
+    } catch (error) {
+        debugLog('Moon phase loading error: ' + error.message, 'warning');
+        document.getElementById('currentMoonPhase').textContent = 'Ancient lunar wisdom guides your farming';
+    }
+}
+
+function formatMoonPhase(phase) {
+    const phases = {
+        'new_moon': '🌑 New Moon',
+        'waxing_crescent': '🌒 Waxing Crescent', 
+        'first_quarter': '🌓 First Quarter',
+        'waxing_gibbous': '🌔 Waxing Gibbous',
+        'full_moon': '🌕 Full Moon',
+        'waning_gibbous': '🌖 Waning Gibbous',
+        'last_quarter': '🌗 Last Quarter',
+        'waning_crescent': '🌘 Waning Crescent',
+        'waxing': '🌒 Waxing Moon',
+        'waning': '🌘 Waning Moon',
+        'full': '🌕 Full Moon'
+    };
+    
+    return phases[phase] || `🌙 ${phase.replace('_', ' ').toUpperCase()}`;
+}
+
+async function getHolisticWisdom() {
+    const cropType = document.getElementById('cropType').value;
+    if (!cropType) {
+        showNotification('Please select a crop first', 'warning');
+        return;
+    }
+    
+    const button = document.getElementById('getHolisticWisdom');
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Channeling Wisdom...';
+    button.disabled = true;
+    
+    try {
+        debugLog(`🌟 Getting holistic wisdom for ${cropType}`, 'info');
+        
+        const response = await fetch('/admin/api/ai/holistic-recommendations', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify({
+                crop_type: cropType,
+                season: getCurrentSeason()
+            })
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            displayHolisticWisdom(data);
+            debugLog('✨ Holistic wisdom received', 'success');
+        } else {
+            throw new Error('Holistic service temporarily unavailable');
+        }
+        
+    } catch (error) {
+        debugLog('Holistic wisdom error: ' + error.message, 'error');
+        displayFallbackWisdom(cropType);
+    } finally {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    }
+}
+
+async function getSacredSpacing() {
+    const cropType = document.getElementById('cropType').value;
+    if (!cropType) {
+        showNotification('Please select a crop first', 'warning');
+        return;
+    }
+    
+    const button = document.getElementById('getSacredSpacing');
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Calculating...';
+    button.disabled = true;
+    
+    try {
+        debugLog(`🌀 Getting sacred spacing for ${cropType}`, 'info');
+        
+        const response = await fetch('/admin/api/ai/sacred-spacing', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify({
+                crop_type: cropType
+            })
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            displaySacredSpacing(data);
+            debugLog('🌀 Sacred spacing calculated', 'success');
+        } else {
+            throw new Error('Sacred geometry service temporarily unavailable');
+        }
+        
+    } catch (error) {
+        debugLog('Sacred spacing error: ' + error.message, 'error');
+        displayFallbackSpacing(cropType);
+    } finally {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    }
+}
+
+async function getMoonGuidance() {
+    const button = document.getElementById('getMoonGuidance');
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Consulting...';
+    button.disabled = true;
+    
+    try {
+        debugLog('🌙 Getting lunar guidance', 'info');
+        
+        const response = await fetch('/admin/api/ai/moon-phase', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            displayLunarGuidance(data);
+            debugLog('🌙 Lunar guidance received', 'success');
+        } else {
+            throw new Error('Lunar service temporarily unavailable');
+        }
+        
+    } catch (error) {
+        debugLog('Lunar guidance error: ' + error.message, 'error');
+        displayFallbackLunarGuidance();
+    } finally {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    }
+}
+
+function displayHolisticWisdom(data) {
+    const container = document.getElementById('holisticRecommendations');
+    const content = document.getElementById('holisticContent');
+    
+    let html = `
+        <div class="holistic-wisdom">
+            <h6 class="text-primary mb-2">
+                <i class="fas fa-star"></i> Holistic Wisdom for ${data.crop || 'Your Crop'}
+            </h6>
+    `;
+    
+    if (data.holistic_wisdom && data.holistic_wisdom.sacred_geometry_advice) {
+        html += `
+            <div class="wisdom-section mb-3">
+                <strong class="text-success">🌀 Sacred Geometry:</strong>
+                <ul class="small mt-1 mb-2">
+        `;
+        data.holistic_wisdom.sacred_geometry_advice.forEach(advice => {
+            html += `<li>${advice}</li>`;
+        });
+        html += `</ul></div>`;
+    }
+    
+    if (data.holistic_wisdom && data.holistic_wisdom.companion_mandala) {
+        html += `
+            <div class="wisdom-section mb-3">
+                <strong class="text-info">🌸 Companion Mandala:</strong>
+                <ul class="small mt-1 mb-2">
+        `;
+        data.holistic_wisdom.companion_mandala.forEach(pattern => {
+            html += `<li>${pattern}</li>`;
+        });
+        html += `</ul></div>`;
+    }
+    
+    if (data.integration_notes) {
+        html += `
+            <div class="wisdom-section">
+                <strong class="text-warning">⭐ Integration Notes:</strong>
+                <ul class="small mt-1">
+        `;
+        data.integration_notes.forEach(note => {
+            html += `<li>${note}</li>`;
+        });
+        html += `</ul></div>`;
+    }
+    
+    html += `</div>`;
+    
+    content.innerHTML = html;
+    container.style.display = 'block';
+    
+    showNotification('Holistic wisdom channeled successfully! ✨', 'success');
+}
+
+function displaySacredSpacing(data) {
+    const container = document.getElementById('holisticRecommendations');
+    const content = document.getElementById('holisticContent');
+    
+    let html = `
+        <div class="sacred-spacing">
+            <h6 class="text-primary mb-2">
+                <i class="fas fa-geometry"></i> Sacred Geometry Spacing
+            </h6>
+    `;
+    
+    if (data.sacred_spacing) {
+        const spacing = data.sacred_spacing;
+        html += `
+            <div class="spacing-grid">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <div class="card border-light mb-2">
+                            <div class="card-body p-2">
+                                <strong class="text-success">${spacing.plant_spacing_inches || spacing.plant_spacing || 'N/A'}"</strong>
+                                <br><small>Plant Spacing</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="card border-light mb-2">
+                            <div class="card-body p-2">
+                                <strong class="text-info">${spacing.row_spacing_inches || spacing.row_spacing || 'N/A'}"</strong>
+                                <br><small>Row Spacing (φ)</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <small class="text-muted">
+                <i class="fas fa-info-circle"></i> Based on golden ratio (φ = 1.618) and Fibonacci sequence for optimal energy flow
+            </small>
+        `;
+    }
+    
+    html += `</div>`;
+    
+    content.innerHTML = html;
+    container.style.display = 'block';
+    
+    showNotification('Sacred geometry calculations complete! 🌀', 'success');
+}
+
+function displayLunarGuidance(data) {
+    const container = document.getElementById('holisticRecommendations');
+    const content = document.getElementById('holisticContent');
+    
+    let html = `
+        <div class="lunar-guidance">
+            <h6 class="text-primary mb-2">
+                <i class="fas fa-moon"></i> Lunar Cycle Guidance
+            </h6>
+    `;
+    
+    if (data.lunar_guidance) {
+        const lunar = data.lunar_guidance;
+        html += `
+            <div class="current-phase text-center mb-3">
+                <div class="alert alert-info py-2">
+                    <strong>${formatMoonPhase(lunar.current_phase)}</strong>
+                    <br><small>${lunar.general_advice || lunar.guidance}</small>
+                </div>
+            </div>
+        `;
+        
+        if (lunar.best_activities) {
+            html += `
+                <div class="best-activities">
+                    <strong class="text-success">🌟 Optimal Activities:</strong>
+                    <ul class="small mt-1">
+            `;
+            lunar.best_activities.forEach(activity => {
+                html += `<li>${activity}</li>`;
+            });
+            html += `</ul></div>`;
+        }
+    }
+    
+    if (data.cosmic_wisdom) {
+        html += `
+            <div class="cosmic-wisdom mt-3">
+                <small class="text-muted">
+                    <i class="fas fa-star"></i> <strong>Cosmic Wisdom:</strong><br>
+                    ${Object.entries(data.cosmic_wisdom).map(([phase, wisdom]) => 
+                        `<strong>${formatMoonPhase(phase)}:</strong> ${wisdom}`
+                    ).slice(0, 2).join('<br>')}
+                </small>
+            </div>
+        `;
+    }
+    
+    html += `</div>`;
+    
+    content.innerHTML = html;
+    container.style.display = 'block';
+    
+    showNotification('Lunar wisdom revealed! 🌙', 'success');
+}
+
+function displayFallbackWisdom(cropType) {
+    const container = document.getElementById('holisticRecommendations');
+    const content = document.getElementById('holisticContent');
+    
+    content.innerHTML = `
+        <div class="fallback-wisdom">
+            <h6 class="text-primary mb-2">
+                <i class="fas fa-leaf"></i> Ancient Wisdom for ${cropType}
+            </h6>
+            <p class="small text-muted">
+                🌱 Every seed contains infinite potential. Plant with intention and gratitude.
+                <br>🌀 Use natural spacing patterns: 1, 1, 2, 3, 5, 8... (Fibonacci sequence)
+                <br>🌙 Align with lunar cycles - new moon for seeds, full moon for harvest
+                <br>⭐ Create harmony through companion plantings and sacred arrangements
+            </p>
+        </div>
+    `;
+    
+    container.style.display = 'block';
+    showNotification('Ancient wisdom flows while cosmic connections restore...', 'info');
+}
+
+function displayFallbackSpacing(cropType) {
+    const baseSpacing = {'lettuce': 6, 'carrot': 2, 'radish': 1, 'spinach': 4, 'kale': 12, 'arugula': 4};
+    const spacing = baseSpacing[cropType] || 6;
+    const goldenRatio = spacing * 1.618;
+    
+    displaySacredSpacing({
+        sacred_spacing: {
+            plant_spacing_inches: spacing,
+            row_spacing_inches: Math.round(goldenRatio * 10) / 10
+        }
+    });
+}
+
+function displayFallbackLunarGuidance() {
+    const currentDay = new Date().getDate();
+    const phase = currentDay <= 7 ? 'waxing_crescent' : 
+                 (currentDay <= 14 ? 'full_moon' : 
+                 (currentDay <= 21 ? 'waning_gibbous' : 'new_moon'));
+    
+    displayLunarGuidance({
+        lunar_guidance: {
+            current_phase: phase,
+            general_advice: 'Align your farming with natural lunar rhythms',
+            best_activities: [
+                'Plant seeds with intention and gratitude',
+                'Water plants during optimal lunar times',
+                'Harvest at peak energy for maximum vitality'
+            ]
+        }
+    });
+}
+
+// Enable/disable holistic AI buttons based on crop selection
+function updateHolisticAIButtons() {
+    const cropType = document.getElementById('cropType').value;
+    const hasSelection = !!cropType;
+    
+    document.getElementById('getHolisticWisdom').disabled = !hasSelection;
+    document.getElementById('getSacredSpacing').disabled = !hasSelection;
+    // Moon guidance is always available
+}
+
+// Hook into existing crop change handler to update holistic AI buttons
+const originalHandleCropTypeChange = window.handleCropTypeChange;
+if (typeof originalHandleCropTypeChange === 'function') {
+    window.handleCropTypeChange = function(event) {
+        originalHandleCropTypeChange(event);
+        updateHolisticAIButtons();
+    };
+} else {
+    // Fallback if function doesn't exist
+    document.addEventListener('change', function(event) {
+        if (event.target.id === 'cropType') {
+            updateHolisticAIButtons();
+        }
+    });
 }
 </script>
 
