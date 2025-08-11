@@ -24,6 +24,12 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
     // Admin dashboard route
     Route::get('/', [DashboardController::class, 'index'])->name('admin.dashboard');
 
+    // Weekly planting recommendations
+    Route::get('/planting-recommendations', [DashboardController::class, 'plantingRecommendations'])->name('admin.planting-recommendations');
+
+    // AI data catalog
+    Route::get('/api/data-catalog', [DashboardController::class, 'dataCatalog'])->name('admin.api.data-catalog');
+
     // FarmOS map data endpoint
     Route::get('/farmos-map-data', [DashboardController::class, 'farmosMapData'])->name('admin.farmos-map-data');
 
@@ -163,7 +169,24 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
     // AI API routes (outside farmOS group since they might be called differently)
     Route::prefix('api')->group(function () {
         Route::post('/ai/crop-timing', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'getAICropTiming'])->name('api.ai.crop-timing');
+        
+        // 🌟 Holistic AI routes - Sacred geometry, lunar cycles, and biodynamic wisdom
+        Route::post('/ai/holistic-recommendations', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'getHolisticRecommendations'])->name('api.ai.holistic-recommendations');
+        Route::get('/ai/moon-phase', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'getMoonPhaseGuidance'])->name('api.ai.moon-phase');
+        Route::post('/ai/sacred-spacing', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'getSacredSpacing'])->name('api.ai.sacred-spacing');
     });
+
+    // AI Gateway test route (internal)
+    Route::get('/api/ai/gateway', function(\Illuminate\Http\Request $request, \App\Services\AiGatewayService $gw) {
+        $service = $request->query('service','farmos');
+        $method = $request->query('method','getPlantAssets');
+        $params = $request->query('params', []);
+        if (is_string($params)) { // allow JSON in query
+            $decoded = json_decode($params, true);
+            if (json_last_error() === JSON_ERROR_NONE) $params = $decoded; else $params = [];
+        }
+        return response()->json($gw->call($service, $method, $params));
+    })->name('admin.ai.gateway-test');
 
     // Debug endpoint for delivery/collection classification verification
     Route::get('/debug-classification', [DeliveryController::class, 'debugClassification'])->name('debug.classification');
@@ -242,4 +265,63 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
 
     // Subscription management endpoint
     Route::get('/manage-subscription/{email}', [DeliveryController::class, 'manageSubscription'])->name('manage.subscription');
+
+    // Simple planting week (raw JSON, no AI)
+    Route::get('/planting-week-simple', function(\App\Services\PlantingRecommendationService $svc) {
+        return response()->json($svc->forWeek());
+    })->name('admin.planting-week-simple');
+
+    // farmOS sanity check (counts only)
+    Route::get('/farmos-sanity', function(\App\Services\FarmOSApi $svc) {
+        $harvest = $svc->getHarvestLogs();
+        $plantRaw = $svc->getPlantAssets();
+        $plantCount = 0;
+        if (is_array($plantRaw)) {
+            if (isset($plantRaw['data']) && is_array($plantRaw['data'])) { $plantCount = count($plantRaw['data']); }
+            else { $plantCount = count($plantRaw); }
+        }
+        $land = $svc->getGeometryAssets();
+        return response()->json([
+            'harvest_logs_count' => is_array($harvest)? count($harvest) : 0,
+            'plant_assets_count' => $plantCount,
+            'land_assets_count' => is_array($land)? count($land) : 0,
+            'timestamp' => now()->toDateTimeString(),
+        ]);
+    })->name('admin.farmos-sanity');
+
+    // AI ingestion tasks (basic)
+    Route::post('/api/ai/ingest', function(\Illuminate\Http\Request $request, \App\Services\AiIngestionService $ingest) {
+        $task = $ingest->createTask($request->input('type'), $request->input('params', []), auth()->id());
+        return response()->json(['task_id' => $task->id, 'status' => $task->status]);
+    })->name('admin.ai.ingest.create');
+
+    Route::post('/api/ai/ingest/run-pending', function(\App\Services\AiIngestionService $ingest) {
+        $count = $ingest->runPending();
+        return ['ran' => $count];
+    })->name('admin.ai.ingest.run');
+
+    Route::get('/api/ai/ingest/tasks', function() {
+        return \App\Models\AiIngestionTask::orderByDesc('id')->limit(50)->get();
+    })->name('admin.ai.ingest.list');
+
+    // farmOS UUID helper for creating plant assets
+    Route::get('/farmos/uuid-helper', function(\App\Services\FarmOSApi $svc) {
+        $plantTypes = collect($svc->getPlantTypes())->map(fn($t)=>[
+            'id' => $t['id'] ?? null,
+            'name' => $t['attributes']['name'] ?? null,
+        ])->filter(fn($r)=>$r['id'] && $r['name'])->values();
+        $varieties = collect($svc->getVarieties())->map(fn($t)=>[
+            'id' => $t['id'] ?? null,
+            'name' => $t['attributes']['name'] ?? null,
+        ])->filter(fn($r)=>$r['id'] && $r['name'])->values();
+        $land = collect($svc->getLandAssets(['status'=>'active']))->map(fn($a)=>[
+            'id' => $a['id'] ?? null,
+            'name' => $a['attributes']['name'] ?? null,
+        ])->filter(fn($r)=>$r['id'] && $r['name'])->values();
+        return response()->json([
+            'plant_types' => $plantTypes,
+            'varieties' => $varieties,
+            'land_assets' => $land,
+        ]);
+    })->name('admin.farmos.uuid-helper');
 });

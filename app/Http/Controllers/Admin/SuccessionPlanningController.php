@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Services\FarmOSApiService;
+use App\Services\FarmOSApi;
 use App\Services\HolisticAICropService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -16,7 +16,7 @@ class SuccessionPlanningController extends Controller
     protected $farmOSApi;
     protected $holisticAI;
 
-    public function __construct(FarmOSApiService $farmOSApi, HolisticAICropService $holisticAI)
+    public function __construct(FarmOSApi $farmOSApi, HolisticAICropService $holisticAI)
     {
         $this->farmOSApi = $farmOSApi;
         $this->holisticAI = $holisticAI;

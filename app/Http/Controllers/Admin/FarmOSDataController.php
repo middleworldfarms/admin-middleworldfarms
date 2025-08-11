@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Services\FarmOSApiService;
+use App\Services\FarmOSApi;
 use App\Models\HarvestLog;
 use App\Models\StockItem;
 use App\Models\CropPlan;
@@ -15,15 +15,15 @@ class FarmOSDataController extends Controller
 {
     protected $farmOSApi;
 
-    public function __construct(FarmOSApiService $farmOSApi)
+    public function __construct(FarmOSApi $farmOSApi)
     {
         $this->farmOSApi = $farmOSApi;
         
         // Debug: Verify service is properly injected
         if (!method_exists($this->farmOSApi, 'getCropPlanningData')) {
-            Log::error('FarmOSApiService is missing getCropPlanningData method. Service class: ' . get_class($this->farmOSApi));
-            // Re-instantiate the service as fallback
-            $this->farmOSApi = new FarmOSApiService();
+            Log::error('FarmOSApi is missing getCropPlanningData method. Service class: ' . get_class($this->farmOSApi));
+            // Fallback: create a new instance of the service
+            $this->farmOSApi = new FarmOSApi();
         }
     }
 
