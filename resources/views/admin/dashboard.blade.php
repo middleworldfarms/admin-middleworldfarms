@@ -292,6 +292,40 @@
     </div>
 </div>
 
+{{-- Planting Recommendations --}}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card border-primary" id="planting-rec-card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0"><i class="fas fa-seedling me-2"></i>What To Plant This Week</h5>
+                <button class="btn btn-sm btn-outline-light" id="refresh-planting-recs" type="button"><i class="fas fa-sync"></i></button>
+            </div>
+            <div class="card-body" id="planting-recs-body">
+                <div class="text-muted" id="planting-recs-loading"><i class="fas fa-spinner fa-spin me-1"></i>Loading recommendations…</div>
+                <div id="planting-recs-content" class="d-none">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <h6 class="text-primary mb-2">Direct Sow</h6>
+                            <ul class="list-unstyled small mb-0" id="direct-sow-list"></ul>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <h6 class="text-success mb-2">Transplant Out</h6>
+                            <ul class="list-unstyled small mb-0" id="transplant-out-list"></ul>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <h6 class="text-info mb-2">Start In Trays</h6>
+                            <ul class="list-unstyled small mb-0" id="start-trays-list"></ul>
+                        </div>
+                    </div>
+                    <div id="planting-warnings" class="mt-2"></div>
+                    <div class="mt-2 text-end"><small class="text-muted" id="planting-generated-at"></small></div>
+                </div>
+                <div id="planting-recs-error" class="alert alert-warning d-none mb-0"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- FarmOS Map Integration -->
 <div class="row">
     <div class="col-md-12 mb-4">
@@ -874,9 +908,10 @@ document.addEventListener('DOMContentLoaded', function() {
             imperial: false
         }).addTo(map);
 
-        fetch('/admin/farmos-map-data')
+        fetch(window.location.origin + '/admin/farmos-map-data', {credentials:'same-origin'})
             .then(function(response) { 
                 console.log('farmOS map response status:', response.status);
+                if(!response.ok) throw new Error('HTTP '+response.status);
                 return response.json(); 
             })
             .then(function(data) {
@@ -928,18 +963,34 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     },
                     onEachFeature: function(feature, layer) {
+                        // Inject area into popup details
+                        if(feature.properties && feature.properties.area_size_sqm){
+                            feature.properties.area_hectares = (feature.properties.area_size_sqm/10000).toFixed(3);
+                        }
                         if (feature.properties && feature.properties.name) {
                             var popupContent = createEnhancedPopup(feature.properties);
                             layer.bindPopup(popupContent, {
                                 maxWidth: 400,
                                 className: 'farmos-popup'
                             });
-                            
-                            // Store feature data for smart selection
                             layer.feature = feature;
-                            
-                            // Custom click handler for smart polygon selection
                             layer.on('click', function(e) {
+                                // Lazy load related plant assets if not loaded yet
+                                var props = e.target.feature.properties;
+                                if(props.lazy_details && !props.asset_details_loading && !props.asset_details_loaded){
+                                    props.asset_details_loading = true;
+                                    fetch(window.location.origin + '/admin/farmos-map-data?asset='+encodeURIComponent(props.id), {credentials:'same-origin'})
+                                        .then(r=> r.json())
+                                        .then(extra => {
+                                            if(extra && extra.asset_details){
+                                                props.asset_details = extra.asset_details;
+                                                props.asset_details_loaded = true;
+                                                var newContent = createEnhancedPopup(props);
+                                                e.target.setPopupContent(newContent);
+                                            }
+                                        })
+                                        .catch(err=>console.warn('Lazy detail load failed', err));
+                                }
                                 handleSmartPolygonClick(e, geojson, map);
                             });
                         }
@@ -956,12 +1007,81 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(function(err) {
                 console.error('FarmOS Map Error:', err);
-                showMapError('Failed to load map data: ' + err.message);
+                showMapError('Failed to load map data: ' + err.message + ' - retrying...');
+                setTimeout(function(){
+                    fetch(window.location.origin + '/admin/farmos-map-data', {credentials:'same-origin'})
+                        .then(r=> r.json())
+                        .then(d=>{ console.log('Retry received', d); })
+                        .catch(e=> console.error('Retry failed', e));
+                },1500);
             });
     }
 
     if (document.getElementById('farmos-map')) {
         loadLeafletAssets(initFarmOSMap);
+    }
+});
+</script>
+
+<script>
+// Planting recommendations fetch
+function loadPlantingRecommendations(){
+    const loading = document.getElementById('planting-recs-loading');
+    const content = document.getElementById('planting-recs-content');
+    const errBox = document.getElementById('planting-recs-error');
+    if(!loading) return;
+    loading.classList.remove('d-none');
+    content.classList.add('d-none');
+    errBox.classList.add('d-none');
+    fetch('/admin/planting-recommendations', {credentials:'same-origin'})
+        .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+        .then(data=>{
+            loading.classList.add('d-none');
+            content.classList.remove('d-none');
+            fillCropList('direct-sow-list', data.direct_sow);
+            fillCropList('transplant-out-list', data.transplant_out);
+            fillCropList('start-trays-list', data.start_in_trays);
+            const gen = document.getElementById('planting-generated-at');
+            if(gen) gen.textContent = 'Week '+data.week+' ('+data.date_range+')';
+            const warn = document.getElementById('planting-warnings');
+            if(warn){
+                warn.innerHTML='';
+                if(data.warnings && data.warnings.length){
+                    data.warnings.forEach(w=>{
+                        const div=document.createElement('div');
+                        div.className='small text-warning';
+                        div.innerHTML='<i class="fas fa-exclamation-triangle me-1"></i>'+w;
+                        warn.appendChild(div);
+                    });
+                }
+            }
+        })
+        .catch(e=>{
+            loading.classList.add('d-none');
+            errBox.textContent='Failed to load: '+e.message;
+            errBox.classList.remove('d-none');
+        });
+}
+function fillCropList(id, items){
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.innerHTML='';
+    if(!items || !items.length){
+        el.innerHTML='<li class="text-muted">None due</li>'; return;
+    }
+    items.forEach(c=>{
+        const li=document.createElement('li');
+        const dens = c.est_plants_per_m2 ? (' <span class="badge bg-secondary ms-1">~'+c.est_plants_per_m2+'/m²</span>') : '';
+        li.innerHTML='<i class="fas fa-leaf text-success me-1"></i>'+c.name+dens+(c.notes?'<br><small class="text-muted">'+c.notes+'</small>':'');
+        el.appendChild(li);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+    if(document.getElementById('planting-rec-card')){
+        loadPlantingRecommendations();
+        const btn = document.getElementById('refresh-planting-recs');
+        if(btn) btn.addEventListener('click', function(){ loadPlantingRecommendations(); });
     }
 });
 </script>

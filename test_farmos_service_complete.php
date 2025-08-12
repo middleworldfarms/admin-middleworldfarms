@@ -42,11 +42,27 @@ try {
     
     echo "\n4. Testing available crop types:\n";
     $cropTypes = $service->getAvailableCropTypes();
-    echo "✅ Found " . count($cropTypes) . " crop types: " . implode(', ', array_slice($cropTypes, 0, 5)) . "\n";
+    $typeNames = [];
+    if (isset($cropTypes['types'])) {
+        foreach ($cropTypes['types'] as $type) {
+            $typeNames[] = $type['label'] ?? $type['name'] ?? 'Unknown';
+        }
+    }
+    echo "✅ Found " . count($typeNames) . " crop types: " . implode(', ', array_slice($typeNames, 0, 5)) . "\n";
     
     echo "\n5. Testing available locations:\n";
     $locations = $service->getAvailableLocations();
-    echo "✅ Found " . count($locations) . " locations: " . implode(', ', array_slice($locations, 0, 5)) . "\n";
+    $locationNames = [];
+    if (is_array($locations)) {
+        foreach ($locations as $location) {
+            if (is_array($location)) {
+                $locationNames[] = $location['name'] ?? $location['label'] ?? 'Unknown';
+            } else {
+                $locationNames[] = (string)$location;
+            }
+        }
+    }
+    echo "✅ Found " . count($locationNames) . " locations: " . implode(', ', array_slice($locationNames, 0, 5)) . "\n";
     
     echo "\n🎉 OAuth2 authentication is working!\n";
     echo "The FarmOSApiService is now using OAuth2 with proper land asset access.\n";

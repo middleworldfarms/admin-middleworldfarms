@@ -133,7 +133,7 @@ if (false) {
      * Get the fully qualified class name for a given view.
      *
      * @param  string  $view
-     * @param  \Illuminate\Contracts\View\Factory  $data
+     * @param  array  $data
      * @param  array  $mergeData
      * @return \Illuminate\Contracts\View\View
      */
@@ -212,7 +212,7 @@ if (false) {
             return $factory;
         }
 
-        return $factory->make($content, $status, $headers);
+        return new \Illuminate\Http\Response($content, $status, $headers);
     }
 
     /**
