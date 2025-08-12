@@ -194,36 +194,11 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
     // Debug endpoint for Pauline Moore's duplicate order analysis
     Route::get('/debug-pauline', [DeliveryController::class, 'debugPauline'])->name('debug.pauline');
 
-    // Debug route addresses for route planner
+    // Debug route addresses for route planner (simplified)
     Route::get('/debug-route-addresses', function() {
-        $wpApi = app(\App\Services\WpApiService::class);
-        $controller = new \App\Http\Controllers\Admin\RouteController(
-            app('App\Services\RouteOptimizationService'),
-            app('App\Services\DeliveryScheduleService'), 
-            app('App\Services\DriverNotificationService'),
-            app('App\Services\WPGoMapsService')
-        );
-        
-        // The 4 correct delivery IDs for this week
-        $correctIds = ['227748', '227726', '227673', '227581'];
-        
-        // Use reflection to access the private getDeliveriesByIds method
-        $reflection = new ReflectionClass($controller);
-        $method = $reflection->getMethod('getDeliveriesByIds');
-        $method->setAccessible(true);
-        
-        $result = $method->invoke($controller, $correctIds);
-        
         return response()->json([
-            'correct_ids' => $correctIds,
-            'found_deliveries' => count($result),
-            'addresses' => array_map(function($delivery) {
-                return [
-                    'id' => $delivery['id'],
-                    'name' => $delivery['name'],
-                    'address' => $delivery['address']
-                ];
-            }, $result)
+            'message' => 'Route address debugging endpoint - contact dev team for specific delivery analysis',
+            'timestamp' => now()->toDateTimeString()
         ]);
     })->name('debug.route-addresses');
 
@@ -274,16 +249,16 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
     // farmOS sanity check (counts only)
     Route::get('/farmos-sanity', function(\App\Services\FarmOSApi $svc) {
         $harvest = $svc->getHarvestLogs();
-        $plantRaw = $svc->getPlantAssets();
+        $plantTypes = $svc->getPlantTypes();
         $plantCount = 0;
-        if (is_array($plantRaw)) {
-            if (isset($plantRaw['data']) && is_array($plantRaw['data'])) { $plantCount = count($plantRaw['data']); }
-            else { $plantCount = count($plantRaw); }
+        if (is_array($plantTypes)) {
+            if (isset($plantTypes['data']) && is_array($plantTypes['data'])) { $plantCount = count($plantTypes['data']); }
+            else { $plantCount = count($plantTypes); }
         }
         $land = $svc->getGeometryAssets();
         return response()->json([
             'harvest_logs_count' => is_array($harvest)? count($harvest) : 0,
-            'plant_assets_count' => $plantCount,
+            'plant_types_count' => $plantCount,
             'land_assets_count' => is_array($land)? count($land) : 0,
             'timestamp' => now()->toDateTimeString(),
         ]);
@@ -291,7 +266,8 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
 
     // AI ingestion tasks (basic)
     Route::post('/api/ai/ingest', function(\Illuminate\Http\Request $request, \App\Services\AiIngestionService $ingest) {
-        $task = $ingest->createTask($request->input('type'), $request->input('params', []), auth()->id());
+        $userId = 1; // Default admin user ID for API calls
+        $task = $ingest->createTask($request->input('type'), $request->input('params', []), $userId);
         return response()->json(['task_id' => $task->id, 'status' => $task->status]);
     })->name('admin.ai.ingest.create');
 
@@ -314,7 +290,7 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
             'id' => $t['id'] ?? null,
             'name' => $t['attributes']['name'] ?? null,
         ])->filter(fn($r)=>$r['id'] && $r['name'])->values();
-        $land = collect($svc->getLandAssets(['status'=>'active']))->map(fn($a)=>[
+        $land = collect($svc->getGeometryAssets(['status'=>'active']))->map(fn($a)=>[
             'id' => $a['id'] ?? null,
             'name' => $a['attributes']['name'] ?? null,
         ])->filter(fn($r)=>$r['id'] && $r['name'])->values();
