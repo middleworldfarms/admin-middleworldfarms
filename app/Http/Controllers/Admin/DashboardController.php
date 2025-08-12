@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Services\WpApiService;
+use Illuminate\Support\Facades\Log;
 
 class DashboardController extends Controller
 {
@@ -184,21 +185,60 @@ class DashboardController extends Controller
     }
 
     /**
-     * Get FarmOS map data for the dashboard
+     * Get FarmOS map data for the dashboard with enhanced diagnostics
      */
     public function farmosMapData()
     {
+        $started = microtime(true);
+        $envClient = (bool) env('FARMOS_OAUTH_CLIENT_ID');
+        $envSecret = (bool) env('FARMOS_OAUTH_CLIENT_SECRET');
         try {
-            $farmosService = app(\App\Services\FarmOSApiService::class);
+            $farmosService = app(\App\Services\FarmOSApi::class);
             $geometryData = $farmosService->getGeometryAssets();
-            return response()->json($geometryData);
-        } catch (\Exception $e) {
-            \Log::error("FarmOS map data error: " . $e->getMessage());
+            $featureCount = is_array($geometryData) && isset($geometryData['features']) ? count($geometryData['features']) : 0;
+            Log::info('FarmOS map data success', [
+                'features' => $featureCount,
+                'oauth_client_present' => $envClient,
+                'oauth_secret_present' => $envSecret,
+                'duration_ms' => round((microtime(true) - $started) * 1000, 1)
+            ]);
+            if ($featureCount === 0) {
+                Log::warning('FarmOS map returned zero features');
+            }
+            return response()->json($geometryData ?: [
+                'type' => 'FeatureCollection',
+                'features' => []
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('FarmOS map data error', [
+                'message' => $e->getMessage(),
+                'oauth_client_present' => $envClient,
+                'oauth_secret_present' => $envSecret,
+                'trace_top' => collect(explode("\n", $e->getTraceAsString()))->take(5)->all(),
+                'duration_ms' => round((microtime(true) - $started) * 1000, 1)
+            ]);
             return response()->json([
-                "type" => "FeatureCollection",
-                "features" => [],
-                "error" => $e->getMessage()
+                'type' => 'FeatureCollection',
+                'features' => [],
+                'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    public function plantingRecommendations()
+    {
+        try {
+            $service = app(\App\Services\PlantingRecommendationService::class);
+            return response()->json($service->forWeek());
+        } catch (\Throwable $e) {
+            Log::error('Planting recommendations error', ['msg' => $e->getMessage()]);
+            return response()->json(['error' => 'Failed generating recommendations','detail'=>$e->getMessage()], 500);
+        }
+    }
+
+    public function dataCatalog()
+    {
+        $svc = app(\App\Services\AiDataAccessService::class);
+        return response()->json($svc->catalog());
     }
 }

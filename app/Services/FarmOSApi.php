@@ -517,4 +517,68 @@ class FarmOSApi
             throw $e;
         }
     }
+
+    /**
+     * Get harvest logs from farmOS
+     */
+    public function getHarvestLogs($since = null)
+    {
+        try {
+            $this->authenticate();
+            $headers = $this->getAuthHeaders();
+            
+            $query = ['filter[status]' => 'done'];
+            if ($since) {
+                $query['filter[timestamp][value]'] = $since;
+                $query['filter[timestamp][operator]'] = '>=';
+            }
+            
+            $response = $this->client->get('/api/log/harvest', [
+                'headers' => $headers,
+                'query' => $query
+            ]);
+
+            $data = json_decode($response->getBody(), true);
+            return $data['data'] ?? [];
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch harvest logs: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get available locations from farmOS
+     */
+    public function getAvailableLocations()
+    {
+        try {
+            $this->authenticate();
+            $headers = $this->getAuthHeaders();
+            
+            $response = $this->client->get('/api/asset/land', [
+                'headers' => $headers,
+                'query' => ['filter[status]' => 'active']
+            ]);
+
+            $data = json_decode($response->getBody(), true);
+            $locations = [];
+            
+            if (isset($data['data'])) {
+                foreach ($data['data'] as $asset) {
+                    $locations[] = [
+                        'id' => $asset['id'],
+                        'name' => $asset['attributes']['name'] ?? 'Unnamed Location',
+                        'label' => $asset['attributes']['name'] ?? 'Unnamed Location'
+                    ];
+                }
+            }
+            
+            return $locations;
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch available locations: ' . $e->getMessage());
+            return [];
+        }
+    }
 }
