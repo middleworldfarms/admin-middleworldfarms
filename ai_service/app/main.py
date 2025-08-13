@@ -367,6 +367,63 @@ async def ask_compatibility(payload: Dict):
             "source": "error_fallback"
         }
 
+@app.post("/ask-test")
+async def ask_test(payload: Dict):
+    """Minimal test endpoint that doesn't use LLM"""
+    try:
+        question = payload.get("question", "Hello")
+        crop = payload.get("crop_type", "")
+        
+        # Simple response without LLM
+        if crop:
+            response = f"🌱 For {crop}: I recommend considering companion planting with herbs like basil or flowers like marigolds. Plant during favorable moon phases for best results."
+        else:
+            response = "🌟 Welcome to Symbiosis! I'm your holistic agricultural AI. Ask me about crops, planting timing, or sacred farming wisdom."
+        
+        return {
+            "success": True,
+            "answer": response,
+            "source": "test_response"
+        }
+        
+    except Exception as e:
+        return {
+            "success": True,
+            "answer": "🌱 The farm wisdom flows eternally. Ask me about your agricultural needs!",
+            "source": "fallback"
+        }
+async def ask_simple(payload: Dict):
+    """Simple endpoint that bypasses RAG and goes directly to LLM"""
+    try:
+        question = payload.get("question", "Hello")
+        crop = payload.get("crop_type", "")
+        season = payload.get("season", "")
+        
+        # Create enhanced prompt
+        if crop and season:
+            enhanced_question = f"You are Symbiosis, a holistic agricultural AI. The user is asking about {crop} in {season} season. Question: {question}. Provide wise, practical farming advice."
+        elif crop:
+            enhanced_question = f"You are Symbiosis, a holistic agricultural AI. The user is asking about {crop}. Question: {question}. Provide wise, practical farming advice."
+        else:
+            enhanced_question = f"You are Symbiosis, a holistic agricultural AI. Question: {question}. Provide wise, practical farming advice."
+        
+        # Use LLM service directly
+        messages = [{"role": "user", "content": enhanced_question}]
+        response = llm_service.chat(messages)
+        
+        return {
+            "success": True,
+            "answer": response,
+            "source": "direct_llm"
+        }
+        
+    except Exception as e:
+        return {
+            "success": True,
+            "answer": f"🌱 The farm spirit whispers: '{str(e)}' - but the wisdom continues to flow. Ask again when the cosmic timing aligns.",
+            "source": "error_fallback"
+        }
+
 # Helper functions
 
 def generate_holistic_succession_plan(crop_type: str, start_date: datetime, 

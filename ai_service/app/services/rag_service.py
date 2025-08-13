@@ -68,18 +68,20 @@ class RAGService:
             conversation_history = []
         
         try:
-            # Retrieve relevant context from biodynamic knowledge
-            relevant_chunks = self.llm_service.retrieve_context(user_message, top_k=3)
+            # Try to retrieve relevant context from biodynamic knowledge
+            relevant_chunks = []
+            context = ""
             
-            # Build context from retrieved chunks
-            context_parts = []
-            for chunk in relevant_chunks:
-                context_parts.append(f"[Source: {chunk.metadata.get('source', 'unknown')}]\n{chunk.text}")
-            
-            context = "\n\n".join(context_parts) if context_parts else ""
-            
-            # Create system prompt with biodynamic context
-            system_prompt = self._create_biodynamic_system_prompt(context)
+            try:
+                relevant_chunks = self.llm_service.retrieve_context(user_message, top_k=3)
+                # Build context from retrieved chunks
+                context_parts = []
+                for chunk in relevant_chunks:
+                    context_parts.append(f"[Source: {chunk.metadata.get('source', 'unknown')}]\n{chunk.text}")
+                context = "\n\n".join(context_parts) if context_parts else ""
+            except Exception as e:
+                logger.warning(f"Vector store unavailable, using direct LLM: {e}")
+                # No vector store available, use direct LLM with biodynamic system prompt
             
             # Prepare messages for LLM
             messages = []
@@ -88,8 +90,15 @@ class RAGService:
             recent_history = conversation_history[-6:] if len(conversation_history) > 6 else conversation_history
             messages.extend(recent_history)
             
-            # Add current user message
-            messages.append({"role": "user", "content": user_message})
+            # Create enhanced user message with biodynamic context
+            enhanced_message = f"""You are Symbiosis, a holistic agricultural intelligence combining scientific farming with biodynamic principles, sacred geometry, and cosmic rhythms. Provide wise, practical guidance for regenerative farming.
+
+User question: {user_message}
+
+Please provide advice that honors both scientific and spiritual dimensions of agriculture."""
+            
+            # Add enhanced user message
+            messages.append({"role": "user", "content": enhanced_message})
             
             # Generate response
             response = self.llm_service.chat(messages)

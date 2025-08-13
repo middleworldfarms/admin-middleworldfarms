@@ -1368,17 +1368,9 @@ function printCollections() {
 }
 
 // Attach event listeners to print buttons
-document.addEventListener('DOMContentLoaded', function() {
-    const printScheduleBtn = document.getElementById('printScheduleBtn');
-    const printCollectionScheduleBtn = document.getElementById('printCollectionScheduleBtn');
-    
-    if (printScheduleBtn) {
-        printScheduleBtn.addEventListener('click', printDeliveries);
-    }
-    
-    if (printCollectionScheduleBtn) {
-        printCollectionScheduleBtn.addEventListener('click', printCollections);
-    }
+$(document).ready(function() {
+    $('#printScheduleBtn').on('click', printDeliveries);
+    $('#printCollectionScheduleBtn').on('click', printCollections);
 });
 </script>
 @endsection

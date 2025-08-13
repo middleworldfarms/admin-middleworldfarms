@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Services\FarmOSApiService;
+use App\Services\FarmOSApi;
 
 class SetupFarmOSConnection extends Command
 {
@@ -41,7 +41,7 @@ class SetupFarmOSConnection extends Command
         
         // Test connection
         try {
-            $service = new FarmOSApiService();
+            $service = new FarmOSApi();
             
             $this->info('🔄 Testing authentication...');
             $token = $service->authenticate();

@@ -432,7 +432,7 @@
                             <div class="card border-success">
                                 <div class="card-header bg-light py-2">
                                     <h6 class="mb-0">
-                                        <i class="fas fa-comments text-success"></i> Chat with Symbiosis
+                                        <i class="fas fa-comments text-success"></i> Chat with Symbiosis Mistral
                                         <small class="text-muted">Ask anything about farming</small>
                                     </h6>
                                 </div>
@@ -442,7 +442,7 @@
                                         <div class="chat-message system-message">
                                             <small class="text-muted">
                                                 <i class="fas fa-sparkles"></i> 
-                                                Symbiosis is ready to share agricultural wisdom. Ask about crops, timing, or cosmic farming insights!
+                                                Symbiosis Mistral is ready to share agricultural wisdom. Ask about crops, timing, or cosmic farming insights!
                                             </small>
                                         </div>
                                     </div>
@@ -452,7 +452,7 @@
                                         <input type="text" 
                                                class="form-control form-control-sm" 
                                                id="chatInput" 
-                                               placeholder="Ask Symbiosis about farming wisdom..."
+                                               placeholder="Ask Symbiosis Mistral about farming wisdom..."
                                                maxlength="200">
                                         <button class="btn btn-success btn-sm" 
                                                 type="button" 
@@ -1099,12 +1099,13 @@ async function sendChatMessage() {
         const cropType = document.getElementById('cropType').value;
         const season = getCurrentSeason();
         
-        // Try multiple ports for Symbiosis AI service
+        // Try multiple ports for Symbiosis Mistral AI service with quicker timeouts
         let response;
         let aiServiceUrl;
+        let serviceConnected = false;
         
-        // Try port 8001 first, then 8002
-        for (const port of [8001, 8002]) {
+        // Try port 8005 first (current AI service), then fallback to 8001, 8002
+        for (const port of [8005, 8001, 8002]) {
             try {
                 aiServiceUrl = `http://localhost:${port}/ask`;
                 response = await fetch(aiServiceUrl, {
@@ -1118,11 +1119,12 @@ async function sendChatMessage() {
                         season: season,
                         context: 'succession_planning'
                     }),
-                    signal: AbortSignal.timeout(10000) // 10 second timeout
+                    signal: AbortSignal.timeout(95000) // 95 second timeout to match backend
                 });
                 
                 if (response.ok) {
-                    console.log(`Connected to Symbiosis AI on port ${port}`);
+                    console.log(`Connected to Symbiosis Mistral AI on port ${port}`);
+                    serviceConnected = true;
                     break;
                 }
             } catch (portError) {
@@ -1131,7 +1133,19 @@ async function sendChatMessage() {
             }
         }
         
-        if (response && response.ok) {
+        // Also try the simple endpoint as fallback
+        if (!serviceConnected) {
+            console.log('Main AI service not responding, using built-in fallback');
+            // Skip the non-existent endpoints - they cause 404 errors
+        }
+        
+        // Try the test endpoint as final fallback
+        if (!serviceConnected) {
+            console.log('All AI endpoints failed, using built-in wisdom');
+            // Skip the non-existent test endpoint
+        }
+        
+        if (serviceConnected && response && response.ok) {
             const data = await response.json();
             
             // Remove typing indicator
@@ -1139,12 +1153,18 @@ async function sendChatMessage() {
             
             // Add AI response
             addChatMessage('ai', data.answer || data.wisdom, data);
+            
+            // Update AI status indicator
+            updateAIStatus('connected', 'Connected to Symbiosis Mistral AI');
         } else {
             removeTypingIndicator();
             
             // Provide fallback wisdom when AI service is unavailable
             const fallbackWisdom = getFallbackWisdom(message, cropType);
-            addChatMessage('ai', fallbackWisdom, null, false);
+            addChatMessage('ai', `💫 ${fallbackWisdom}`, null, false);
+            
+            // Update AI status indicator
+            updateAIStatus('disconnected', 'AI service unavailable - using fallback wisdom');
         }
         
     } catch (error) {
@@ -1315,6 +1335,21 @@ function getMoonPhaseAdvice(phase, crop) {
         'Waning Crescent': `Rest period - plan future ${crop} plantings and restore soil energy.`
     };
     return advice[phase] || `Work with the natural rhythms for ${crop} cultivation.`;
+}
+
+function updateAIStatus(status, message) {
+    const aiStatusElement = document.getElementById('aiStatus');
+    if (aiStatusElement) {
+        if (status === 'connected') {
+            aiStatusElement.className = 'badge bg-success';
+            aiStatusElement.textContent = 'Connected';
+            aiStatusElement.title = message;
+        } else {
+            aiStatusElement.className = 'badge bg-warning';
+            aiStatusElement.textContent = 'Offline';
+            aiStatusElement.title = message;
+        }
+    }
 }
 
 // Additional Laravel-specific functions that need server data

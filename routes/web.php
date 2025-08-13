@@ -300,4 +300,15 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
             'land_assets' => $land,
         ]);
     })->name('admin.farmos.uuid-helper');
+
+    // Conversation management routes (ADMIN ONLY)
+    Route::prefix('conversations')->name('admin.conversations.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Admin\ConversationAdminController::class, 'index'])->name('index');
+        Route::get('/statistics', [App\Http\Controllers\Admin\ConversationAdminController::class, 'statistics'])->name('statistics');
+        Route::get('/search', [App\Http\Controllers\Admin\ConversationAdminController::class, 'search'])->name('search');
+        Route::get('/export-training', [App\Http\Controllers\Admin\ConversationAdminController::class, 'exportTraining'])->name('export-training');
+        Route::post('/purge-old', [App\Http\Controllers\Admin\ConversationAdminController::class, 'purgeOld'])->name('purge-old');
+        Route::get('/{id}', [App\Http\Controllers\Admin\ConversationAdminController::class, 'show'])->name('show');
+        Route::delete('/{id}', [App\Http\Controllers\Admin\ConversationAdminController::class, 'destroy'])->name('destroy');
+    });
 });

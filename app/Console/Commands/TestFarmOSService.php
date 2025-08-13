@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Services\FarmOSApiService;
+use App\Services\FarmOSApi;
 use App\Http\Controllers\Admin\FarmOSDataController;
 
 class TestFarmOSService extends Command
@@ -31,16 +31,16 @@ class TestFarmOSService extends Command
         
         try {
             // Test direct instantiation
-            $service = new FarmOSApiService();
-            $this->info('✓ FarmOSApiService instantiated successfully');
+            $service = new FarmOSApi();
+            $this->info('✓ FarmOSApi instantiated successfully');
             
             // Test method existence
             $hasCropPlanningData = method_exists($service, 'getCropPlanningData');
             $this->info("✓ getCropPlanningData method exists: " . ($hasCropPlanningData ? 'Yes' : 'No'));
             
             // Test service injection via Laravel container
-            $serviceFromContainer = app(FarmOSApiService::class);
-            $this->info('✓ FarmOSApiService resolved from container');
+            $serviceFromContainer = app(FarmOSApi::class);
+            $this->info('✓ FarmOSApi resolved from container');
             
             // Test controller instantiation
             $controller = new FarmOSDataController($serviceFromContainer);
