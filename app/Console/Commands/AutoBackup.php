@@ -45,7 +45,7 @@ class AutoBackup extends Command
                 $controller, 
                 'scheduled', 
                 true,  // include database
-                false, // exclude files (can be large)
+                true,  // include files (now includes vendor/, public/, etc.)
                 'auto'
             );
             

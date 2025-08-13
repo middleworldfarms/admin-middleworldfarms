@@ -85,7 +85,7 @@ class BackupController extends Controller
             $customName = $request->get('custom_name');
             $name = $customName ?: 'manual';
 
-            $backupFile = $this->createBackup($name, true, false, 'manual');
+            $backupFile = $this->createBackup($name, true, true, 'manual');
 
             return response()->json([
                 'success' => true,
@@ -601,21 +601,26 @@ class BackupController extends Controller
     }
 
     /**
-     * Add essential Laravel files to ZIP (excluding large directories)
+     * Add essential Laravel files to ZIP (including all critical directories)
      */
     private function addEssentialFilesToZip($zip)
     {
         $essentialPaths = [
             'app/',
             'config/',
-            'database/migrations/',
-            'database/seeds/',
+            'database/',
             'routes/',
-            'resources/views/',
+            'resources/',
+            'public/',
+            'storage/app/',
+            'storage/framework/views/',
+            'vendor/',
+            '.env',
             '.env.example',
             'composer.json',
             'composer.lock',
             'package.json',
+            'artisan',
             'README.md',
         ];
 
@@ -640,7 +645,8 @@ class BackupController extends Controller
         );
 
         $fileCount = 0;
-        $maxFiles = 1000; // Prevent too many files
+        $maxFiles = 15000; // Increased to handle full vendor directory (8,581 files)
+        $maxFileSize = 100 * 1024 * 1024; // Increased to 100MB for very large files
 
         foreach ($iterator as $file) {
             if ($fileCount >= $maxFiles) {
@@ -652,7 +658,7 @@ class BackupController extends Controller
 
             if ($file->isDir()) {
                 $zip->addEmptyDir($relativePath);
-            } elseif ($file->isFile() && $file->getSize() < 10 * 1024 * 1024) { // Skip files > 10MB
+            } elseif ($file->isFile() && $file->getSize() < $maxFileSize) {
                 $zip->addFile($filePath, $relativePath);
                 $fileCount++;
             }
@@ -1322,7 +1328,9 @@ class BackupController extends Controller
         );
         
         foreach ($iterator as $file) {
-            $targetPath = $destination . DIRECTORY_SEPARATOR . $iterator->getSubPathName();
+            $sourcePath = $file->getRealPath();
+            $relativePath = substr($sourcePath, strlen($source) + 1);
+            $targetPath = $destination . DIRECTORY_SEPARATOR . $relativePath;
             
             if ($file->isDir()) {
                 if (!is_dir($targetPath)) {
