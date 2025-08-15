@@ -13,8 +13,8 @@ class HolisticAICropService
     
     public function __construct()
     {
-        $this->aiServiceUrl = config('services.holistic_ai.url', 'http://localhost:8000');
-        $this->timeout = config('services.holistic_ai.timeout', 30);
+        $this->aiServiceUrl = config('services.holistic_ai.url', 'http://localhost:8005');
+        $this->timeout = config('services.holistic_ai.timeout', 60);
     }
     
     /**
@@ -619,5 +619,167 @@ class HolisticAICropService
             ],
             'cosmic_wisdom' => 'The moon guides the flow of water and energy in all living things'
         ];
+    }
+
+    /**
+     * Get AI-optimized harvest window using Mistral 7B
+     */
+    public function getOptimalHarvestWindow(string $cropType, ?string $variety = null, ?string $location = null): array
+    {
+        try {
+            // Enhanced prompt for Mistral 7B to analyze harvest windows
+            $prompt = "You are an expert agricultural advisor. Analyze the optimal harvest window for {$cropType}" . 
+                     ($variety ? " variety: {$variety}" : "") . 
+                     ($location ? " in location: {$location}" : "") . 
+                     ". Provide: 1) Maximum harvest window duration in days, 2) Optimal harvest window duration in days for best quality, " .
+                     "3) Peak harvest period (days), 4) Number of recommended successions for continuous harvest, " .
+                     "5) Days between plantings, 6) Interplanting companion crop recommendations. " .
+                     "Format as JSON with keys: max_harvest_days, optimal_harvest_days, peak_harvest_days, recommended_successions, days_between_plantings, companion_crops (array).";
+
+            $response = Http::timeout(60)->post('http://localhost:8005/ask', [
+                'question' => $prompt,
+                'context' => "crop_optimization,succession_planning,harvest_window"
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                $aiAnswer = $data['answer'] ?? '';
+                
+                // Try to extract JSON from Mistral's response
+                $jsonData = $this->extractJsonFromAiResponse($aiAnswer);
+                
+                if ($jsonData) {
+                    // Validate and return structured data
+                    return [
+                        'success' => true,
+                        'source' => 'mistral_7b',
+                        'max_harvest_days' => $jsonData['max_harvest_days'] ?? 21,
+                        'optimal_harvest_days' => $jsonData['optimal_harvest_days'] ?? 14,
+                        'peak_harvest_days' => $jsonData['peak_harvest_days'] ?? 7,
+                        'recommended_successions' => $jsonData['recommended_successions'] ?? 4,
+                        'days_between_plantings' => $jsonData['days_between_plantings'] ?? 14,
+                        'companion_crops' => $jsonData['companion_crops'] ?? [],
+                        'raw_response' => $aiAnswer,
+                        'moon_phase' => $data['moon_phase'] ?? 'unknown'
+                    ];
+                }
+            }
+            
+            Log::warning('Mistral AI harvest optimization failed, using fallback');
+            return $this->getFallbackHarvestWindow($cropType, $variety);
+            
+        } catch (\Exception $e) {
+            Log::error('Harvest window optimization error: ' . $e->getMessage());
+            return $this->getFallbackHarvestWindow($cropType, $variety);
+        }
+    }
+
+    /**
+     * Extract JSON data from AI response
+     */
+    private function extractJsonFromAiResponse(string $response): ?array
+    {
+        // Look for JSON in the response
+        preg_match('/\{[^{}]*\}/', $response, $matches);
+        
+        if (!empty($matches)) {
+            $jsonString = $matches[0];
+            $decoded = json_decode($jsonString, true);
+            
+            if (json_last_error() === JSON_ERROR_NONE) {
+                return $decoded;
+            }
+        }
+        
+        // Fallback: parse structured text response
+        return $this->parseStructuredResponse($response);
+    }
+
+    /**
+     * Parse structured text response when JSON extraction fails
+     */
+    private function parseStructuredResponse(string $response): ?array
+    {
+        $data = [];
+        
+        // Extract numeric values using regex patterns
+        if (preg_match('/max.*harvest.*?(\d+)\s*days?/i', $response, $matches)) {
+            $data['max_harvest_days'] = (int)$matches[1];
+        }
+        
+        if (preg_match('/optimal.*harvest.*?(\d+)\s*days?/i', $response, $matches)) {
+            $data['optimal_harvest_days'] = (int)$matches[1];
+        }
+        
+        if (preg_match('/peak.*harvest.*?(\d+)\s*days?/i', $response, $matches)) {
+            $data['peak_harvest_days'] = (int)$matches[1];
+        }
+        
+        if (preg_match('/(\d+)\s*succession/i', $response, $matches)) {
+            $data['recommended_successions'] = (int)$matches[1];
+        }
+        
+        if (preg_match('/(\d+)\s*days?\s*between/i', $response, $matches)) {
+            $data['days_between_plantings'] = (int)$matches[1];
+        }
+        
+        // Extract companion crops
+        if (preg_match('/companion.*?:(.*?)(?:\n|$)/i', $response, $matches)) {
+            $companions = explode(',', $matches[1]);
+            $data['companion_crops'] = array_map('trim', $companions);
+        }
+        
+        return !empty($data) ? $data : null;
+    }
+
+    /**
+     * Fallback harvest window data when AI is unavailable
+     */
+    private function getFallbackHarvestWindow(string $cropType, ?string $variety = null): array
+    {
+        // Basic crop-specific harvest windows
+        $fallbackData = [
+            'lettuce' => [
+                'max_harvest_days' => 21,
+                'optimal_harvest_days' => 14,
+                'peak_harvest_days' => 7,
+                'recommended_successions' => 6,
+                'days_between_plantings' => 14,
+                'companion_crops' => ['radishes', 'carrots', 'herbs']
+            ],
+            'spinach' => [
+                'max_harvest_days' => 28,
+                'optimal_harvest_days' => 21,
+                'peak_harvest_days' => 10,
+                'recommended_successions' => 4,
+                'days_between_plantings' => 21,
+                'companion_crops' => ['lettuce', 'arugula', 'peas']
+            ],
+            'carrots' => [
+                'max_harvest_days' => 60,
+                'optimal_harvest_days' => 30,
+                'peak_harvest_days' => 14,
+                'recommended_successions' => 3,
+                'days_between_plantings' => 30,
+                'companion_crops' => ['lettuce', 'onions', 'herbs']
+            ]
+        ];
+        
+        $defaults = [
+            'max_harvest_days' => 21,
+            'optimal_harvest_days' => 14,
+            'peak_harvest_days' => 7,
+            'recommended_successions' => 4,
+            'days_between_plantings' => 14,
+            'companion_crops' => []
+        ];
+        
+        $data = $fallbackData[strtolower($cropType)] ?? $defaults;
+        
+        return array_merge($data, [
+            'success' => true,
+            'source' => 'fallback_rules',
+            'note' => 'AI service unavailable, using basic crop data'
+        ]);
     }
 }

@@ -155,8 +155,22 @@
                         <!-- Step 3: Timeline Planning (Gantt Chart) -->
                         <div class="step-section d-none" id="step3Section">
                             <div class="mb-3">
-                                <h6><i class="fas fa-calendar-alt"></i> Drag & Drop Timeline Planning</h6>
-                                <p class="text-muted">Drag the start and end dates to set your succession timeline</p>
+                                <h6>
+                                    <i class="fas fa-calendar-alt"></i> AI-Powered Timeline Planning
+                                    <!-- AI Processing Badge -->
+                                    <span class="badge bg-primary ms-2 d-none" id="aiProcessingBadge">
+                                        <i class="fas fa-brain fa-pulse"></i> Mistral 7B Analyzing...
+                                    </span>
+                                    <span class="badge bg-success ms-2 d-none" id="aiCompleteBadge">
+                                        <i class="fas fa-check-circle"></i> AI Analysis Complete
+                                    </span>
+                                </h6>
+                                <p class="text-muted">
+                                    Symbiosis AI analyzes optimal harvest windows and calculates succession timing
+                                    <span id="aiTimingInfo" class="d-none text-success">
+                                        <br><small><i class="fas fa-lightbulb"></i> AI recommends <span id="aiSuccessionCount">-</span> successions with <span id="aiDaysBetween">-</span> days between plantings</small>
+                                    </span>
+                                </p>
                             </div>
                             
                             <div class="row">
@@ -960,6 +974,9 @@ function initializeStepWorkflow() {
             
             // Initialize simple timeline visualization
             initializeTimelineVisualization();
+            
+            // Trigger AI harvest window optimization
+            optimizeHarvestWindowWithAI();
         });
     }
     
@@ -1099,16 +1116,12 @@ async function sendChatMessage() {
         const cropType = document.getElementById('cropType').value;
         const season = getCurrentSeason();
         
-        // Try multiple ports for Symbiosis Mistral AI service with quicker timeouts
+        // Try Symbiosis Mistral AI service on port 8005
         let response;
-        let aiServiceUrl;
-        let serviceConnected = false;
+        const aiServiceUrl = 'http://localhost:8005/ask';
         
-        // Try port 8005 first (current AI service), then fallback to 8001, 8002
-        for (const port of [8005, 8001, 8002]) {
-            try {
-                aiServiceUrl = `http://localhost:${port}/ask`;
-                response = await fetch(aiServiceUrl, {
+        try {
+            response = await fetch(aiServiceUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1119,44 +1132,26 @@ async function sendChatMessage() {
                         season: season,
                         context: 'succession_planning'
                     }),
-                    signal: AbortSignal.timeout(95000) // 95 second timeout to match backend
+                    signal: AbortSignal.timeout(50000) // 50 second timeout for Mistral (~42s response time)
                 });
                 
                 if (response.ok) {
-                    console.log(`Connected to Symbiosis Mistral AI on port ${port}`);
-                    serviceConnected = true;
-                    break;
+                    const data = await response.json();
+                    
+                    // Remove typing indicator
+                    removeTypingIndicator();
+                    
+                    // Add AI response
+                    addChatMessage('ai', data.answer || data.wisdom, data);
+                    
+                    // Update AI status indicator
+                    updateAIStatus('connected', 'Connected to Symbiosis Mistral AI');
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
                 }
-            } catch (portError) {
-                console.log(`Port ${port} failed:`, portError.message);
-                continue;
-            }
-        }
-        
-        // Also try the simple endpoint as fallback
-        if (!serviceConnected) {
-            console.log('Main AI service not responding, using built-in fallback');
-            // Skip the non-existent endpoints - they cause 404 errors
-        }
-        
-        // Try the test endpoint as final fallback
-        if (!serviceConnected) {
-            console.log('All AI endpoints failed, using built-in wisdom');
-            // Skip the non-existent test endpoint
-        }
-        
-        if (serviceConnected && response && response.ok) {
-            const data = await response.json();
-            
-            // Remove typing indicator
-            removeTypingIndicator();
-            
-            // Add AI response
-            addChatMessage('ai', data.answer || data.wisdom, data);
-            
-            // Update AI status indicator
-            updateAIStatus('connected', 'Connected to Symbiosis Mistral AI');
-        } else {
+                
+        } catch (error) {
+            console.error('AI service error:', error);
             removeTypingIndicator();
             
             // Provide fallback wisdom when AI service is unavailable
@@ -3445,11 +3440,201 @@ if (typeof originalHandleCropTypeChange === 'function') {
         }
     });
 }
+
+/**
+ * AI Harvest Window Optimization with Processing Badge
+ */
+async function optimizeHarvestWindowWithAI() {
+    const cropType = document.getElementById('cropType')?.value;
+    const variety = document.getElementById('variety')?.value;
+    
+    if (!cropType) {
+        console.warn('No crop type selected for AI optimization');
+        return;
+    }
+    
+    // Show AI processing badge
+    showAIProcessingBadge();
+    
+    try {
+        const response = await fetch('/admin/farmos/succession-planning/harvest-window', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+            },
+            body: JSON.stringify({
+                crop_type: cropType,
+                variety: variety || null,
+                location: 'Zone 6a' // Could be made dynamic later
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Show completion badge
+            showAICompleteBadge();
+            
+            // Update UI with AI recommendations
+            updateUIWithAIRecommendations(data.data);
+            
+            // Show success notification
+            showNotification(
+                `Mistral 7B analyzed ${cropType} harvest window! Recommends ${data.data.recommended_successions} successions.`,
+                'success'
+            );
+        } else {
+            hideAIBadges();
+            showNotification('AI analysis failed, using fallback recommendations', 'warning');
+        }
+        
+    } catch (error) {
+        console.error('AI harvest window optimization failed:', error);
+        hideAIBadges();
+        showNotification('AI service unavailable, using standard recommendations', 'info');
+    }
+}
+
+function showAIProcessingBadge() {
+    const processingBadge = document.getElementById('aiProcessingBadge');
+    const completeBadge = document.getElementById('aiCompleteBadge');
+    
+    if (processingBadge) {
+        processingBadge.classList.remove('d-none');
+    }
+    if (completeBadge) {
+        completeBadge.classList.add('d-none');
+    }
+}
+
+function showAICompleteBadge() {
+    const processingBadge = document.getElementById('aiProcessingBadge');
+    const completeBadge = document.getElementById('aiCompleteBadge');
+    const aiTimingInfo = document.getElementById('aiTimingInfo');
+    
+    if (processingBadge) {
+        processingBadge.classList.add('d-none');
+    }
+    if (completeBadge) {
+        completeBadge.classList.remove('d-none');
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            completeBadge.classList.add('d-none');
+        }, 5000);
+    }
+    if (aiTimingInfo) {
+        aiTimingInfo.classList.remove('d-none');
+    }
+}
+
+function hideAIBadges() {
+    const processingBadge = document.getElementById('aiProcessingBadge');
+    const completeBadge = document.getElementById('aiCompleteBadge');
+    
+    if (processingBadge) {
+        processingBadge.classList.add('d-none');
+    }
+    if (completeBadge) {
+        completeBadge.classList.add('d-none');
+    }
+}
+
+function updateUIWithAIRecommendations(aiData) {
+    // Update succession count
+    const successionCountInput = document.getElementById('successionCount');
+    const intervalDaysInput = document.getElementById('intervalDays');
+    const harvestDurationInput = document.getElementById('harvestDuration');
+    
+    if (successionCountInput && aiData.recommended_successions) {
+        successionCountInput.value = aiData.recommended_successions;
+    }
+    
+    if (intervalDaysInput && aiData.days_between_plantings) {
+        intervalDaysInput.value = aiData.days_between_plantings;
+    }
+    
+    if (harvestDurationInput && aiData.optimal_harvest_days) {
+        harvestDurationInput.value = aiData.optimal_harvest_days;
+    }
+    
+    // Update AI timing info display
+    const aiSuccessionCount = document.getElementById('aiSuccessionCount');
+    const aiDaysBetween = document.getElementById('aiDaysBetween');
+    
+    if (aiSuccessionCount) {
+        aiSuccessionCount.textContent = aiData.recommended_successions || '-';
+    }
+    if (aiDaysBetween) {
+        aiDaysBetween.textContent = aiData.days_between_plantings || '-';
+    }
+    
+    // Log AI response for debugging
+    console.log('AI Recommendations Applied:', {
+        source: aiData.source,
+        max_harvest_days: aiData.max_harvest_days,
+        optimal_harvest_days: aiData.optimal_harvest_days,
+        recommended_successions: aiData.recommended_successions,
+        days_between_plantings: aiData.days_between_plantings,
+        companion_crops: aiData.companion_crops
+    });
+}
 </script>
 
 <!-- Duplicate script tag removed - function is defined in main script above -->
 
 <style>
+/* AI Processing Badge Animations */
+#aiProcessingBadge {
+    animation: aiPulse 2s infinite;
+}
+
+@keyframes aiPulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(13, 110, 253, 0.7);
+    }
+    50% {
+        box-shadow: 0 0 0 10px rgba(13, 110, 253, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(13, 110, 253, 0);
+    }
+}
+
+#aiCompleteBadge {
+    animation: aiSuccess 0.5s ease-in-out;
+}
+
+@keyframes aiSuccess {
+    0% {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.fa-pulse {
+    animation: fa-pulse 1s infinite;
+}
+
+@keyframes fa-pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
 .preset-btn {
     transition: all 0.2s ease;
 }
