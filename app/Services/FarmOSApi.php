@@ -203,7 +203,7 @@ class FarmOSApi
     /**
      * Generic JSON:API GET with pagination
      */
-    private function jsonApiPaginatedFetch($path, $params = [], $maxPages = 20, $pageSize = 50)
+    private function jsonApiPaginatedFetch($path, $params = [], $maxPages = 200, $pageSize = 50)
     {
         $results = [];
         $page = 0;
