@@ -247,10 +247,54 @@ class SuccessionPlanningController extends Controller
         $notes = $validated['notes'] ?? '';
         $isDirectSow = $validated['direct_sow'] ?? false;
 
+        // 🧠 Get AI-optimized harvest window analysis
+        try {
+            $contextualData = [
+                'weather_forecast' => $this->getCurrentSeasonDescription(),
+                'current_season_performance' => 'Planning for ' . $firstSeedingDate->format('F Y'),
+                'succession_context' => "Planning {$successionCount} successions with {$intervalDays} day intervals"
+            ];
+
+            $aiHarvestWindow = $this->holisticAI->getOptimalHarvestWindow(
+                $cropType,
+                $variety !== 'Standard' ? $variety : null,
+                'Farm Location',
+                $contextualData
+            );
+
+            if ($aiHarvestWindow['success']) {
+                // Use AI recommendations for timing
+                $transplantToHarvestDays = $aiHarvestWindow['peak_harvest_days'] ?? $validated['transplant_to_harvest_days'];
+                $harvestDurationDays = $aiHarvestWindow['optimal_harvest_days'] ?? $validated['harvest_duration_days'];
+                $recommendedInterval = $aiHarvestWindow['days_between_plantings'] ?? $intervalDays;
+                
+                // Adjust interval if AI suggests different timing
+                if (abs($recommendedInterval - $intervalDays) <= 7) {
+                    $intervalDays = $recommendedInterval;
+                }
+                
+                $aiUsed = true;
+                $aiSource = $aiHarvestWindow['source'];
+                $aiConfidence = $aiHarvestWindow['ai_confidence'] ?? 'medium';
+            } else {
+                // Fallback to user input
+                $transplantToHarvestDays = $validated['transplant_to_harvest_days'];
+                $harvestDurationDays = $validated['harvest_duration_days'];
+                $aiUsed = false;
+                $aiSource = 'manual_input';
+                $aiConfidence = 'user_specified';
+            }
+        } catch (\Exception $e) {
+            Log::warning('AI harvest analysis failed, using manual input: ' . $e->getMessage());
+            $transplantToHarvestDays = $validated['transplant_to_harvest_days'];
+            $harvestDurationDays = $validated['harvest_duration_days'];
+            $aiUsed = false;
+            $aiSource = 'fallback_manual';
+            $aiConfidence = 'user_specified';
+        }
+
         // Get crop timing from user input (preferred) or presets
         $seedingToTransplantDays = $isDirectSow ? 0 : ($validated['seeding_to_transplant_days'] ?? 0);
-        $transplantToHarvestDays = $validated['transplant_to_harvest_days'];
-        $harvestDurationDays = $validated['harvest_duration_days'];
         
         $plantings = [];
         
@@ -283,7 +327,9 @@ class SuccessionPlanningController extends Controller
                 'direct_sow' => $isDirectSow,
                 'notes' => $notes,
                 'bed_id' => null, // To be assigned later
-                'conflicts' => []
+                'conflicts' => [],
+                'ai_optimized' => $aiUsed,
+                'ai_confidence' => $aiConfidence
             ];
         }
 
@@ -293,7 +339,11 @@ class SuccessionPlanningController extends Controller
             'total_plantings' => $successionCount,
             'interval_days' => $intervalDays,
             'direct_sow' => $isDirectSow,
-            'plantings' => $plantings
+            'plantings' => $plantings,
+            'ai_enhanced' => $aiUsed,
+            'ai_source' => $aiSource,
+            'ai_confidence' => $aiConfidence,
+            'ai_recommendations' => $aiHarvestWindow['contextual_factors'] ?? []
         ];
     }
 
@@ -545,6 +595,11 @@ class SuccessionPlanningController extends Controller
                 'transplant_days' => 0,   // Cut-and-come-again mix
                 'harvest_days' => 30,
                 'yield_period' => 21
+            ],
+            'fennel' => [
+                'transplant_days' => 21,  // Can be transplanted or direct seeded
+                'harvest_days' => 85,     // Seed to harvest (bulb fennel)
+                'yield_period' => 14      // Harvest window for bulbs
             ],
             'default' => [
                 'transplant_days' => 21,
@@ -1052,5 +1107,184 @@ class SuccessionPlanningController extends Controller
             'path_width_ratio' => $spacing * 3, // Fibonacci number
             'sacred_note' => 'Spacing based on golden ratio (φ = 1.618) and Fibonacci sequence'
         ];
+    }
+
+    /**
+     * Get current season description for AI context
+     */
+    private function getCurrentSeasonDescription(): string
+    {
+        $month = now()->month;
+        
+        if (in_array($month, [12, 1, 2])) {
+            return 'Winter conditions: Cold temperatures, limited growing season, protected cultivation recommended';
+        } elseif (in_array($month, [3, 4, 5])) {
+            return 'Spring conditions: Cool, wet conditions with increasing daylight, risk of late frost';
+        } elseif (in_array($month, [6, 7, 8])) {
+            return 'Summer conditions: Warm, stable conditions, monitor for heat stress and drought';
+        } else {
+            return 'Autumn conditions: Cooling temperatures with shorter days, focus on cold-hardy varieties';
+        }
+    }
+
+    /**
+     * Get AI-optimized harvest window for succession planning
+     */
+    public function getOptimalHarvestWindow(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'crop_type' => 'required|string',
+            'variety' => 'nullable|string',
+            'location' => 'nullable|string'
+        ]);
+
+        try {
+            // Gather any available historical data (would come from farmOS in production)
+            $contextualData = [
+                'weather_forecast' => 'Current seasonal conditions for ' . ($validated['location'] ?? 'farm location'),
+                // In production, we would gather historical yield data from farmOS logs
+                // 'historical_yields' => $this->farmOSApi->getHistoricalYields($validated['crop_type']),
+                // 'current_season_performance' => $this->farmOSApi->getCurrentSeasonPerformance()
+            ];
+
+            $harvestWindow = $this->holisticAI->getOptimalHarvestWindow(
+                $validated['crop_type'],
+                $validated['variety'] ?? null,
+                $validated['location'] ?? null,
+                $contextualData
+            );
+
+            return response()->json([
+                'success' => true,
+                'data' => $harvestWindow,
+                'ai_confidence' => $harvestWindow['ai_confidence'] ?? 'medium',
+                'data_quality' => $harvestWindow['data_quality'] ?? 'basic',
+                'recommendations_basis' => $harvestWindow['recommendations_basis'] ?? 'general_guidelines',
+                'contextual_factors' => $harvestWindow['contextual_factors'] ?? [],
+                'timestamp' => now()->toISOString()
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Harvest window optimization failed: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to get harvest window optimization',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Handle chat messages to Mistral AI
+     */
+    public function chat(Request $request): JsonResponse
+    {
+        // Increase execution time for AI requests
+        set_time_limit(120); // 2 minutes
+        ini_set('max_execution_time', 120);
+        ini_set('default_socket_timeout', 120); // Override 60-second socket timeout
+        
+        try {
+            $validated = $request->validate([
+                'message' => 'required|string|max:1000',
+                'crop_type' => 'nullable|string',
+                'season' => 'nullable|string',
+                'context' => 'nullable|string'
+            ]);
+
+            // Build contextual question for AI
+            $question = $validated['message'];
+            
+            // Add context if provided
+            if (!empty($validated['crop_type'])) {
+                $question .= " (Context: working with {$validated['crop_type']} crop)";
+            }
+            
+            if (!empty($validated['season'])) {
+                $question .= " (Season: {$validated['season']})";
+            }
+
+            // Call Mistral AI service with timeout just under Nginx limit  
+            $response = Http::timeout(55) // 55 seconds - under Nginx timeout
+                ->connectTimeout(10) // 10 second connection timeout
+                ->retry(1, 2000) // Retry once after 2 seconds if it fails
+                ->withOptions([
+                    'stream_context' => stream_context_create([
+                        'http' => [
+                            'timeout' => 55.0,
+                        ]
+                    ])
+                ])
+                ->post('http://localhost:8005/ask', [
+                    'question' => $question,
+                    'context' => $validated['context'] ?? 'succession_planning_chat'
+                ]);
+
+            if ($response->successful()) {
+                $aiData = $response->json();
+                
+                Log::info('Chat AI response received', [
+                    'user_message' => $validated['message'],
+                    'ai_wisdom' => $aiData['wisdom'] ?? 'basic',
+                    'moon_phase' => $aiData['moon_phase'] ?? 'unknown'
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'answer' => $aiData['answer'] ?? 'AI response unavailable',
+                    'wisdom' => $aiData['wisdom'] ?? 'Basic agricultural guidance',
+                    'moon_phase' => $aiData['moon_phase'] ?? 'unknown',
+                    'context' => $aiData['context'] ?? null,
+                    'source' => 'Mistral 7B Holistic AI',
+                    'timestamp' => now()->toISOString()
+                ]);
+            } else {
+                throw new \Exception('AI service returned: ' . $response->status());
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Chat AI service error: ' . $e->getMessage());
+            
+            // Return fallback wisdom instead of error
+            $fallbackWisdom = $this->getFallbackChatWisdom($validated['message'] ?? 'farming question');
+            
+            return response()->json([
+                'success' => true,
+                'answer' => $fallbackWisdom,
+                'wisdom' => 'Fallback wisdom - AI service temporarily unavailable',
+                'moon_phase' => 'unknown',
+                'source' => 'Fallback System',
+                'timestamp' => now()->toISOString()
+            ]);
+        }
+    }
+
+    /**
+     * Generate fallback wisdom when AI is unavailable
+     */
+    private function getFallbackChatWisdom(string $message): string
+    {
+        $fallbackResponses = [
+            'planting' => 'For optimal planting, consider soil temperature, moisture levels, and local frost dates. Each crop has specific requirements for successful germination.',
+            'harvest' => 'Harvest timing depends on crop maturity indicators. Look for size, color, and texture changes that signal peak readiness.',
+            'spacing' => 'Proper plant spacing prevents competition and disease. Follow seed packet recommendations and adjust for your growing conditions.',
+            'companion' => 'Companion planting can improve soil health, deter pests, and maximize garden space efficiency.',
+            'soil' => 'Healthy soil is the foundation of successful farming. Test pH, add organic matter, and ensure proper drainage.',
+            'season' => 'Work with your local growing season. Know your frost dates and choose varieties suited to your climate zone.',
+            'water' => 'Consistent moisture is key. Water deeply but less frequently to encourage strong root systems.',
+            'default' => 'Successful farming combines traditional wisdom with observation of your specific growing conditions.'
+        ];
+
+        // Match keywords to appropriate responses
+        $message = strtolower($message);
+        
+        foreach ($fallbackResponses as $keyword => $response) {
+            if (strpos($message, $keyword) !== false) {
+                return $response;
+            }
+        }
+        
+        return $fallbackResponses['default'];
     }
 }

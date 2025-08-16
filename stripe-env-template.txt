@@ -1,0 +1,16 @@
+# Add these Stripe configuration variables to your .env file:
+
+# Stripe API Keys (get from your Stripe Dashboard)
+STRIPE_KEY=pk_test_your_publishable_key_here
+STRIPE_SECRET=sk_test_your_secret_key_here
+
+# Optional: Stripe Webhook Configuration (for advanced features)
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
+STRIPE_WEBHOOK_TOLERANCE=300
+
+# Instructions:
+# 1. Log in to your Stripe Dashboard at https://dashboard.stripe.com
+# 2. Go to Developers > API Keys
+# 3. Copy your Publishable key (starts with pk_) to STRIPE_KEY
+# 4. Copy your Secret key (starts with sk_) to STRIPE_SECRET
+# 5. If using webhooks, create an endpoint and copy the signing secret

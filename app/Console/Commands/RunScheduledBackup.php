@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use App\Http\Controllers\Admin\BackupController;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Artisan;
 use Carbon\Carbon;
 
 class RunScheduledBackup extends Command
@@ -44,23 +45,32 @@ class RunScheduledBackup extends Command
 
             $this->info('Starting backup process...');
             
-            // Create the backup using reflection to access private method
-            $controller = new BackupController();
-            $reflection = new \ReflectionClass($controller);
-            $method = $reflection->getMethod('createBackup');
-            $method->setAccessible(true);
+            // Use Spatie Laravel Backup for multi-site backups
+            $backupName = $customName . '_' . date('Y-m-d_H-i-s');
             
-            $backupFile = $method->invoke($controller, $customName, true, false, 'auto');
+            $exitCode = Artisan::call('backup:run', [
+                '--force' => true,
+                '--name' => $backupName
+            ]);
+
+            $output = Artisan::output();
             
-            $this->info("Backup created successfully: {$backupFile}");
-            
-            // Clean up old backups (only if not forced)
-            if (!$force) {
-                try {
-                    $this->cleanupOldBackups($settings);
-                } catch (\Exception $e) {
-                    $this->warn('Cleanup failed: ' . $e->getMessage());
+            if ($exitCode === 0) {
+                if (preg_match('/Backup created successfully: (.+\.zip)/', $output, $matches)) {
+                    $backupFile = $matches[1];
+                } else {
+                    $backupFile = $backupName . '.zip';
                 }
+                
+                $this->info("Multi-site backup created successfully: {$backupFile}");
+                $this->info("Includes: Laravel, WordPress, farmOS, POS System databases and files");
+                
+                // Clean up old backups using Spatie's cleanup
+                if (!$force) {
+                    $this->call('backup:clean');
+                }
+            } else {
+                throw new \Exception('Backup command failed: ' . $output);
             }
             
             Log::info('Scheduled backup completed', [

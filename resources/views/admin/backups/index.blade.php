@@ -556,7 +556,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="backup-card p-3 mb-3">
                 <div class="row align-items-center">
                     <div class="col-md-6">
-                        <div class="backup-name">${backup.name}</div>
+                        <div class="backup-name">${backup.filename}</div>
                         <div class="backup-size">Size: ${backup.size}</div>
                         <div class="backup-date">Created: ${new Date(backup.created_at).toLocaleString()}</div>
                     </div>
@@ -572,7 +572,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                     title="Preview Contents" type="button">
                                 <i class="fas fa-eye"></i>
                             </button>
-                            <button class="btn btn-sm btn-outline-warning me-1" onclick="openRestoreModal('${backup.filename}', '${backup.name.replace(/'/g, "\\'")}'); event.stopPropagation();" 
+                            <button class="btn btn-sm btn-outline-warning me-1" onclick="openRestoreModal('${backup.filename}', '${backup.filename.replace(/'/g, "\\'")}'); event.stopPropagation();" 
                                     title="Restore" type="button">
                                 <i class="fas fa-history"></i>
                             </button>
@@ -580,7 +580,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                     title="Download" type="button">
                                 <i class="fas fa-download"></i>
                             </button>
-                            <button class="btn btn-sm btn-outline-danger" onclick="openDeleteModal('${backup.filename}', '${backup.name.replace(/'/g, "\\'")}'); event.stopPropagation();" 
+                            <button class="btn btn-sm btn-outline-danger" onclick="openDeleteModal('${backup.filename}', '${backup.filename.replace(/'/g, "\\'")}'); event.stopPropagation();" 
                                     title="Delete" type="button">
                                 <i class="fas fa-trash"></i>
                             </button>

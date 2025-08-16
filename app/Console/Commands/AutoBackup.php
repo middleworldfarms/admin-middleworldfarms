@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use App\Http\Controllers\Admin\BackupController;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Artisan;
 use Carbon\Carbon;
 
 class AutoBackup extends Command
@@ -28,41 +29,55 @@ class AutoBackup extends Command
      */
     public function handle()
     {
-        $this->info('Starting automatic backup process...');
-        
         try {
-            // Create a controller instance to use the backup logic
-            $controller = new BackupController();
+            $this->info('Starting automatic database backup...');
             
-            // Use reflection to access the private method
-            $reflection = new \ReflectionClass($controller);
-            $createBackupMethod = $reflection->getMethod('createBackup');
-            $createBackupMethod->setAccessible(true);
+            // Use our custom backup service instead of Spatie
+            $backupService = new \App\Services\DatabaseBackupService();
             
-            // Create the backup
-            $backupName = 'scheduled_' . Carbon::now()->format('Y-m-d_H-i-s');
-            $filename = $createBackupMethod->invoke(
-                $controller, 
-                'scheduled', 
-                true,  // include database
-                true,  // include files (now includes vendor/, public/, etc.)
-                'auto'
-            );
+            // Get available connections
+            $connections = ['mysql'];
             
-            $this->info("✅ Backup created successfully: {$filename}");
+            // Test and add WordPress connection if available
+            try {
+                \DB::connection('wordpress')->getPdo();
+                $connections[] = 'wordpress';
+                $this->info('WordPress connection available for backup');
+            } catch (\Exception $e) {
+                $this->info('WordPress connection not available: ' . $e->getMessage());
+            }
             
-            // Clean up old backups based on retention policy
-            $this->cleanupOldBackups($controller);
+            // Test and add farmOS connection if available
+            try {
+                \DB::connection('farmos')->getPdo();
+                $connections[] = 'farmos';
+                $this->info('farmOS connection available for backup');
+            } catch (\Exception $e) {
+                $this->info('farmOS connection not available: ' . $e->getMessage());
+            }
             
-            Log::info("Automatic backup created: {$filename}");
+            // Test and add POS system connection if available
+            try {
+                \DB::connection('pos_system')->getPdo();
+                $connections[] = 'pos_system';
+                $this->info('POS system connection available for backup');
+            } catch (\Exception $e) {
+                $this->info('POS system connection not available: ' . $e->getMessage());
+            }
             
-            return 0;
+            $result = $backupService->createBackup($connections);
+            
+            $this->info('Backup created successfully!');
+            $this->info('File: ' . $result['file']);
+            $this->info('Size: ' . number_format($result['size'] / 1024, 2) . ' KB');
+            $this->info('Connections: ' . implode(', ', $result['connections']));
+            
+            return Command::SUCCESS;
             
         } catch (\Exception $e) {
-            $this->error("❌ Backup failed: " . $e->getMessage());
-            Log::error("Automatic backup failed: " . $e->getMessage());
-            
-            return 1;
+            $this->error('Backup failed: ' . $e->getMessage());
+            \Log::error('Auto backup failed: ' . $e->getMessage());
+            return Command::FAILURE;
         }
     }
     

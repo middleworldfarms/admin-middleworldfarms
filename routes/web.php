@@ -99,7 +99,19 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
 
     // Simple test route
     Route::get('/test', function () {
-        return 'Test route works!';
+        return response()->json(['message' => 'Admin system is working', 'timestamp' => now()]);
+    });
+
+    // Test Plesk service route
+    require __DIR__ . '/test-plesk.php';    // Conversation management routes (ADMIN ONLY)
+    Route::prefix('conversations')->name('admin.conversations.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Admin\ConversationAdminController::class, 'index'])->name('index');
+        Route::get('/statistics', [App\Http\Controllers\Admin\ConversationAdminController::class, 'statistics'])->name('statistics');
+        Route::get('/search', [App\Http\Controllers\Admin\ConversationAdminController::class, 'search'])->name('search');
+        Route::get('/export-training', [App\Http\Controllers\Admin\ConversationAdminController::class, 'exportTraining'])->name('export-training');
+        Route::post('/purge-old', [App\Http\Controllers\Admin\ConversationAdminController::class, 'purgeOld'])->name('purge-old');
+        Route::get('/{id}', [App\Http\Controllers\Admin\ConversationAdminController::class, 'show'])->name('show');
+        Route::delete('/{id}', [App\Http\Controllers\Admin\ConversationAdminController::class, 'destroy'])->name('destroy');
     });
 
     // Route planning and optimization routes
@@ -128,6 +140,17 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         Route::post('/upload', [App\Http\Controllers\Admin\BackupController::class, 'upload'])->name('upload');
         Route::get('/preview/{filename}', [App\Http\Controllers\Admin\BackupController::class, 'preview'])->name('preview');
         Route::post('/restore/{filename}', [App\Http\Controllers\Admin\BackupController::class, 'restore'])->name('restore');
+    });
+
+    // Plesk Backup management routes
+    Route::prefix('plesk-backup')->name('admin.plesk-backup.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Admin\PleskBackupController::class, 'index'])->name('index');
+        Route::post('/create-plesk', [App\Http\Controllers\Admin\PleskBackupController::class, 'createPlesk'])->name('create-plesk');
+        Route::post('/create-local', [App\Http\Controllers\Admin\PleskBackupController::class, 'createLocal'])->name('create-local');
+        Route::get('/status', [App\Http\Controllers\Admin\PleskBackupController::class, 'status'])->name('status');
+        Route::get('/test-plesk', [App\Http\Controllers\Admin\PleskBackupController::class, 'testPlesk'])->name('test-plesk');
+        Route::get('/download/{filename}', [App\Http\Controllers\Admin\PleskBackupController::class, 'download'])->name('download');
+        Route::get('/details/{filename}', [App\Http\Controllers\Admin\PleskBackupController::class, 'details'])->name('details');
     });
     
     // Print packing slips
@@ -159,6 +182,8 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         Route::get('/succession-planning', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'index'])->name('succession-planning');
         Route::post('/succession-planning/generate', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'generate'])->name('succession-planning.generate');
         Route::post('/succession-planning/create-logs', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'createLogs'])->name('succession-planning.create-logs');
+        Route::post('/succession-planning/harvest-window', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'getOptimalHarvestWindow'])->name('succession-planning.harvest-window');
+        Route::post('/succession-planning/chat', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'chat'])->name('succession-planning.chat');
     });
 
     // Test route for AI timing
@@ -174,6 +199,15 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         Route::post('/ai/holistic-recommendations', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'getHolisticRecommendations'])->name('api.ai.holistic-recommendations');
         Route::get('/ai/moon-phase', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'getMoonPhaseGuidance'])->name('api.ai.moon-phase');
         Route::post('/ai/sacred-spacing', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'getSacredSpacing'])->name('api.ai.sacred-spacing');
+    });
+
+    // Stripe Payment Integration Routes
+    Route::prefix('stripe')->name('admin.stripe.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Admin\StripeController::class, 'index'])->name('dashboard');
+        Route::get('/payments', [App\Http\Controllers\Admin\StripeController::class, 'getPayments'])->name('payments');
+        Route::get('/statistics', [App\Http\Controllers\Admin\StripeController::class, 'getStatistics'])->name('statistics');
+        Route::get('/subscriptions', [App\Http\Controllers\Admin\StripeController::class, 'getSubscriptions'])->name('subscriptions');
+        Route::get('/customers/search', [App\Http\Controllers\Admin\StripeController::class, 'searchCustomers'])->name('customers.search');
     });
 
     // AI Gateway test route (internal)
@@ -300,15 +334,13 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
             'land_assets' => $land,
         ]);
     })->name('admin.farmos.uuid-helper');
+});
 
-    // Conversation management routes (ADMIN ONLY)
-    Route::prefix('conversations')->name('admin.conversations.')->group(function () {
-        Route::get('/', [App\Http\Controllers\Admin\ConversationAdminController::class, 'index'])->name('index');
-        Route::get('/statistics', [App\Http\Controllers\Admin\ConversationAdminController::class, 'statistics'])->name('statistics');
-        Route::get('/search', [App\Http\Controllers\Admin\ConversationAdminController::class, 'search'])->name('search');
-        Route::get('/export-training', [App\Http\Controllers\Admin\ConversationAdminController::class, 'exportTraining'])->name('export-training');
-        Route::post('/purge-old', [App\Http\Controllers\Admin\ConversationAdminController::class, 'purgeOld'])->name('purge-old');
-        Route::get('/{id}', [App\Http\Controllers\Admin\ConversationAdminController::class, 'show'])->name('show');
-        Route::delete('/{id}', [App\Http\Controllers\Admin\ConversationAdminController::class, 'destroy'])->name('destroy');
-    });
+// Quick Plesk test without authentication
+Route::get('/test-plesk-quick', function () {
+    $service = new \App\Services\PleskBackupService();
+    return response()->json([
+        'plesk_access' => $service->testPleskAccess(),
+        'timestamp' => now()->toDateTimeString()
+    ]);
 });

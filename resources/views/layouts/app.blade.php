@@ -356,6 +356,11 @@
             </a>
             
             <div class="nav-section">System</div>
+            <a href="/admin/stripe" class="nav-link {{ request()->is('admin/stripe*') ? 'active' : '' }}">
+                <i class="fas fa-credit-card"></i>
+                <span>Stripe Payments</span>
+            </a>
+            
             <a href="/admin/settings" class="nav-link {{ request()->is('admin/settings*') ? 'active' : '' }}">
                 <i class="fas fa-cog"></i>
                 <span>Settings</span>
@@ -369,6 +374,11 @@
             <a href="/admin/backups" class="nav-link {{ request()->is('admin/backups*') ? 'active' : '' }}">
                 <i class="fas fa-database"></i>
                 <span>Backup Management</span>
+            </a>
+            
+            <a href="/admin/plesk-backup" class="nav-link {{ request()->is('admin/plesk-backup*') ? 'active' : '' }}">
+                <i class="fas fa-server"></i>
+                <span>Plesk Backups</span>
             </a>
             
             <div class="nav-section">External</div>

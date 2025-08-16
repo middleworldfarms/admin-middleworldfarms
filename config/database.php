@@ -60,6 +60,17 @@ return [
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
+            // Add dump configuration for Spatie backup
+            'dump' => [
+                'useSingleTransaction' => true,
+                'timeout' => 60,
+                'excludeTables' => [
+                    'sessions',
+                    'cache',
+                    'jobs',
+                    'failed_jobs',
+                ],
+            ],
         ],
 
         'mariadb' => [
@@ -112,20 +123,100 @@ return [
             // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
 
-        // WordPress/WooCommerce Database Connection
+                // WordPress database connection (for direct database access)
         'wordpress' => [
             'driver' => 'mysql',
             'host' => env('WP_DB_HOST', '127.0.0.1'),
             'port' => env('WP_DB_PORT', '3306'),
-            'database' => env('WP_DB_DATABASE', 'wordpress'),
-            'username' => env('WP_DB_USERNAME', 'root'),
+            'database' => env('WP_DB_DATABASE', 'forge'),
+            'username' => env('WP_DB_USERNAME', 'forge'),
             'password' => env('WP_DB_PASSWORD', ''),
             'unix_socket' => env('WP_DB_SOCKET', ''),
             'charset' => 'utf8mb4',
             'collation' => 'utf8mb4_unicode_ci',
-            'prefix' => env('WP_DB_PREFIX', 'wp_'),
+            'prefix' => env('WP_DB_PREFIX', ''),
             'prefix_indexes' => true,
-            'strict' => false, // WordPress often has non-strict SQL
+            'strict' => true,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
+
+        // farmOS database connection (when available)
+        'farmos' => [
+            'driver' => 'mysql',
+            'host' => env('FARMOS_DB_HOST', '127.0.0.1'),
+            'port' => env('FARMOS_DB_PORT', '3306'),
+            'database' => env('FARMOS_DB_DATABASE', 'farmos_db'),
+            'username' => env('FARMOS_DB_USERNAME', 'farmos_user'),
+            'password' => env('FARMOS_DB_PASSWORD', ''),
+            'unix_socket' => env('FARMOS_DB_SOCKET', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
+
+        // POS system database connection (middleworld.farm)
+        'pos_system' => [
+            'driver' => 'mysql',
+            'host' => env('POS_DB_HOST', '127.0.0.1'),
+            'port' => env('POS_DB_PORT', '3306'),
+            'database' => env('POS_DB_DATABASE', 'self-serv-shop'),
+            'username' => env('POS_DB_USERNAME', 'pos_user'),
+            'password' => env('POS_DB_PASSWORD', ''),
+            'unix_socket' => env('POS_DB_SOCKET', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
+
+        // farmOS Database Connection
+        'farmos' => [
+            'driver' => 'mysql',
+            'host' => env('FARMOS_DB_HOST', '127.0.0.1'),
+            'port' => env('FARMOS_DB_PORT', '3306'),
+            'database' => env('FARMOS_DB_DATABASE', 'farmos'),
+            'username' => env('FARMOS_DB_USERNAME', 'root'),
+            'password' => env('FARMOS_DB_PASSWORD', ''),
+            'unix_socket' => env('FARMOS_DB_SOCKET', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => false,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
+
+        // POS System Database Connection (middleworld.farm)
+        'pos_system' => [
+            'driver' => 'mysql',
+            'host' => env('POS_DB_HOST', '127.0.0.1'),
+            'port' => env('POS_DB_PORT', '3306'),
+            'database' => env('POS_DB_DATABASE', 'pos_system'),
+            'username' => env('POS_DB_USERNAME', 'root'),
+            'password' => env('POS_DB_PASSWORD', ''),
+            'unix_socket' => env('POS_DB_SOCKET', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),

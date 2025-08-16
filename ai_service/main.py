@@ -1,14 +1,25 @@
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict
 import math
 import datetime
 from enum import Enum
+import requests
 
 app = FastAPI(
     title="Holistic Agricultural AI - Symbiosis",
     description="AI that thinks with sacred geometry, lunar cycles, and biodynamic principles",
     version="1.0.0"
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 class MoonPhase(Enum):
@@ -262,24 +273,50 @@ def root():
 
 @app.post("/ask")
 def ask_ai(request: AskRequest):
-    """Ask the holistic AI for farming wisdom"""
-    if request.crop_type:
-        # Generate holistic crop recommendation
-        recommendation = generate_holistic_recommendation(request.crop_type, request.season)
-        return {
-            "answer": f"🌟 Holistic wisdom for {request.crop_type}:",
-            "recommendation": recommendation,
-            "moon_phase": symbiosis_ai.get_current_moon_phase().value,
-            "context": request.context
-        }
-    else:
-        # General wisdom response
-        return {
-            "answer": f"🌙 The agricultural cosmos whispers: {request.question}",
-            "wisdom": "Every plant is a bridge between earth and sky. Consider the sacred patterns, lunar rhythms, and energetic flows in your growing practice.",
-            "moon_phase": symbiosis_ai.get_current_moon_phase().value,
-            "context": request.context
-        }
+    """Ask Mistral 7B for real farming wisdom"""
+    try:
+        # Call Ollama Mistral 7B
+        ollama_response = requests.post(
+            "http://localhost:11434/api/generate",
+            json={
+                "model": "mistral:latest",
+                "prompt": f"You are a knowledgeable biodynamic farming expert. Answer this question with practical, detailed advice: {request.question}",
+                "stream": False
+            },
+            timeout=120
+        )
+        
+        if ollama_response.status_code == 200:
+            response_data = ollama_response.json()
+            mistral_answer = response_data.get("response", "")
+            
+            return {
+                "answer": mistral_answer,
+                "wisdom": "Enhanced by biodynamic principles and lunar wisdom",
+                "moon_phase": symbiosis_ai.get_current_moon_phase().value,
+                "context": request.context
+            }
+        else:
+            raise Exception(f"Ollama error: {ollama_response.status_code}")
+            
+    except Exception as e:
+        # Fallback to original hardcoded response if Mistral fails
+        if request.crop_type:
+            recommendation = generate_holistic_recommendation(request.crop_type, request.season)
+            return {
+                "answer": f"🌟 Holistic wisdom for {request.crop_type}:",
+                "recommendation": recommendation,
+                "moon_phase": symbiosis_ai.get_current_moon_phase().value,
+                "context": request.context
+            }
+        else:
+            return {
+                "answer": f"🌙 The agricultural cosmos whispers: {request.question}",
+                "wisdom": "Every plant is a bridge between earth and sky. Consider the sacred patterns, lunar rhythms, and energetic flows in your growing practice.",
+                "moon_phase": symbiosis_ai.get_current_moon_phase().value,
+                "context": request.context,
+                "error": str(e)
+            }
 
 @app.get("/holistic-recommendation/{crop_type}")
 def get_holistic_recommendation(crop_type: str, season: str = "current"):
@@ -370,4 +407,4 @@ def get_moon_phase_activities(phase: MoonPhase) -> List[str]:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8002)
+    uvicorn.run(app, host="0.0.0.0", port=8005)

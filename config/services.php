@@ -47,6 +47,15 @@ return [
         ],
     ],
 
+    'stripe' => [
+        'key' => env('STRIPE_KEY'),
+        'secret' => env('STRIPE_SECRET'),
+        'webhook' => [
+            'secret' => env('STRIPE_WEBHOOK_SECRET'),
+            'tolerance' => env('STRIPE_WEBHOOK_TOLERANCE', 300),
+        ],
+    ],
+
     'wp_api' => [
         'url'    => env('WOOCOMMERCE_URL', 'https://middleworldfarms.org'),
         'key'    => env('WOOCOMMERCE_CONSUMER_KEY'),

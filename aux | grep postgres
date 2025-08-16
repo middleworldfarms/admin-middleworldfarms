@@ -1,0 +1,8 @@
+[0;1;32m●[0m postgresql.service - PostgreSQL RDBMS
+     Loaded: loaded (]8;;file://admiring-mccarthy.212-227-14-88.plesk.page/usr/lib/systemd/system/postgresql.service/usr/lib/systemd/system/postgresql.service]8;;; [0;1;32menabled[0m; preset: [0;1;32menabled[0m)
+     Active: [0;1;32mactive (exited)[0m since Wed 2025-08-13 20:11:37 UTC; 1h 25min ago
+   Main PID: 401005 (code=exited, status=0/SUCCESS)
+        CPU: 1ms
+
+Aug 13 20:11:37 admiring-mccarthy.212-227-14-88.plesk.page systemd[1]: Starting postgresql.service - PostgreSQL RDBMS...
+Aug 13 20:11:37 admiring-mccarthy.212-227-14-88.plesk.page systemd[1]: Finished postgresql.service - PostgreSQL RDBMS.
