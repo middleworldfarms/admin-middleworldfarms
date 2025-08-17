@@ -871,6 +871,15 @@
         }
     }
 
+    // Helper function to determine current season
+    function getCurrentSeason() {
+        const month = new Date().getMonth(); // 0-11
+        if (month >= 2 && month <= 4) return 'spring';  // Mar, Apr, May
+        if (month >= 5 && month <= 7) return 'summer';  // Jun, Jul, Aug
+        if (month >= 8 && month <= 10) return 'fall';   // Sep, Oct, Nov
+        return 'winter'; // Dec, Jan, Feb
+    }
+
     // AI Integration Functions
     async function calculateAIHarvestWindow() {
         const cropSelect = document.getElementById('cropSelect');
@@ -883,9 +892,26 @@
         
         showLoading(true);
         addAIChatMessage('ai', `🔍 Analyzing optimal harvest window for ${cropName}${varietyName ? ` (${varietyName})` : ''}...`);
+        addAIChatMessage('ai', `🧠 Using Mistral 7B on CPU - this may take up to 60 seconds...`);
+        
+        // Add a progress indicator for long-running AI requests
+        let progressDots = 0;
+        const progressInterval = setInterval(() => {
+            progressDots = (progressDots + 1) % 4;
+            const dots = '.'.repeat(progressDots) + ' '.repeat(3 - progressDots);
+            const chatMessages = document.getElementById('aiChatMessages');
+            const lastMessage = chatMessages.lastElementChild;
+            if (lastMessage && lastMessage.textContent.includes('Using Mistral 7B')) {
+                lastMessage.querySelector('small').textContent = `🧠 Using Mistral 7B on CPU - processing${dots}`;
+            }
+        }, 1000);
         
         try {
-            const response = await fetch('/admin/farmos/ai-harvest-window', {
+            // Create AbortController for 90-second timeout (longer for CPU-based AI)
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 seconds
+            
+            const response = await fetch('/admin/farmos/succession-planning/harvest-window', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -897,21 +923,75 @@
                     location: 'Market Garden',
                     harvest_start: document.getElementById('harvestStart').value,
                     harvest_end: document.getElementById('harvestEnd').value
-                })
+                }),
+                signal: controller.signal
             });
             
-            const data = await response.json();
+            clearTimeout(timeoutId); // Clear timeout if request completes
+            clearInterval(progressInterval); // Clear progress indicator
+            
+            // Check if response is ok before parsing JSON
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('HTTP Error:', response.status, errorText);
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            // Try to parse JSON with better error handling
+            let data;
+            try {
+                const responseText = await response.text();
+                console.log('Raw AI response:', responseText); // Debug logging
+                data = JSON.parse(responseText);
+                console.log('Parsed AI data:', data); // Debug the structure
+            } catch (parseError) {
+                console.error('JSON Parse Error:', parseError);
+                console.error('Response that failed to parse:', responseText);
+                throw new Error('Invalid response format from AI service');
+            }
             
             if (data.success) {
-                displayAIHarvestWindow(data.harvest_window);
-                addAIChatMessage('ai', `✅ AI Analysis Complete! Recommended ${data.harvest_window.optimal_harvest_days || 14} day harvest window with ${data.harvest_window.recommended_successions || 4} successions.`);
+                console.log('AI response structure:', Object.keys(data)); // See what keys exist
+                
+                // Handle different possible response structures
+                let harvestWindow = data.harvest_window;
+                
+                if (!harvestWindow) {
+                    // Try alternative structures
+                    harvestWindow = data.timing || data.recommendations || data.analysis;
+                    console.log('Using alternative structure:', harvestWindow);
+                }
+                
+                if (!harvestWindow) {
+                    // Create from whatever data we have
+                    harvestWindow = {
+                        optimal_harvest_days: data.optimal_harvest_days || data.harvest_days || 14,
+                        recommended_successions: data.recommended_successions || data.successions || 4,
+                        days_between_plantings: data.days_between_plantings || data.interval || 14,
+                        confidence_level: data.confidence_level || data.confidence || 'AI-enhanced'
+                    };
+                    console.log('Created harvestWindow from available data:', harvestWindow);
+                }
+                
+                displayAIHarvestWindow(harvestWindow);
+                addAIChatMessage('ai', `✅ AI Analysis Complete! Recommended ${harvestWindow.optimal_harvest_days || 14} day harvest window with ${harvestWindow.recommended_successions || 4} successions.`);
             } else {
-                throw new Error(data.message || 'AI analysis failed');
+                throw new Error(data.message || data.error || 'AI analysis failed');
             }
             
         } catch (error) {
+            clearInterval(progressInterval); // Clear progress indicator on error
             console.error('AI harvest window error:', error);
-            addAIChatMessage('ai', `❌ AI analysis unavailable. Using standard timing guidelines for ${cropName}.`);
+            
+            if (error.name === 'AbortError') {
+                addAIChatMessage('ai', `⏱️ AI analysis timed out after 90 seconds. Using standard timing guidelines for ${cropName}.`);
+            } else if (error.message.includes('Invalid response format')) {
+                addAIChatMessage('ai', `🔧 AI service returned invalid data. Check console for details. Using standard timing for ${cropName}.`);
+            } else if (error.message.includes('HTTP')) {
+                addAIChatMessage('ai', `🌐 AI service error: ${error.message}. Using standard timing for ${cropName}.`);
+            } else {
+                addAIChatMessage('ai', `❌ AI analysis failed: ${error.message}. Using standard timing for ${cropName}.`);
+            }
             
             // Fallback to basic calculations
             displayAIHarvestWindow({
@@ -920,9 +1000,10 @@
                 days_between_plantings: 14,
                 confidence_level: 'basic'
             });
+        } finally {
+            // Ensure loading spinner is always hidden, even on timeout/error
+            showLoading(false);
         }
-        
-        showLoading(false);
     }
 
     function displayAIHarvestWindow(harvestWindow) {
