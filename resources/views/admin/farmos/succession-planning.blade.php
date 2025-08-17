@@ -882,7 +882,17 @@
 
     function dateToPercentage(date) {
         const daysSinceStart = (date - timelineStartDate) / (1000 * 60 * 60 * 24);
-        return Math.max(0, Math.min(100, (daysSinceStart / timelineTotalDays) * 100));
+        const percentage = Math.max(0, Math.min(100, (daysSinceStart / timelineTotalDays) * 100));
+        
+        // DEBUG: Let's trace this calculation
+        console.log('🔍 dateToPercentage() called:');
+        console.log('   Input date:', date.toLocaleDateString());
+        console.log('   Timeline start:', timelineStartDate?.toLocaleDateString());
+        console.log('   Days since start:', daysSinceStart.toFixed(2));
+        console.log('   Timeline total days:', timelineTotalDays);
+        console.log('   Calculated percentage:', percentage.toFixed(2) + '%');
+        
+        return percentage;
     }
 
     function updateDateInputsFromBar() {
@@ -946,9 +956,26 @@
         const today = new Date();
         const percentage = dateToPercentage(today);
         
+        // DEBUG: Let's see exactly what's happening
+        console.log('🔍 RED LINE DEBUG:');
+        console.log('   Today:', today.toLocaleDateString());
+        console.log('   Timeline start:', timelineStartDate?.toLocaleDateString());
+        console.log('   Timeline end:', timelineEndDate?.toLocaleDateString());
+        console.log('   Timeline total days:', timelineTotalDays);
+        console.log('   Calculated percentage:', percentage.toFixed(2) + '%');
+        
+        // Check if we're using calendar year accidentally
+        const yearStart = new Date(today.getFullYear(), 0, 1);
+        const dayOfYear = Math.floor((today - yearStart) / (1000 * 60 * 60 * 24));
+        const yearPercentage = (dayOfYear / 365) * 100;
+        console.log('   If using calendar year, today would be:', yearPercentage.toFixed(2) + '%');
+        
         const marker = document.getElementById('currentDateMarker');
         if (marker) {
             marker.style.left = percentage + '%';
+            console.log('   ✅ Red line positioned at:', percentage.toFixed(2) + '%');
+        } else {
+            console.log('   ❌ Red line marker element not found!');
         }
     }
 
