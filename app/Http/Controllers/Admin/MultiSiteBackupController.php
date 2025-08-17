@@ -40,48 +40,6 @@ class MultiSiteBackupController extends Controller
             'connection' => 'farmos',
             'enabled' => true
         ],
-<?php
-
-namespace App\Http\Controllers\Admin;
-
-use Illuminate\Http\Request;
-use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Process;
-use Carbon\Carbon;
-
-class MultiSiteBackupController extends Controller
-{
-    private $backupPath = 'backups';
-
-    // Define all your sites/systems
-    private $sites = [
-        'laravel_admin' => [
-            'name' => 'Laravel Admin (Current)',
-            'type' => 'laravel',
-            'path' => '/opt/sites/admin.middleworldfarms.org',
-            'database' => 'mysql',
-            'connection' => 'mysql',
-            'enabled' => true
-        ],
-        'wordpress_main' => [
-            'name' => 'WordPress Main Site',
-            'type' => 'wordpress',
-            'path' => '/var/www/middleworldfarms.org',
-            'database' => 'wordpress',
-            'connection' => 'wordpress',
-            'enabled' => true
-        ],
-        'farmos' => [
-            'name' => 'farmOS System',
-            'type' => 'drupal',
-            'path' => '/var/www/farmos.middleworldfarms.org',
-            'database' => 'farmos',
-            'connection' => 'farmos',
-            'enabled' => true
-        ],
         'pos_system' => [
             'name' => 'Self-Serve POS (middleworld.farm)',
             'type' => 'custom',

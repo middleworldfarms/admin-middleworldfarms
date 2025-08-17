@@ -1,0 +1,61 @@
+{
+    "name": "middleworld/farmos-succession-planner",
+    "description": "Revolutionary farmOS succession planner for market gardens - AI-powered, drag-drop timeline, backward planning",
+    "keywords": [
+        "laravel",
+        "farmos",
+        "agriculture",
+        "market-garden",
+        "succession-planting",
+        "ai-powered",
+        "open-source"
+    ],
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Middleworld Farms",
+            "email": "development@middleworldfarms.org",
+            "homepage": "https://middleworldfarms.org"
+        }
+    ],
+    "homepage": "https://github.com/middleworld/farmos-succession-planner",
+    "support": {
+        "issues": "https://github.com/middleworld/farmos-succession-planner/issues",
+        "source": "https://github.com/middleworld/farmos-succession-planner"
+    },
+    "require": {
+        "php": "^8.1",
+        "laravel/framework": "^10.0|^11.0",
+        "guzzlehttp/guzzle": "^7.0",
+        "illuminate/support": "^10.0|^11.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.0",
+        "orchestra/testbench": "^8.0",
+        "mockery/mockery": "^1.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Middleworld\\FarmOSSuccessionPlanner\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Middleworld\\FarmOSSuccessionPlanner\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Middleworld\\FarmOSSuccessionPlanner\\SuccessionPlannerServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "scripts": {
+        "test": "phpunit",
+        "test-coverage": "phpunit --coverage-html coverage"
+    }
+}

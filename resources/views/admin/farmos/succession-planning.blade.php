@@ -107,6 +107,11 @@
         background: linear-gradient(90deg, #dc3545, #c82333);
         box-shadow: 0 2px 10px rgba(220, 53, 69, 0.3);
     }
+    
+    /* Override to force green color on page load */
+    #dragHarvestBar {
+        background: linear-gradient(90deg, #28a745, #20c997) !important;
+    }
 
     .drag-harvest-bar.split-dates {
         box-shadow: 0 2px 10px rgba(200, 100, 100, 0.3);
@@ -388,12 +393,17 @@
                             Visual Harvest Timeline - Drag the Ends!
                         </h5>
                         
+                        <!-- Dynamic Timeline Labels - Above the timeline -->
+                        <div id="timelineLabels" style="position: relative; height: 20px; margin-bottom: 5px; font-size: 12px; color: #6c757d;">
+                            <!-- Will be populated dynamically with month labels -->
+                        </div>
+                        
                         <div id="harvestTimeline" style="position: relative; background: linear-gradient(90deg, #e9ecef, #f8f9fa); height: 60px; border-radius: 10px; padding: 15px 20px; border: 2px solid #dee2e6; overflow: hidden;">
                             <!-- Current Date Marker -->
                             <div id="currentDateMarker" style="position: absolute; top: 0; bottom: 0; width: 2px; background: #dc3545; z-index: 5;"></div>
                             
                             <!-- Draggable Harvest Window Bar -->
-                            <div id="dragHarvestBar" class="drag-harvest-bar" style="position: absolute; left: 20%; width: 40%; top: 15px;">
+                            <div id="dragHarvestBar" class="drag-harvest-bar" style="position: absolute; left: 20%; width: 60%; top: 15px;">
                                 <!-- Start Handle -->
                                 <div class="drag-handle start" data-handle="start">⟨</div>
                                 
@@ -406,11 +416,6 @@
                                 
                                 <!-- End Handle -->
                                 <div class="drag-handle end" data-handle="end">⟩</div>
-                            </div>
-                            
-                            <!-- Month Labels -->
-                            <div style="position: absolute; bottom: -25px; left: 0; right: 0; display: flex; justify-content: space-between; font-size: 12px; color: #6c757d;">
-                                <span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span><span>Sep</span><span>Oct</span><span>Nov</span><span>Dec</span>
                             </div>
                         </div>
 
@@ -524,16 +529,86 @@
     let isDragging = false;
     let dragHandle = null;
     let dragStartX = 0;
+    
+    // Dynamic timeline variables
+    let timelineStartDate = new Date();
+    let timelineEndDate = new Date();
+    let timelineTotalDays = 365;
 
     // Initialize the application
     document.addEventListener('DOMContentLoaded', function() {
         console.log('🌱 Initializing farmOS Succession Planner...');
         
+        // Initialize timeline with basic range (today at 25%)
+        setDefaultTimelineRange();
+        
         initializeApp();
         setupDragFunctionality();
         updateCurrentDateMarker();
         setDefaultDates();
+        
+        // Let checkPastDates handle the color naturally
+        setTimeout(() => checkPastDates(), 100);
     });
+
+    function setDefaultTimelineRange() {
+        const today = new Date();
+        const pastDays = 90;    // 3 months past
+        const futureDays = 270; // 9 months future (total = 360 days, today at 25%)
+        
+        timelineStartDate = new Date(today);
+        timelineStartDate.setDate(timelineStartDate.getDate() - pastDays);
+        
+        timelineEndDate = new Date(today);
+        timelineEndDate.setDate(timelineEndDate.getDate() + futureDays);
+        
+        timelineTotalDays = pastDays + futureDays;
+        
+        console.log('📅 Basic timeline initialized:', {
+            today: today.toLocaleDateString(),
+            timelineStart: timelineStartDate.toLocaleDateString(),
+            timelineEnd: timelineEndDate.toLocaleDateString(),
+            totalDays: timelineTotalDays,
+            todayPercentage: Math.round((pastDays / timelineTotalDays) * 100) + '%'
+        });
+        
+        updateTimelineLabels();
+    }
+
+    function updateTimelineLabels() {
+        const labelsContainer = document.getElementById('timelineLabels');
+        if (!labelsContainer) {
+            console.error('❌ Timeline labels container not found!');
+            return;
+        }
+        
+        labelsContainer.innerHTML = '';
+        
+        // Create 8 evenly spaced labels across the timeline
+        for (let i = 0; i <= 8; i++) {
+            const percentage = (i / 8) * 100;
+            const date = percentageToDate(percentage);
+            
+            const label = document.createElement('span');
+            label.style.position = 'absolute';
+            label.style.left = percentage + '%';
+            label.style.transform = 'translateX(-50%)';
+            
+            // Show month + day for labels
+            label.textContent = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            
+            labelsContainer.appendChild(label);
+        }
+        
+        console.log('✅ Created 9 timeline labels');
+    }
+
+    function percentageToDate(percentage) {
+        const dayOfTimeline = (percentage / 100) * timelineTotalDays;
+        const date = new Date(timelineStartDate);
+        date.setDate(date.getDate() + dayOfTimeline);
+        return date;
+    }
 
     async function initializeApp() {
         console.log('🌾 Setting up farmOS connections...');
@@ -579,11 +654,19 @@
     }
 
     function setDefaultDates() {
-        // Set realistic default dates - 3 months from now for 1 month harvest window
-        const startDate = new Date();
-        startDate.setMonth(startDate.getMonth() + 3);
+        // Calculate dates that will create approximately 60% width on timeline
+        // Timeline spans timelineTotalDays, so 60% = ~60% of that timespan
+        const timelineRangeInDays = timelineTotalDays || 365; // fallback if not set
+        const desiredHarvestDays = Math.round(timelineRangeInDays * 0.60); // 60% of timeline
+        
+        // Start harvest at 20% into timeline (matches left position)
+        const startOffsetDays = Math.round(timelineRangeInDays * 0.20);
+        
+        const startDate = new Date(timelineStartDate);
+        startDate.setDate(startDate.getDate() + startOffsetDays);
+        
         const endDate = new Date(startDate);
-        endDate.setMonth(endDate.getMonth() + 1);
+        endDate.setDate(endDate.getDate() + desiredHarvestDays);
         
         document.getElementById('harvestStart').value = startDate.toISOString().split('T')[0];
         document.getElementById('harvestEnd').value = endDate.toISOString().split('T')[0];
@@ -620,7 +703,7 @@
         // Get current bar state
         const dragBar = document.getElementById('dragHarvestBar');
         const currentLeft = parseFloat(dragBar.style.left) || 20;
-        const currentWidth = parseFloat(dragBar.style.width) || 40;
+        const currentWidth = parseFloat(dragBar.style.width) || 60;  // Changed from 40 to 60
         const currentRight = currentLeft + currentWidth;
         
         // Apply constraints based on handle type
@@ -690,7 +773,7 @@
         percentage = Math.max(0, Math.min(100, percentage));
         
         const currentLeft = parseFloat(dragBar.style.left) || 20;
-        const currentWidth = parseFloat(dragBar.style.width) || 40;
+        const currentWidth = parseFloat(dragBar.style.width) || 60;  // Changed from 40 to 60
         const currentRight = currentLeft + currentWidth;
         
         if (handle === 'start') {
@@ -745,7 +828,7 @@
     function updateDateDisplays() {
         const dragBar = document.getElementById('dragHarvestBar');
         const left = parseFloat(dragBar.style.left) || 20;
-        const width = parseFloat(dragBar.style.width) || 40;
+        const width = parseFloat(dragBar.style.width) || 60;  // Changed from 40 to 60
         
         const startDate = percentageToDate(left);
         const endDate = percentageToDate(left + width);
@@ -767,18 +850,14 @@
     }
 
     function dateToPercentage(date) {
-        const yearStart = new Date(date.getFullYear(), 0, 1);
-        const yearEnd = new Date(date.getFullYear(), 11, 31);
-        const totalDays = (yearEnd - yearStart) / (1000 * 60 * 60 * 24);
-        
-        const dayOfYear = (date - yearStart) / (1000 * 60 * 60 * 24);
-        return (dayOfYear / totalDays) * 100;
+        const daysSinceStart = (date - timelineStartDate) / (1000 * 60 * 60 * 24);
+        return Math.max(0, Math.min(100, (daysSinceStart / timelineTotalDays) * 100));
     }
 
     function updateDateInputsFromBar() {
         const dragBar = document.getElementById('dragHarvestBar');
         const left = parseFloat(dragBar.style.left) || 20;
-        const width = parseFloat(dragBar.style.width) || 40;
+        const width = parseFloat(dragBar.style.width) || 60;  // Changed from 40 to 60
         
         const startDate = percentageToDate(left);
         const endDate = percentageToDate(left + width);
@@ -790,15 +869,25 @@
     function checkPastDates() {
         const dragBar = document.getElementById('dragHarvestBar');
         const left = parseFloat(dragBar.style.left) || 20;
-        const width = parseFloat(dragBar.style.width) || 40;
+        const width = parseFloat(dragBar.style.width) || 60;  // Changed from 40 to 60
         
         const startDate = percentageToDate(left);
         const endDate = percentageToDate(left + width);
         const today = new Date();
         
+        console.log('🔍 CheckPastDates:', {
+            barLeft: left + '%',
+            barWidth: width + '%', 
+            startDate: startDate.toLocaleDateString(),
+            endDate: endDate.toLocaleDateString(),
+            today: today.toLocaleDateString(),
+            todayPercentage: dateToPercentage(today) + '%'
+        });
+
         // Calculate what percentage of the bar is in the past
         if (startDate < today && endDate > today) {
             // Bar spans across today - split coloring needed
+            console.log('🟡 Bar spans across today - using split coloring');
             const todayPercentage = dateToPercentage(today);
             
             // Calculate the percentage within the harvest bar where today falls
@@ -818,11 +907,13 @@
             dragBar.classList.remove('past-dates');
         } else if (endDate < today) {
             // Entire bar is in the past
+            console.log('🔴 Bar entirely in past - using red');
             dragBar.classList.add('past-dates');
             dragBar.classList.remove('split-dates');
             dragBar.style.background = '';
         } else {
             // Entire bar is in the future
+            console.log('🟢 Bar entirely in future - using green');
             dragBar.classList.remove('past-dates', 'split-dates');
             dragBar.style.background = '';
         }

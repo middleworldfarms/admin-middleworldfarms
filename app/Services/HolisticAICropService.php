@@ -249,14 +249,14 @@ class HolisticAICropService
             
             if ($response->successful()) {
                 $data = $response->json();
-                return $this->parseCosmicTimingResponse($data, $cropType, $targetDate);
+                return $this->parseSacredGeometryResponse($data, $cropType);
             }
             
-            return $this->getFallbackCosmicTiming($cropType, $targetDate);
+            return $this->getFallbackGeometryLayout($cropType);
             
         } catch (\Exception $e) {
-            Log::error('Cosmic timing AI error: ' . $e->getMessage());
-            return $this->getFallbackCosmicTiming($cropType, $targetDate);
+            Log::error('Sacred geometry AI error: ' . $e->getMessage());
+            return $this->getFallbackGeometryLayout($cropType);
         }
     }
     
@@ -528,6 +528,22 @@ class HolisticAICropService
         if (in_array($month, [3, 4, 5])) return 'spring';
         if (in_array($month, [6, 7, 8])) return 'summer';
         return 'autumn';
+    }
+
+    /**
+     * Get current moon phase for agricultural timing
+     */
+    private function getCurrentMoonPhase(): string
+    {
+        // Simple moon phase calculation based on day of month
+        // In production, this would use astronomical calculations
+        $day = now()->day;
+        $moonCycle = $day % 29.5; // Approximate lunar cycle
+        
+        if ($moonCycle <= 7.4) return 'new_moon';
+        if ($moonCycle <= 14.8) return 'waxing_crescent';
+        if ($moonCycle <= 22.1) return 'full_moon';
+        return 'waning_crescent';
     }
 
     /**
@@ -1513,5 +1529,103 @@ Format as JSON with keys: max_harvest_days, optimal_harvest_days, peak_harvest_d
             'source' => 'fallback_rules',
             'note' => 'AI service unavailable, using basic crop data'
         ]);
+    }
+
+    /**
+     * Parse sacred geometry AI response
+     */
+    private function parseSacredGeometryResponse(array $aiResponse, string $cropType): array
+    {
+        $answer = $aiResponse['answer'] ?? '';
+        
+        return [
+            'crop_type' => $cropType,
+            'geometry_type' => 'sacred_spiral',
+            'spacing_pattern' => $this->extractSpacingPattern($answer),
+            'sacred_ratios' => $this->extractSacredRatios($answer),
+            'orientation' => $this->extractOrientation($answer),
+            'energy_flow' => $this->extractEnergyFlow($answer),
+            'moon_phase' => $aiResponse['moon_phase'] ?? 'unknown',
+            'wisdom' => $aiResponse['wisdom'] ?? 'Sacred geometry guidance',
+            'source' => 'Mistral 7B Holistic AI'
+        ];
+    }
+
+    /**
+     * Extract spacing pattern from AI response
+     */
+    private function extractSpacingPattern(string $text): array
+    {
+        // Look for spacing patterns in the response
+        $patterns = [];
+        
+        if (preg_match('/(\d+)\s*(inch|ft|cm|m)/i', $text, $matches)) {
+            $patterns['primary_spacing'] = $matches[1] . ' ' . strtolower($matches[2]);
+        }
+        
+        if (stripos($text, 'spiral') !== false) {
+            $patterns['type'] = 'spiral';
+        } elseif (stripos($text, 'mandala') !== false) {
+            $patterns['type'] = 'mandala';
+        } else {
+            $patterns['type'] = 'grid';
+        }
+        
+        return $patterns;
+    }
+
+    /**
+     * Extract sacred ratios from AI response
+     */
+    private function extractSacredRatios(string $text): array
+    {
+        $ratios = [];
+        
+        if (stripos($text, 'golden') !== false || stripos($text, '1.618') !== false) {
+            $ratios[] = 'golden_ratio';
+        }
+        
+        if (stripos($text, 'fibonacci') !== false) {
+            $ratios[] = 'fibonacci';
+        }
+        
+        return $ratios;
+    }
+
+    /**
+     * Extract orientation from AI response
+     */
+    private function extractOrientation(string $text): string
+    {
+        if (stripos($text, 'north') !== false) return 'north_facing';
+        if (stripos($text, 'east') !== false) return 'east_facing';
+        if (stripos($text, 'south') !== false) return 'south_facing';
+        if (stripos($text, 'west') !== false) return 'west_facing';
+        
+        return 'solar_oriented';
+    }
+
+    /**
+     * Extract energy flow from AI response
+     */
+    private function extractEnergyFlow(string $text): array
+    {
+        $flow = [];
+        
+        if (stripos($text, 'clockwise') !== false) {
+            $flow['direction'] = 'clockwise';
+        } elseif (stripos($text, 'counter') !== false) {
+            $flow['direction'] = 'counterclockwise';
+        } else {
+            $flow['direction'] = 'natural';
+        }
+        
+        $flow['elements'] = [];
+        if (stripos($text, 'water') !== false) $flow['elements'][] = 'water';
+        if (stripos($text, 'fire') !== false) $flow['elements'][] = 'fire';
+        if (stripos($text, 'earth') !== false) $flow['elements'][] = 'earth';
+        if (stripos($text, 'air') !== false) $flow['elements'][] = 'air';
+        
+        return $flow;
     }
 }
