@@ -2,6 +2,11 @@
 
 @section('title', 'farmOS Succession Planner - Revolutionary Backward Planning')
 
+@section('page-header')
+    <h1>farmOS Succession Planner</h1>
+    <p class="lead">Revolutionary backward planning from harvest windows • Real farmOS taxonomy • AI-powered intelligence</p>
+@endsection
+
 @section('styles')
 <!-- Chart.js for timeline visualization - Simple UMD version -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -11,26 +16,6 @@
 <style>
     .succession-planner-container {
         padding: 20px;
-    }
-
-    .hero-section {
-        background: linear-gradient(135deg, var(--primary-color, #28a745) 0%, var(--success-color, #198754) 100%);
-        color: white;
-        padding: 2rem;
-        margin-bottom: 2rem;
-        border-radius: 1rem;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-    }
-
-    .hero-section h1 {
-        font-size: 2.5rem;
-        font-weight: 300;
-        margin-bottom: 0.5rem;
-    }
-
-    .hero-section .subtitle {
-        font-size: 1.1rem;
-        opacity: 0.9;
     }
 
     .planning-card {
@@ -307,23 +292,15 @@
         </div>
     </div>
 
-    <!-- Hero Section -->
-    <div class="hero-section">
-        <div class="row align-items-center">
-            <div class="col-lg-8">
-                <h1><i class="fas fa-seedling me-3"></i>farmOS Succession Planner</h1>
-                <p class="subtitle">Revolutionary backward planning from harvest windows • Real farmOS taxonomy • AI-powered intelligence</p>
-            </div>
-            <div class="col-lg-4 text-lg-end">
-                <div class="d-flex flex-wrap gap-2 justify-content-lg-end justify-content-start mt-3 mt-lg-0">
-                    <span class="status-badge" id="farmOSStatus">
-                        <i class="fas fa-circle"></i> farmOS
-                    </span>
-                    <span class="status-badge" id="aiStatus">
-                        <i class="fas fa-brain"></i> Holistic AI
-                    </span>
-                </div>
-            </div>
+    <!-- Status Badges Section -->
+    <div class="d-flex justify-content-end mb-4">
+        <div class="d-flex flex-wrap gap-2">
+            <span class="status-badge" id="farmOSStatus">
+                <i class="fas fa-circle"></i> farmOS
+            </span>
+            <span class="status-badge" id="aiStatus">
+                <i class="fas fa-brain"></i> Symbiosis AI
+            </span>
         </div>
     </div>
 
@@ -534,6 +511,14 @@
     let timelineStartDate = new Date();
     let timelineEndDate = new Date();
     let timelineTotalDays = 365;
+    
+    // AI-powered harvest constraints
+    let aiHarvestConstraints = {
+        maxHarvestDays: 120,  // Default maximum harvest window  
+        minHarvestDays: 7,    // Minimum practical harvest window
+        cropName: null,       // Current crop name for constraints
+        varietyName: null     // Current variety name
+    };
 
     // Initialize the application
     document.addEventListener('DOMContentLoaded', function() {
@@ -706,13 +691,31 @@
         const currentWidth = parseFloat(dragBar.style.width) || 60;  // Changed from 40 to 60
         const currentRight = currentLeft + currentWidth;
         
-        // Apply constraints based on handle type
+        // Apply constraints based on handle type and AI harvest limits
+        const maxHarvestPercentage = Math.min(100, (aiHarvestConstraints.maxHarvestDays / timelineTotalDays) * 100);
+        const minHarvestPercentage = Math.max(5, (aiHarvestConstraints.minHarvestDays / timelineTotalDays) * 100);
+        
         if (dragHandle === 'start') {
-            // Start handle: between 0% and (current right edge - 5% minimum width)
-            percentage = Math.max(0, Math.min(percentage, currentRight - 5));
+            // Start handle: between 0% and (current right edge - minimum width)
+            const maxStartPosition = currentRight - minHarvestPercentage;
+            percentage = Math.max(0, Math.min(percentage, maxStartPosition));
         } else if (dragHandle === 'end') {
-            // End handle: between (current left + 5% minimum width) and 100%
-            percentage = Math.max(currentLeft + 5, Math.min(percentage, 100));
+            // End handle: constrained by AI maximum harvest window and timeline
+            const currentHarvestWidth = percentage - currentLeft;
+            const maxAllowedWidth = Math.min(maxHarvestPercentage, 100 - currentLeft);
+            
+            if (currentHarvestWidth > maxAllowedWidth) {
+                percentage = currentLeft + maxAllowedWidth;
+                
+                // Show constraint feedback
+                const handleElement = document.querySelector(`.drag-handle.${dragHandle}`);
+                if (handleElement) {
+                    handleElement.setAttribute('title', `Maximum ${aiHarvestConstraints.maxHarvestDays} days harvest window for ${aiHarvestConstraints.cropName || 'this crop'}`);
+                }
+            }
+            
+            // Also enforce minimum width
+            percentage = Math.max(currentLeft + minHarvestPercentage, Math.min(percentage, 100));
         }
         
         // Visual feedback when hitting constraints
@@ -780,18 +783,25 @@
             // Moving the start handle - only adjust left position, keep width fixed
             const newLeft = percentage;
             
-            // Validate the new position (ensure it doesn't overlap with end)
+            // Validate the new position (ensure it doesn't overlap with end and respects constraints)
+            const minHarvestPercentage = Math.max(5, (aiHarvestConstraints.minHarvestDays / timelineTotalDays) * 100);
+            
             if (newLeft >= 0 && newLeft + currentWidth <= 100) {
                 dragBar.style.left = newLeft + '%';
                 // Keep width the same - don't change it!
             }
         } else if (handle === 'end') {
-            // Moving the end handle - adjust width only
+            // Moving the end handle - adjust width only with AI constraints
             const newWidth = percentage - currentLeft;
+            const maxHarvestPercentage = Math.min(100, (aiHarvestConstraints.maxHarvestDays / timelineTotalDays) * 100);
+            const minHarvestPercentage = Math.max(5, (aiHarvestConstraints.minHarvestDays / timelineTotalDays) * 100);
+            
+            // Constrain width to AI limits
+            const constrainedWidth = Math.min(newWidth, maxHarvestPercentage);
             
             // Validate the new width
-            if (newWidth >= 5 && currentLeft + newWidth <= 100) {
-                dragBar.style.width = newWidth + '%';
+            if (constrainedWidth >= minHarvestPercentage && currentLeft + constrainedWidth <= 100) {
+                dragBar.style.width = constrainedWidth + '%';
             }
         }
         
@@ -1097,6 +1107,25 @@
     function displayAIHarvestWindow(harvestWindow) {
         console.log('Displaying harvest window:', harvestWindow);
         
+        // Update AI constraints based on crop-specific data
+        if (harvestWindow.max_harvest_days) {
+            aiHarvestConstraints.maxHarvestDays = parseInt(harvestWindow.max_harvest_days) || 120;
+        }
+        if (harvestWindow.optimal_harvest_days && typeof harvestWindow.optimal_harvest_days === 'string') {
+            const match = harvestWindow.optimal_harvest_days.match(/(\d+)/);
+            if (match) {
+                aiHarvestConstraints.maxHarvestDays = Math.max(aiHarvestConstraints.maxHarvestDays, parseInt(match[1]));
+            }
+        }
+        
+        // Store current crop info
+        const cropSelect = document.getElementById('cropSelect');
+        const varietySelect = document.getElementById('varietySelect');
+        aiHarvestConstraints.cropName = cropSelect.selectedOptions[0]?.dataset.name || null;
+        aiHarvestConstraints.varietyName = varietySelect.value ? varietySelect.selectedOptions[0]?.textContent : null;
+        
+        console.log('Updated AI constraints:', aiHarvestConstraints);
+        
         const infoDiv = document.getElementById('harvestWindowInfo');
         const analysisDiv = document.getElementById('harvestAnalysis');
         
@@ -1122,6 +1151,11 @@
                         <strong>📅 Plant Every:</strong> ${plantEveryDisplay}<br>
                         <strong>🎖️ Confidence:</strong> ${confidence}
                     </div>
+                </div>
+                <div class="mt-2">
+                    <small class="text-info">
+                        <i class="fas fa-lock"></i> Timeline locked to maximum ${aiHarvestConstraints.maxHarvestDays} days harvest window for this crop
+                    </small>
                 </div>
             `;
             infoDiv.style.display = 'block';
