@@ -846,17 +846,28 @@
         varietySelect.innerHTML = '<option value="">Loading varieties...</option>';
         
         const selectedCropId = cropSelect.value;
+        const selectedCropName = cropSelect.selectedOptions[0]?.dataset.name?.toLowerCase();
+        
+        console.log('updateVarieties called with:', { selectedCropId, selectedCropName });
+        
         if (!selectedCropId || !cropVarieties) {
             varietySelect.innerHTML = '<option value="">Select crop first...</option>';
             return;
         }
         
         // Filter varieties for selected crop
-        const filteredVarieties = cropVarieties.filter(variety => 
-            variety.crop_id == selectedCropId || 
-            variety.parent == selectedCropId ||
-            (variety.name && variety.name.toLowerCase().includes(cropSelect.selectedOptions[0]?.dataset.name?.toLowerCase() || ''))
-        );
+        const filteredVarieties = cropVarieties.filter(variety => {
+            // Multiple ways to match varieties to crop type
+            return variety.crop_id == selectedCropId || 
+                   variety.crop_type == selectedCropId ||
+                   variety.parent == selectedCropId ||
+                   variety.parent_id == selectedCropId ||
+                   (variety.name && variety.name.toLowerCase().includes(cropSelect.selectedOptions[0]?.dataset.name?.toLowerCase() || ''));
+        });
+        
+        console.log('Selected crop ID:', selectedCropId);
+        console.log('Filtered varieties for crop:', filteredVarieties);
+        console.log('All varieties:', cropVarieties);
         
         varietySelect.innerHTML = '<option value="">Choose variety (optional)...</option>';
         filteredVarieties.forEach(variety => {
