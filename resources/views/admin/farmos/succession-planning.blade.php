@@ -777,19 +777,13 @@
         const currentRight = currentLeft + currentWidth;
         
         if (handle === 'start') {
-            // Moving the start handle - adjust left position and width
+            // Moving the start handle - only adjust left position, keep width fixed
             const newLeft = percentage;
-            let newWidth = currentRight - newLeft; // Keep the right edge fixed
             
-            // Ensure the right edge doesn't exceed 100%
-            if (newLeft + newWidth > 100) {
-                newWidth = 100 - newLeft;
-            }
-            
-            // Validate the new position
-            if (newLeft >= 0 && newWidth >= 5 && newLeft + newWidth <= 100) {
+            // Validate the new position (ensure it doesn't overlap with end)
+            if (newLeft >= 0 && newLeft + currentWidth <= 100) {
                 dragBar.style.left = newLeft + '%';
-                dragBar.style.width = newWidth + '%';
+                // Keep width the same - don't change it!
             }
         } else if (handle === 'end') {
             // Moving the end handle - adjust width only
@@ -875,19 +869,9 @@
         const endDate = percentageToDate(left + width);
         const today = new Date();
         
-        console.log('🔍 CheckPastDates:', {
-            barLeft: left + '%',
-            barWidth: width + '%', 
-            startDate: startDate.toLocaleDateString(),
-            endDate: endDate.toLocaleDateString(),
-            today: today.toLocaleDateString(),
-            todayPercentage: dateToPercentage(today) + '%'
-        });
-
         // Calculate what percentage of the bar is in the past
         if (startDate < today && endDate > today) {
             // Bar spans across today - split coloring needed
-            console.log('🟡 Bar spans across today - using split coloring');
             const todayPercentage = dateToPercentage(today);
             
             // Calculate the percentage within the harvest bar where today falls
@@ -898,22 +882,24 @@
             const clampedPastPortion = Math.max(0, Math.min(100, pastPortion));
             
             // Create gradient: red for past, green for future
-            dragBar.style.background = `linear-gradient(90deg, 
+            const gradientCSS = `linear-gradient(90deg, 
                 #dc3545 0%, 
                 #dc3545 ${clampedPastPortion}%, 
                 #28a745 ${clampedPastPortion}%, 
                 #198754 100%)`;
+            
+            dragBar.style.background = gradientCSS;
+            dragBar.style.setProperty('background', gradientCSS, 'important');
+            
             dragBar.classList.add('split-dates');
             dragBar.classList.remove('past-dates');
         } else if (endDate < today) {
             // Entire bar is in the past
-            console.log('🔴 Bar entirely in past - using red');
             dragBar.classList.add('past-dates');
             dragBar.classList.remove('split-dates');
             dragBar.style.background = '';
         } else {
             // Entire bar is in the future
-            console.log('🟢 Bar entirely in future - using green');
             dragBar.classList.remove('past-dates', 'split-dates');
             dragBar.style.background = '';
         }
