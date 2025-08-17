@@ -433,6 +433,15 @@
 
                     <!-- Action Buttons -->
                     <div class="text-center mt-4">
+                        <div class="mb-3">
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" id="autoTriggerAI" checked>
+                                <label class="form-check-label" for="autoTriggerAI">
+                                    Auto-calculate when dragging harvest window
+                                </label>
+                            </div>
+                        </div>
+                        
                         <button class="btn btn-success btn-lg me-3" id="calculatePlan" onclick="calculateSuccessionPlan()">
                             <i class="fas fa-magic me-2"></i>
                             Generate AI Succession Plan
@@ -506,6 +515,7 @@
     let isDragging = false;
     let dragHandle = null;
     let dragStartX = 0;
+    let wasDragConstrained = false; // Track if drag hit constraints
     
     // Dynamic timeline variables
     let timelineStartDate = new Date();
@@ -667,6 +677,7 @@
         isDragging = true;
         dragHandle = handle.dataset.handle;
         dragStartX = e.clientX;
+        wasDragConstrained = false; // Reset constraint flag at start of drag
         
         e.preventDefault();
         e.stopPropagation();
@@ -723,8 +734,11 @@
         if (handleElement) {
             if (Math.abs(originalPercentage - percentage) > 0.1) {
                 // User hit a constraint
+                wasDragConstrained = true;
                 handleElement.classList.add('constrained');
                 setTimeout(() => handleElement.classList.remove('constrained'), 300);
+            } else {
+                wasDragConstrained = false;
             }
         }
         
@@ -738,7 +752,20 @@
             dragHandle = null;
             document.body.style.cursor = 'default';
             updateDateInputsFromBar();
-            calculateAIHarvestWindow();
+            
+            // Check if auto-trigger is enabled and drag wasn't constrained
+            const autoTriggerEnabled = document.getElementById('autoTriggerAI').checked;
+            
+            if (autoTriggerEnabled && !wasDragConstrained) {
+                calculateAIHarvestWindow();
+            } else if (wasDragConstrained) {
+                console.log('Drag was constrained - not triggering AI calculation');
+            } else {
+                console.log('Auto-trigger disabled - use Calculate button to trigger AI');
+            }
+            
+            // Reset constraint flag for next drag
+            wasDragConstrained = false;
         }
     }
 
