@@ -748,19 +748,35 @@ class HolisticAICropService
             // Build comprehensive prompt with available data
             $prompt = $this->buildIntelligentHarvestPrompt($cropType, $variety, $location, $contextualData);
 
-            $response = Http::timeout(60)->post('http://localhost:8005/ask', [
+            Log::info('Making AI request for harvest window', [
+                'crop' => $cropType,
+                'variety' => $variety,
+                'url' => $this->aiServiceUrl,
+                'prompt_length' => strlen($prompt)
+            ]);
+
+            $response = Http::timeout(60)->post($this->aiServiceUrl, [
                 'question' => $prompt,
                 'context' => "data_driven_optimization,succession_planning,harvest_intelligence"
             ]);
 
+            Log::info('AI response received', [
+                'successful' => $response->successful(),
+                'status' => $response->status(),
+                'response_size' => strlen($response->body())
+            ]);
+
             if ($response->successful()) {
                 $data = $response->json();
+                Log::info('AI response data', ['data' => $data]);
+                
                 $aiAnswer = $data['answer'] ?? '';
                 
                 // Try to extract JSON from Mistral's response
                 $jsonData = $this->extractJsonFromAiResponse($aiAnswer);
                 
                 if ($jsonData) {
+                    Log::info('Extracted JSON data from AI', ['json_data' => $jsonData]);
                     // Validate and return structured data with AI confidence metrics
                     return [
                         'success' => true,

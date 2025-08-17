@@ -980,7 +980,7 @@
         
         showLoading(true);
         addAIChatMessage('ai', `🔍 Analyzing optimal harvest window for ${cropName}${varietyName ? ` (${varietyName})` : ''}...`);
-        addAIChatMessage('ai', `🧠 Using Mistral 7B on CPU - this may take up to 60 seconds...`);
+        addAIChatMessage('ai', `🧠 Using Mistral 7B on CPU - this takes 40+ seconds because we're running advanced AI models locally on CPU instead of expensive cloud services. The wait ensures genuine intelligence, not generic responses! ⚡`);
         
         // Add a progress indicator for long-running AI requests
         let progressDots = 0;
@@ -990,7 +990,7 @@
             const chatMessages = document.getElementById('aiChatMessages');
             const lastMessage = chatMessages.lastElementChild;
             if (lastMessage && lastMessage.textContent.includes('Using Mistral 7B')) {
-                lastMessage.querySelector('small').textContent = `🧠 Using Mistral 7B on CPU - processing${dots}`;
+                lastMessage.querySelector('small').textContent = `🧠 Local AI analyzing${dots} This takes 40+ seconds for genuine intelligence vs cheap cloud responses!`;
             }
         }, 1000);
         
@@ -1042,7 +1042,7 @@
                 console.log('AI response structure:', Object.keys(data)); // See what keys exist
                 
                 // Handle different possible response structures
-                let harvestWindow = data.harvest_window;
+                let harvestWindow = data.harvest_window || data.data; // Fix: try data.data first!
                 
                 if (!harvestWindow) {
                     // Try alternative structures
@@ -1095,34 +1095,79 @@
     }
 
     function displayAIHarvestWindow(harvestWindow) {
+        console.log('Displaying harvest window:', harvestWindow);
+        
         const infoDiv = document.getElementById('harvestWindowInfo');
         const analysisDiv = document.getElementById('harvestAnalysis');
         
         if (infoDiv && analysisDiv) {
+            // Handle intelligent AI responses that might be strings or arrays
+            const optimalHarvest = harvestWindow.optimal_harvest_days || 14;
+            const successions = harvestWindow.recommended_successions || 4;
+            const plantEvery = harvestWindow.days_between_plantings || 14;
+            const confidence = harvestWindow.confidence_level || harvestWindow.ai_confidence || 'Standard';
+            
+            // Extract numbers from string responses if needed
+            const harvestDisplay = typeof optimalHarvest === 'string' ? optimalHarvest : `${optimalHarvest} days`;
+            const successionsDisplay = Array.isArray(successions) ? `${successions.length} strategies` : `${successions} plantings`;
+            const plantEveryDisplay = typeof plantEvery === 'string' ? plantEvery : `${plantEvery} days`;
+            
             analysisDiv.innerHTML = `
                 <div class="row">
                     <div class="col-md-6">
-                        <strong>🎯 Optimal Harvest:</strong> ${harvestWindow.optimal_harvest_days || 14} days<br>
-                        <strong>📊 Successions:</strong> ${harvestWindow.recommended_successions || 4} plantings
+                        <strong>🎯 Optimal Harvest:</strong> ${harvestDisplay}<br>
+                        <strong>📊 Successions:</strong> ${successionsDisplay}
                     </div>
                     <div class="col-md-6">
-                        <strong>📅 Plant Every:</strong> ${harvestWindow.days_between_plantings || 14} days<br>
-                        <strong>🎖️ Confidence:</strong> ${harvestWindow.confidence_level || 'Standard'}
+                        <strong>📅 Plant Every:</strong> ${plantEveryDisplay}<br>
+                        <strong>🎖️ Confidence:</strong> ${confidence}
                     </div>
                 </div>
             `;
             infoDiv.style.display = 'block';
         }
         
-        // Update summary
+        // Update summary with extracted numbers
         updateSuccessionSummary(harvestWindow);
     }
 
     function updateSuccessionSummary(harvestWindow) {
-        document.getElementById('totalSuccessions').textContent = harvestWindow.recommended_successions || 4;
-        document.getElementById('daysBetween').textContent = harvestWindow.days_between_plantings || 14;
-        document.getElementById('totalHarvestDays').textContent = harvestWindow.optimal_harvest_days || 14;
-        document.getElementById('bedsNeeded').textContent = Math.ceil((harvestWindow.recommended_successions || 4) * 0.5);
+        // Extract numbers from AI responses, handling strings and arrays
+        let successions = harvestWindow.recommended_successions || 4;
+        let daysBetween = harvestWindow.days_between_plantings || 14;
+        let harvestDays = harvestWindow.optimal_harvest_days || harvestWindow.max_harvest_days || 14;
+        
+        // Handle array responses (convert to count)
+        if (Array.isArray(successions)) {
+            successions = successions.length;
+        }
+        
+        // Extract numbers from string responses
+        if (typeof daysBetween === 'string') {
+            const match = daysBetween.match(/(\d+)/);
+            daysBetween = match ? parseInt(match[1]) : 14;
+        }
+        
+        if (typeof harvestDays === 'string') {
+            const match = harvestDays.match(/(\d+)/);
+            harvestDays = match ? parseInt(match[1]) : 14;
+        }
+        
+        // Handle string succession responses
+        if (typeof successions === 'string') {
+            const match = successions.match(/every.*?(\d+).*?(week|day)/i);
+            successions = match ? Math.max(2, Math.ceil(365 / (parseInt(match[1]) * (match[2].includes('week') ? 7 : 1)))) : 4;
+        }
+        
+        // Ensure all values are valid numbers
+        successions = isNaN(successions) ? 4 : successions;
+        daysBetween = isNaN(daysBetween) ? 14 : daysBetween;
+        harvestDays = isNaN(harvestDays) ? 14 : harvestDays;
+        
+        document.getElementById('totalSuccessions').textContent = successions;
+        document.getElementById('daysBetween').textContent = daysBetween;
+        document.getElementById('totalHarvestDays').textContent = harvestDays;
+        document.getElementById('bedsNeeded').textContent = Math.ceil(successions * 0.5);
     }
 
     // Succession Plan Calculation

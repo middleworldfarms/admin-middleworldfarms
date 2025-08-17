@@ -85,4 +85,9 @@ return [
     'google' => [
         'maps_api_key' => env('GOOGLE_MAPS_API_KEY', ''),
     ],
+
+    'holistic_ai' => [
+        'url' => env('AI_SERVICE_URL', 'http://localhost:8005'),
+        'timeout' => env('AI_SERVICE_TIMEOUT', 90),
+    ],
 ];
