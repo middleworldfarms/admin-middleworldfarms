@@ -544,7 +544,7 @@
         // Set up crop change listeners
         document.getElementById('cropSelect').addEventListener('change', function() {
             updateVarieties();
-            calculateAIHarvestWindow();
+            // Don't trigger AI analysis yet - wait for variety selection
         });
         
         document.getElementById('varietySelect').addEventListener('change', function() {
