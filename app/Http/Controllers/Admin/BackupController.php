@@ -54,56 +54,47 @@ class BackupController extends Controller
     }
 
     /**
-     * Create backup using our custom database backup service
+     * Create backup using Spatie Laravel Backup
      */
     public function create(Request $request)
     {
         try {
-            Log::info('Starting custom database backup creation');
+            $name = $request->input('name', 'manual_backup_' . date('Y-m-d_H-i-s'));
+            
+            Log::info('Starting backup creation', ['name' => $name]);
 
-                        // Get available connections - start with just MySQL, add others as needed
-            $connections = ['mysql'];
-            
-            // Test and add WordPress if connection is working
-            try {
-                \DB::connection('wordpress')->getPdo();
-                $connections[] = 'wordpress';
-            } catch (\Exception $e) {
-                \Log::info('WordPress connection not available for backup: ' . $e->getMessage());
-            }
-            
-            // Test and add farmOS if connection is working
-            try {
-                \DB::connection('farmos')->getPdo();
-                $connections[] = 'farmos';
-            } catch (\Exception $e) {
-                \Log::info('farmOS connection not available for backup: ' . $e->getMessage());
-            }
-            
-            // Test and add POS system if connection is working
-            try {
-                \DB::connection('pos_system')->getPdo();
-                $connections[] = 'pos_system';
-            } catch (\Exception $e) {
-                \Log::info('POS system connection not available for backup: ' . $e->getMessage());
-            }
-            
-            // Use our custom backup service instead of mysqldump/Spatie
-            $backupService = new \App\Services\DatabaseBackupService();
-            $result = $backupService->createBackup($connections);
-            
-            Log::info('Custom backup created successfully', $result);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Database backup created successfully',
-                'backup' => basename($result['file']),
-                'size' => number_format($result['size'] / 1024, 2) . ' KB',
-                'connections' => $result['connections']
+            // Use Spatie Laravel Backup package - much more reliable!
+            $exitCode = Artisan::call('backup:run', [
+                '--force' => true,
+                '--name' => $name
             ]);
 
+            $output = Artisan::output();
+            Log::info('Backup command output', ['output' => $output, 'exit_code' => $exitCode]);
+
+            if ($exitCode === 0) {
+                // Extract backup filename from output
+                if (preg_match('/Backup created successfully: (.+\.zip)/', $output, $matches)) {
+                    $backupFile = $matches[1];
+                } else {
+                    // Fallback: list newest backup file
+                    $backups = $this->getBackupList();
+                    $backupFile = !empty($backups) ? $backups[0]['filename'] : 'backup_created.zip';
+                }
+
+                Log::info('Backup created successfully', ['file' => $backupFile]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Backup created successfully',
+                    'backup' => $backupFile
+                ]);
+            } else {
+                throw new \Exception('Backup command failed with exit code: ' . $exitCode . '. Output: ' . $output);
+            }
+
         } catch (\Exception $e) {
-            Log::error('Custom backup creation failed', ['error' => $e->getMessage()]);
+            Log::error('Backup creation failed', ['error' => $e->getMessage()]);
 
             return response()->json([
                 'success' => false,

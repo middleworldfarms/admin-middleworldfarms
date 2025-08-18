@@ -273,17 +273,17 @@ def root():
 
 @app.post("/ask")
 def ask_ai(request: AskRequest):
-    """Ask Mistral 7B for real farming wisdom"""
+    """Ask Phi-3 Mini for real farming wisdom"""
     try:
-        # Call Ollama Mistral 7B
+        # Call Ollama Phi-3 Mini (3.8B - much faster than Mistral 7B)
         ollama_response = requests.post(
             "http://localhost:11434/api/generate",
             json={
-                "model": "mistral:latest",
+                "model": "phi3:mini",
                 "prompt": f"You are a knowledgeable biodynamic farming expert. Answer this question with practical, detailed advice: {request.question}",
                 "stream": False
             },
-            timeout=120
+            timeout=60
         )
         
         if ollama_response.status_code == 200:

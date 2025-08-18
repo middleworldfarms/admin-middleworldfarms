@@ -6,6 +6,7 @@ use App\Models\Conversation;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Log;
 
 class ConversationController extends Controller
 {
@@ -47,7 +48,7 @@ class ConversationController extends Controller
         ]);
 
         // Log admin creation for audit
-        \Log::info('Conversation created by admin', [
+        Log::info('Conversation created by admin', [
             'conversation_id' => $conversation->id,
             'type' => $conversation->type,
             'admin_session' => Session::getId()

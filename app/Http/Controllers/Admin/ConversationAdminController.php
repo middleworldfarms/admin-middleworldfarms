@@ -7,6 +7,8 @@ use App\Models\Conversation;
 use App\Services\SecureConversationLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ConversationAdminController extends Controller
 {
@@ -114,8 +116,8 @@ class ConversationAdminController extends Controller
                 'this_month' => Conversation::whereMonth('created_at', now()->month)->count(),
             ],
             'storage_size' => [
-                'total_characters' => Conversation::sum(\DB::raw('CHAR_LENGTH(message)')),
-                'average_message_length' => Conversation::avg(\DB::raw('CHAR_LENGTH(message)')),
+                'total_characters' => Conversation::sum(DB::raw('CHAR_LENGTH(message)')),
+                'average_message_length' => Conversation::avg(DB::raw('CHAR_LENGTH(message)')),
             ]
         ];
 
@@ -163,7 +165,7 @@ class ConversationAdminController extends Controller
         $conversation->delete();
 
         // Log admin deletion for audit
-        \Log::warning('Conversation deleted by admin', [
+        Log::warning('Conversation deleted by admin', [
             'conversation_id' => $id,
             'admin_session' => Session::getId(),
             'timestamp' => now()

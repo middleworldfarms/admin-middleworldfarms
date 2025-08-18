@@ -14,17 +14,7 @@ return [
      |
      */
 
-        /*
-     |--------------------------------------------------------------------------
-     | Debugbar Settings
-     |--------------------------------------------------------------------------
-     |
-     | Debugbar is enabled by default, when debug is set to true in app.php.
-     | You can override the value by setting enable to true or false instead of null.
-     |
-     */
-
-    'enabled' => false, // Disable debugbar in production for better performance
+    'enabled' => env('DEBUGBAR_ENABLED', null),
     'hide_empty_tabs' => env('DEBUGBAR_HIDE_EMPTY_TABS', true), // Hide tabs until they have content
     'except' => [
         'telescope*',

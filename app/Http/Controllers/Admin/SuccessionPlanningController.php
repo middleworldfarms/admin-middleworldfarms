@@ -235,6 +235,109 @@ class SuccessionPlanningController extends Controller
     }
 
     /**
+     * Create individual succession planting log from form data
+     */
+    public function createSingleLog(Request $request)
+    {
+        $validated = $request->validate([
+            'succession_id' => 'required|string',
+            'crop_name' => 'required|string',
+            'variety_name' => 'nullable|string',
+            'seeding' => 'required|array',
+            'seeding.date' => 'required|date',
+            'seeding.location' => 'required|string',
+            'seeding.quantity' => 'nullable|string',
+            'seeding.notes' => 'nullable|string',
+            'seeding.direct_sow' => 'boolean',
+            'transplant' => 'nullable|array',
+            'transplant.date' => 'nullable|date',
+            'transplant.location' => 'nullable|string',
+            'transplant.quantity' => 'nullable|string',
+            'transplant.spacing' => 'nullable|string',
+            'transplant.notes' => 'nullable|string',
+            'harvest' => 'required|array',
+            'harvest.date' => 'required|date',
+            'harvest.expected_yield' => 'nullable|string',
+            'harvest.notes' => 'nullable|string',
+        ]);
+
+        try {
+            $createdLogs = [];
+            $errors = [];
+
+            // Create seeding log
+            $seedingType = $validated['seeding']['direct_sow'] ? 'direct_seed' : 'seed';
+            $seedingNote = $validated['seeding']['direct_sow'] ? 'Direct Sow' : 'Seeding';
+            
+            $seedingPlan = $this->farmOSApi->createCropPlan([
+                'type' => $seedingType,
+                'crop' => [
+                    'name' => $validated['crop_name'],
+                    'variety' => $validated['variety_name'] ?? ''
+                ],
+                'location' => $validated['seeding']['location'],
+                'timestamp' => $validated['seeding']['date'],
+                'notes' => "Succession #{$validated['succession_id']}: {$seedingNote} - " . ($validated['seeding']['notes'] ?? ''),
+                'status' => 'pending',
+                'quantity' => $validated['seeding']['quantity'] ?? ''
+            ]);
+            $createdLogs[] = $seedingPlan;
+
+            // Create transplant log if needed
+            if (!empty($validated['transplant']) && !empty($validated['transplant']['date'])) {
+                $transplantPlan = $this->farmOSApi->createCropPlan([
+                    'type' => 'transplant',
+                    'crop' => [
+                        'name' => $validated['crop_name'],
+                        'variety' => $validated['variety_name'] ?? ''
+                    ],
+                    'location' => $validated['transplant']['location'],
+                    'timestamp' => $validated['transplant']['date'],
+                    'notes' => "Succession #{$validated['succession_id']}: Transplant - " . ($validated['transplant']['notes'] ?? ''),
+                    'status' => 'pending',
+                    'quantity' => $validated['transplant']['quantity'] ?? '',
+                    'spacing' => $validated['transplant']['spacing'] ?? ''
+                ]);
+                $createdLogs[] = $transplantPlan;
+            }
+
+            // Create harvest log
+            $harvestPlan = $this->farmOSApi->createCropPlan([
+                'type' => 'harvest',
+                'crop' => [
+                    'name' => $validated['crop_name'],
+                    'variety' => $validated['variety_name'] ?? ''
+                ],
+                'location' => $validated['transplant']['location'] ?? $validated['seeding']['location'],
+                'timestamp' => $validated['harvest']['date'],
+                'notes' => "Succession #{$validated['succession_id']}: Harvest - " . ($validated['harvest']['notes'] ?? ''),
+                'status' => 'pending',
+                'expected_yield' => $validated['harvest']['expected_yield'] ?? ''
+            ]);
+            $createdLogs[] = $harvestPlan;
+
+            Log::info('Single succession log created in farmOS', [
+                'succession_id' => $validated['succession_id'],
+                'crop' => $validated['crop_name'],
+                'logs_created' => count($createdLogs)
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'created_logs' => count($createdLogs),
+                'message' => "Succession #{$validated['succession_id']} logs created successfully in farmOS"
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to create single succession log in farmOS: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create farmOS logs: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Generate basic succession plan with timing calculations
      */
     private function generateSuccessionPlan($validated, $existingPlans, $cropPresets)
@@ -429,7 +532,7 @@ class SuccessionPlanningController extends Controller
                         . "Consider: timing intervals, bed rotation, seasonal factors, and any conflicts found. "
                         . "Provide specific recommendations for improving yield and reducing conflicts.";
 
-            $response = Http::timeout(10)->post(env('AI_SERVICE_URL', 'http://localhost:8001/ask'), [
+            $response = Http::timeout(60)->post(env('AI_SERVICE_URL', 'http://localhost:8001/ask'), [
                 'question' => $aiQuestion,
                 'context' => json_encode($aiContext)
             ]);
@@ -523,7 +626,7 @@ class SuccessionPlanningController extends Controller
                     'id' => "bed_{$block}_{$bed}",
                     'name' => "{$block}/{$bed}",
                     'type' => 'bed',
-                    'area' => rand(50, 200) // sq ft
+                    'area' => 100 + ($block * $bed * 10) % 150 // Dynamic area calculation
                 ];
             }
         }
@@ -1180,10 +1283,10 @@ class SuccessionPlanningController extends Controller
      */
     public function chat(Request $request): JsonResponse
     {
-        // Increase execution time for AI requests
-        set_time_limit(120); // 2 minutes
+        // Increase execution time for CPU-based Mistral AI requests
+        set_time_limit(120); // 2 minutes total
         ini_set('max_execution_time', 120);
-        ini_set('default_socket_timeout', 120); // Override 60-second socket timeout
+        ini_set('default_socket_timeout', 120); // Override socket timeout
         
         try {
             $validated = $request->validate([
@@ -1205,14 +1308,14 @@ class SuccessionPlanningController extends Controller
                 $question .= " (Season: {$validated['season']})";
             }
 
-            // Call Mistral AI service with timeout just under Nginx limit  
-            $response = Http::timeout(55) // 55 seconds - under Nginx timeout
-                ->connectTimeout(10) // 10 second connection timeout
-                ->retry(1, 2000) // Retry once after 2 seconds if it fails
+            // Call Mistral AI service with extended timeout for CPU processing
+            $response = Http::timeout(90) // 90 seconds for CPU-based Mistral 7B
+                ->connectTimeout(15) // 15 second connection timeout
+                ->retry(1, 3000) // Retry once after 3 seconds if it fails
                 ->withOptions([
                     'stream_context' => stream_context_create([
                         'http' => [
-                            'timeout' => 55.0,
+                            'timeout' => 90.0,
                         ]
                     ])
                 ])

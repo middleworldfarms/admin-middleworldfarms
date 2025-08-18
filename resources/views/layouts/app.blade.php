@@ -418,7 +418,7 @@
                     @yield('page-header')
                 @else
                     <h1>Farm Management System</h1>
-                    <p class="lead">Integrated and intelligent operations</p>
+                    <p class="lead">Integrated agricultural operations</p>
                 @endif
             </div>
             <div>

@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use App\Http\Controllers\Admin\BackupController;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Artisan;
 use Carbon\Carbon;
 
@@ -40,7 +41,7 @@ class AutoBackup extends Command
             
             // Test and add WordPress connection if available
             try {
-                \DB::connection('wordpress')->getPdo();
+                DB::connection('wordpress')->getPdo();
                 $connections[] = 'wordpress';
                 $this->info('WordPress connection available for backup');
             } catch (\Exception $e) {
@@ -49,7 +50,7 @@ class AutoBackup extends Command
             
             // Test and add farmOS connection if available
             try {
-                \DB::connection('farmos')->getPdo();
+                DB::connection('farmos')->getPdo();
                 $connections[] = 'farmos';
                 $this->info('farmOS connection available for backup');
             } catch (\Exception $e) {
@@ -58,7 +59,7 @@ class AutoBackup extends Command
             
             // Test and add POS system connection if available
             try {
-                \DB::connection('pos_system')->getPdo();
+                DB::connection('pos_system')->getPdo();
                 $connections[] = 'pos_system';
                 $this->info('POS system connection available for backup');
             } catch (\Exception $e) {
@@ -76,7 +77,7 @@ class AutoBackup extends Command
             
         } catch (\Exception $e) {
             $this->error('Backup failed: ' . $e->getMessage());
-            \Log::error('Auto backup failed: ' . $e->getMessage());
+            Log::error('Auto backup failed: ' . $e->getMessage());
             return Command::FAILURE;
         }
     }

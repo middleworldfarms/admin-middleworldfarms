@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\WpApiService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Log;
 use Exception;
 
 class LoginController extends Controller
@@ -84,7 +85,7 @@ class LoginController extends Controller
                     Session::put('wp_auth_cookie', $wpAuthResult['wp_auth_cookie'] ?? null);
                     
                     // Log successful WordPress authentication
-                    \Log::info('Admin login with WordPress authentication successful', [
+                    Log::info('Admin login with WordPress authentication successful', [
                         'admin_email' => $user['email'],
                         'wordpress_email' => $wordpressEmail,
                         'role' => $user['role'],
@@ -95,7 +96,7 @@ class LoginController extends Controller
                     ]);
                 } else {
                     // Log WordPress authentication failure but continue with admin login
-                    \Log::warning('WordPress authentication failed during admin login', [
+                    Log::warning('WordPress authentication failed during admin login', [
                         'admin_email' => $user['email'],
                         'wordpress_email' => $wordpressEmail,
                         'error' => $wpAuthResult['error'] ?? 'Authentication failed'
@@ -108,7 +109,7 @@ class LoginController extends Controller
                 }
 
                 // Log the admin login (always successful)
-                \Log::info('Admin login successful', [
+                Log::info('Admin login successful', [
                     'email' => $user['email'],
                     'role' => $user['role'],
                     'wp_integrated' => $wpAuthResult['success'] ?? false,
@@ -145,7 +146,7 @@ class LoginController extends Controller
         $wpAuthenticated = Session::get('wp_authenticated', false);
         
         // Log logout with WordPress integration status
-        \Log::info('Admin logout', [
+        Log::info('Admin logout', [
             'email' => $adminUser['email'] ?? 'unknown',
             'wp_integrated' => $wpAuthenticated,
             'session_duration' => $adminUser['login_time'] ? 
@@ -214,7 +215,7 @@ class LoginController extends Controller
                 Session::put('wp_user', $wpAuthResult['wp_user'] ?? null);
                 Session::put('wp_admin_url', $wpAuthResult['wp_admin_url'] ?? null);
                 
-                \Log::info('WordPress authentication retry successful', [
+                Log::info('WordPress authentication retry successful', [
                     'email' => $adminUser['email'],
                     'wp_user_id' => $wpAuthResult['wp_user']['id'] ?? null
                 ]);
@@ -225,7 +226,7 @@ class LoginController extends Controller
                     'wp_admin_url' => $wpAuthResult['wp_admin_url'] ?? null
                 ]);
             } else {
-                \Log::warning('WordPress authentication retry failed', [
+                Log::warning('WordPress authentication retry failed', [
                     'email' => $adminUser['email'],
                     'error' => $wpAuthResult['error'] ?? 'Unknown error'
                 ]);
@@ -236,7 +237,7 @@ class LoginController extends Controller
                 ]);
             }
         } catch (Exception $e) {
-            \Log::error('WordPress authentication retry exception', [
+            Log::error('WordPress authentication retry exception', [
                 'email' => $adminUser['email'],
                 'error' => $e->getMessage()
             ]);

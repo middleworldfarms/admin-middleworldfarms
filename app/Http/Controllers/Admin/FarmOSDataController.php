@@ -930,16 +930,18 @@ class FarmOSDataController extends Controller
                 $bedName = "$blockNum/$bedNum";
                 $chartData[$bedName] = []; // Create separate entry for each bed
                 
-                // Random chance of having a planting (about 60% of beds have activities)
-                if (rand(1, 100) <= 60) {
-                    $crop = $crops[array_rand($crops)];
-                    $variety = $varieties[$crop][array_rand($varieties[$crop])];
+                // Deterministic chance based on bed position (about 60% of beds have activities)
+                if (($blockNum * $bedNum * 7) % 100 <= 60) {
+                    $cropIndex = ($blockNum + $bedNum) % count($crops);
+                    $crop = $crops[$cropIndex];
+                    $varietyIndex = ($blockNum * $bedNum) % count($varieties[$crop]);
+                    $variety = $varieties[$crop][$varietyIndex];
                     
-                    // Random timing within the year
-                    $seedingOffset = rand(-180, 180); // +/- 6 months from now
-                    $transplantOffset = $seedingOffset + rand(14, 28); // 2-4 weeks after seeding
-                    $harvestStartOffset = $transplantOffset + rand(28, 84); // 4-12 weeks after transplant
-                    $harvestEndOffset = $harvestStartOffset + rand(7, 28); // 1-4 weeks harvest period
+                    // Deterministic timing based on bed position
+                    $seedingOffset = (($blockNum * $bedNum * 17) % 360) - 180; // +/- 6 months from now
+                    $transplantOffset = $seedingOffset + 14 + (($blockNum + $bedNum) % 14); // 14-28 days after seeding
+                    $harvestStartOffset = $transplantOffset + 28 + (($blockNum * $bedNum) % 56); // 28-84 days after transplant
+                    $harvestEndOffset = $harvestStartOffset + 7 + (($blockNum + $bedNum * 3) % 21); // 7-28 days harvest period
                     
                     $seedingStart = date('Y-m-d', strtotime("$seedingOffset days"));
                     $seedingEnd = date('Y-m-d', strtotime("$transplantOffset days"));
@@ -971,7 +973,7 @@ class FarmOSDataController extends Controller
                         'location' => $bedName,
                         'start' => $growingStart,
                         'end' => $growingEnd,
-                        'status' => rand(1, 100) <= 70 ? 'active' : 'planned',
+                        'status' => ($blockNum * $bedNum * 11) % 100 <= 70 ? 'active' : 'planned',
                         'notes' => "Demo growing: $variety in $bedName",
                         'source' => 'fallback'
                     ];

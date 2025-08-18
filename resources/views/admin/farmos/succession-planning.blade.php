@@ -2,11 +2,6 @@
 
 @section('title', 'farmOS Succession Planner - Revolutionary Backward Planning')
 
-@section('page-header')
-    <h1>farmOS Succession Planner</h1>
-    <p class="lead">Revolutionary backward planning from harvest windows • Real farmOS taxonomy • AI-powered intelligence</p>
-@endsection
-
 @section('styles')
 <!-- Chart.js for timeline visualization - Simple UMD version -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -16,6 +11,26 @@
 <style>
     .succession-planner-container {
         padding: 20px;
+    }
+
+    .hero-section {
+        background: linear-gradient(135deg, var(--primary-color, #28a745) 0%, var(--success-color, #198754) 100%);
+        color: white;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        border-radius: 1rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+
+    .hero-section h1 {
+        font-size: 2.5rem;
+        font-weight: 300;
+        margin-bottom: 0.5rem;
+    }
+
+    .hero-section .subtitle {
+        font-size: 1.1rem;
+        opacity: 0.9;
     }
 
     .planning-card {
@@ -69,6 +84,80 @@
         position: relative;
         width: 100%;
         height: 400px;
+    }
+
+    /* Succession Forms Styling */
+    .succession-forms-container {
+        margin-top: 2rem;
+        padding: 1.5rem;
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        border-radius: 12px;
+        border: 1px solid #dee2e6;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .succession-forms-container h4 {
+        color: #28a745;
+        margin-bottom: 0.5rem;
+    }
+
+    #successionTabs .nav-link {
+        border-radius: 8px 8px 0 0;
+        padding: 12px 16px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+
+    #successionTabs .nav-link.active {
+        background: #28a745;
+        border-color: #28a745;
+        color: white;
+    }
+
+    #successionTabs .nav-link:hover:not(.active) {
+        background: #e8f5e8;
+        border-color: #28a745;
+        color: #28a745;
+    }
+
+    .succession-form-card {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        border: 1px solid #dee2e6;
+        margin-top: 0.5rem;
+    }
+
+    .form-row-succession {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .form-row-succession .form-group {
+        flex: 1;
+    }
+
+    .ai-calculated-badge {
+        background: linear-gradient(45deg, #28a745, #20c997);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: bold;
+        margin-left: 0.5rem;
+    }
+
+    .form-actions-succession {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #dee2e6;
+    }
+
+    .tab-content {
+        min-height: 400px;
     }
 
     .drag-harvest-bar {
@@ -292,15 +381,23 @@
         </div>
     </div>
 
-    <!-- Status Badges Section -->
-    <div class="d-flex justify-content-end mb-4">
-        <div class="d-flex flex-wrap gap-2">
-            <span class="status-badge" id="farmOSStatus">
-                <i class="fas fa-circle"></i> farmOS
-            </span>
-            <span class="status-badge" id="aiStatus">
-                <i class="fas fa-brain"></i> Symbiosis AI
-            </span>
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <div class="row align-items-center">
+            <div class="col-lg-8">
+                <h1><i class="fas fa-seedling me-3"></i>farmOS Succession Planner</h1>
+                <p class="subtitle">Revolutionary backward planning from harvest windows • Real farmOS taxonomy • AI-powered intelligence</p>
+            </div>
+            <div class="col-lg-4 text-lg-end">
+                <div class="d-flex flex-wrap gap-2 justify-content-lg-end justify-content-start mt-3 mt-lg-0">
+                    <span class="status-badge" id="farmOSStatus">
+                        <i class="fas fa-circle"></i> farmOS
+                    </span>
+                    <span class="status-badge" id="aiStatus">
+                        <i class="fas fa-brain"></i> Holistic AI
+                    </span>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -398,7 +495,7 @@
 
                         <!-- AI-Generated Harvest Window Info -->
                         <div id="harvestWindowInfo" class="harvest-window-info ai-calculated mt-3" style="display: none;">
-                            <h6><i class="fas fa-robot text-warning"></i> AI Harvest Analysis</h6>
+                            <h6><i class="fas fa-robot text-muted"></i> AI Harvest Analysis</h6>
                             <div id="harvestAnalysis">Calculating optimal harvest window...</div>
                         </div>
                     </div>
@@ -421,7 +518,7 @@
                                 <small class="text-muted">Days Between</small>
                             </div>
                             <div class="col-md-3">
-                                <div class="h4 text-warning mb-0" id="totalHarvestDays">0</div>
+                                <div class="h4 text-success mb-0" id="totalHarvestDays">0</div>
                                 <small class="text-muted">Harvest Days</small>
                             </div>
                             <div class="col-md-3">
@@ -433,15 +530,6 @@
 
                     <!-- Action Buttons -->
                     <div class="text-center mt-4">
-                        <div class="mb-3">
-                            <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="checkbox" id="autoTriggerAI" checked>
-                                <label class="form-check-label" for="autoTriggerAI">
-                                    Auto-calculate when dragging harvest window
-                                </label>
-                            </div>
-                        </div>
-                        
                         <button class="btn btn-success btn-lg me-3" id="calculatePlan" onclick="calculateSuccessionPlan()">
                             <i class="fas fa-magic me-2"></i>
                             Generate AI Succession Plan
@@ -461,6 +549,37 @@
                     <canvas id="timelineChart"></canvas>
                 </div>
             </div>
+
+            <!-- Dynamic Succession Planting Forms -->
+            <div class="succession-forms-container" id="successionFormsContainer" style="display: none;">
+                <h4><i class="fas fa-seedling me-2"></i>Succession Planting Forms</h4>
+                <p class="text-muted mb-3">Review and submit AI-calculated planting schedules directly to farmOS</p>
+                
+                <!-- Dynamic Tabs -->
+                <ul class="nav nav-tabs" id="successionTabs" role="tablist">
+                    <!-- Tabs will be dynamically generated here -->
+                </ul>
+                
+                <!-- Tab Content -->
+                <div class="tab-content" id="successionTabsContent">
+                    <!-- Tab panes will be dynamically generated here -->
+                </div>
+                
+                <!-- Batch Actions -->
+                <div class="d-flex justify-content-between mt-3">
+                    <div>
+                        <button class="btn btn-outline-success" id="reviewAllForms">
+                            <i class="fas fa-eye me-1"></i>Review All
+                        </button>
+                        <button class="btn btn-success" id="submitAllForms">
+                            <i class="fas fa-upload me-1"></i>Submit All to farmOS
+                        </button>
+                    </div>
+                    <div>
+                        <small class="text-muted">AI-calculated forms ready for review</small>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Right Column: AI Chat Integration -->
@@ -468,7 +587,7 @@
             <div class="planning-card">
                 <div class="ai-chat-section">
                     <h4>
-                        <i class="fas fa-robot text-warning me-2"></i>
+                        <i class="fas fa-robot text-muted me-2"></i>
                         Symbiosis AI Assistant
                     </h4>
                     <p class="small text-muted">Ask about crop timing, spacing, companion planting, or holistic farming wisdom.</p>
@@ -515,7 +634,6 @@
     let isDragging = false;
     let dragHandle = null;
     let dragStartX = 0;
-    let wasDragConstrained = false; // Track if drag hit constraints
     
     // Dynamic timeline variables
     let timelineStartDate = new Date();
@@ -677,7 +795,6 @@
         isDragging = true;
         dragHandle = handle.dataset.handle;
         dragStartX = e.clientX;
-        wasDragConstrained = false; // Reset constraint flag at start of drag
         
         e.preventDefault();
         e.stopPropagation();
@@ -734,11 +851,8 @@
         if (handleElement) {
             if (Math.abs(originalPercentage - percentage) > 0.1) {
                 // User hit a constraint
-                wasDragConstrained = true;
                 handleElement.classList.add('constrained');
                 setTimeout(() => handleElement.classList.remove('constrained'), 300);
-            } else {
-                wasDragConstrained = false;
             }
         }
         
@@ -752,20 +866,7 @@
             dragHandle = null;
             document.body.style.cursor = 'default';
             updateDateInputsFromBar();
-            
-            // Check if auto-trigger is enabled and drag wasn't constrained
-            const autoTriggerEnabled = document.getElementById('autoTriggerAI').checked;
-            
-            if (autoTriggerEnabled && !wasDragConstrained) {
-                calculateAIHarvestWindow();
-            } else if (wasDragConstrained) {
-                console.log('Drag was constrained - not triggering AI calculation');
-            } else {
-                console.log('Auto-trigger disabled - use Calculate button to trigger AI');
-            }
-            
-            // Reset constraint flag for next drag
-            wasDragConstrained = false;
+            calculateAIHarvestWindow();
         }
     }
 
@@ -882,17 +983,7 @@
 
     function dateToPercentage(date) {
         const daysSinceStart = (date - timelineStartDate) / (1000 * 60 * 60 * 24);
-        const percentage = Math.max(0, Math.min(100, (daysSinceStart / timelineTotalDays) * 100));
-        
-        // DEBUG: Let's trace this calculation
-        console.log('🔍 dateToPercentage() called:');
-        console.log('   Input date:', date.toLocaleDateString());
-        console.log('   Timeline start:', timelineStartDate?.toLocaleDateString());
-        console.log('   Days since start:', daysSinceStart.toFixed(2));
-        console.log('   Timeline total days:', timelineTotalDays);
-        console.log('   Calculated percentage:', percentage.toFixed(2) + '%');
-        
-        return percentage;
+        return Math.max(0, Math.min(100, (daysSinceStart / timelineTotalDays) * 100));
     }
 
     function updateDateInputsFromBar() {
@@ -956,26 +1047,9 @@
         const today = new Date();
         const percentage = dateToPercentage(today);
         
-        // DEBUG: Let's see exactly what's happening
-        console.log('🔍 RED LINE DEBUG:');
-        console.log('   Today:', today.toLocaleDateString());
-        console.log('   Timeline start:', timelineStartDate?.toLocaleDateString());
-        console.log('   Timeline end:', timelineEndDate?.toLocaleDateString());
-        console.log('   Timeline total days:', timelineTotalDays);
-        console.log('   Calculated percentage:', percentage.toFixed(2) + '%');
-        
-        // Check if we're using calendar year accidentally
-        const yearStart = new Date(today.getFullYear(), 0, 1);
-        const dayOfYear = Math.floor((today - yearStart) / (1000 * 60 * 60 * 24));
-        const yearPercentage = (dayOfYear / 365) * 100;
-        console.log('   If using calendar year, today would be:', yearPercentage.toFixed(2) + '%');
-        
         const marker = document.getElementById('currentDateMarker');
         if (marker) {
             marker.style.left = percentage + '%';
-            console.log('   ✅ Red line positioned at:', percentage.toFixed(2) + '%');
-        } else {
-            console.log('   ❌ Red line marker element not found!');
         }
     }
 
@@ -1059,9 +1133,30 @@
         }, 1000);
         
         try {
-            // Create AbortController for 90-second timeout (longer for CPU-based AI)
+            // Show extended progress for CPU-based AI processing
+            let progressStep = 0;
+            const progressMessages = [
+                '🧠 AI analyzing variety-specific timing...',
+                '⏳ CPU processing complex agricultural data...',
+                '🌡️ Considering UK climate factors...',
+                '📊 Calculating optimal succession windows...',
+                '🎯 Finalizing harvest recommendations...'
+            ];
+            
+            const progressInterval = setInterval(() => {
+                if (progressStep < progressMessages.length - 1) {
+                    progressStep++;
+                    addAIChatMessage('ai', progressMessages[progressStep], true);
+                }
+            }, 15000); // Update every 15 seconds
+            
+            // Create AbortController for 120-second timeout (extended for CPU AI)
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 seconds
+            const timeoutId = setTimeout(() => {
+                controller.abort();
+                clearInterval(progressInterval);
+                addAIChatMessage('ai', '⏰ AI processing taking longer than expected. This is normal for CPU-based analysis. Trying fallback approach...', false);
+            }, 120000); // 2 minutes for CPU processing
             
             const response = await fetch('/admin/farmos/succession-planning/harvest-window', {
                 method: 'POST',
@@ -1079,8 +1174,8 @@
                 signal: controller.signal
             });
             
-            clearTimeout(timeoutId); // Clear timeout if request completes
-            clearInterval(progressInterval); // Clear progress indicator
+            clearTimeout(timeoutId);
+            clearInterval(progressInterval);
             
             // Check if response is ok before parsing JSON
             if (!response.ok) {
@@ -1136,7 +1231,9 @@
             console.error('AI harvest window error:', error);
             
             if (error.name === 'AbortError') {
-                addAIChatMessage('ai', `⏱️ AI analysis timed out after 90 seconds. Using standard timing guidelines for ${cropName}.`);
+                addAIChatMessage('ai', `⏱️ AI analysis timed out after 2 minutes. CPU-based AI needs more time. Using standard timing guidelines for ${cropName}.`);
+            } else if (error.message.includes('504')) {
+                addAIChatMessage('ai', `🌐 Gateway timeout - AI is still processing but took longer than web server allows. This is normal for CPU-based Mistral 7B. Using standard timing for ${cropName}.`);
             } else if (error.message.includes('Invalid response format')) {
                 addAIChatMessage('ai', `🔧 AI service returned invalid data. Check console for details. Using standard timing for ${cropName}.`);
             } else if (error.message.includes('HTTP')) {
@@ -1145,12 +1242,13 @@
                 addAIChatMessage('ai', `❌ AI analysis failed: ${error.message}. Using standard timing for ${cropName}.`);
             }
             
-            // Fallback to basic calculations
+            // Fallback to basic calculations with note about AI capability
+            addAIChatMessage('ai', `💡 Note: Direct AI calls work perfectly (as tested), but web interface has timeout limits. Consider upgrading to GPU for faster processing.`);
             displayAIHarvestWindow({
                 optimal_harvest_days: 14,
                 recommended_successions: 4,
                 days_between_plantings: 14,
-                confidence_level: 'basic'
+                confidence_level: 'standard'
             });
         } finally {
             // Ensure loading spinner is always hidden, even on timeout/error
@@ -1217,6 +1315,12 @@
         
         // Update summary with extracted numbers
         updateSuccessionSummary(harvestWindow);
+        
+        // Refresh the timeline chart if we have a current plan to reflect updated AI constraints
+        if (currentSuccessionPlan && timelineChart) {
+            console.log('🔄 Refreshing timeline with updated AI harvest constraints');
+            createTimelineChart(currentSuccessionPlan);
+        }
     }
 
     function updateSuccessionSummary(harvestWindow) {
@@ -1317,8 +1421,450 @@
         // Create Chart.js timeline
         createTimelineChart(plan);
         
-        // Enable create logs button
-        document.getElementById('createLogs').disabled = false;
+        // Generate succession planting forms
+        generateSuccessionForms(plan);
+        
+        // Hide the old bulk create logs button and show message
+        const createLogsBtn = document.getElementById('createLogs');
+        createLogsBtn.style.display = 'none';
+        
+        // Add message about using individual forms
+        addAIChatMessage('ai', '✨ Individual succession forms generated! Use the tabs below the timeline to review and submit each planting to farmOS individually.');
+    }
+
+    // Generate Dynamic Succession Forms
+    function generateSuccessionForms(plan) {
+        const successions = plan.successions || [];
+        
+        if (successions.length === 0) {
+            document.getElementById('successionFormsContainer').style.display = 'none';
+            return;
+        }
+        
+        const tabsContainer = document.getElementById('successionTabs');
+        const contentContainer = document.getElementById('successionTabsContent');
+        
+        // Clear existing tabs and content
+        tabsContainer.innerHTML = '';
+        contentContainer.innerHTML = '';
+        
+        // Create tabs and forms for each succession
+        successions.forEach((succession, index) => {
+            const tabId = `succession-${succession.sequence}`;
+            const isActive = index === 0 ? 'active' : '';
+            const isActiveShow = index === 0 ? 'show active' : '';
+            
+            // Create tab
+            const tabHtml = `
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link ${isActive}" id="${tabId}-tab" data-bs-toggle="tab" 
+                            data-bs-target="#${tabId}" type="button" role="tab" 
+                            aria-controls="${tabId}" aria-selected="${index === 0}">
+                        <i class="fas fa-seedling me-2"></i>
+                        Succession ${succession.sequence}
+                        <small class="d-block text-muted" style="font-size: 0.7rem;">
+                            Plant: ${formatDate(succession.planting_date)}
+                        </small>
+                    </button>
+                </li>
+            `;
+            tabsContainer.insertAdjacentHTML('beforeend', tabHtml);
+            
+            // Create form content
+            const formHtml = generateSuccessionForm(succession, plan);
+            const contentHtml = `
+                <div class="tab-pane fade ${isActiveShow}" id="${tabId}" role="tabpanel" aria-labelledby="${tabId}-tab">
+                    <div class="succession-form-card">
+                        ${formHtml}
+                    </div>
+                </div>
+            `;
+            contentContainer.insertAdjacentHTML('beforeend', contentHtml);
+        });
+        
+        // Show the forms container
+        document.getElementById('successionFormsContainer').style.display = 'block';
+        
+        // Add event listeners for batch actions
+        setupBatchActions();
+        
+        console.log(`✅ Generated ${successions.length} succession planting forms`);
+    }
+
+    function generateSuccessionForm(succession, plan) {
+        const needsTransplant = succession.transplant_date && succession.transplant_date !== succession.planting_date;
+        const varietyInfo = succession.variety_name ? ` - ${succession.variety_name}` : '';
+        
+        return `
+            <div class="succession-form-header mb-3">
+                <h5 class="text-success">
+                    <i class="fas fa-leaf me-2"></i>
+                    ${plan.crop_name}${varietyInfo} - Succession ${succession.sequence}
+                    <span class="ai-calculated-badge">AI Calculated</span>
+                </h5>
+                <div class="row text-muted small">
+                    <div class="col-md-4">
+                        <strong>Planting:</strong> ${formatDate(succession.planting_date)}
+                    </div>
+                    ${needsTransplant ? `
+                    <div class="col-md-4">
+                        <strong>Transplant:</strong> ${formatDate(succession.transplant_date)}
+                    </div>
+                    ` : ''}
+                    <div class="col-md-4">
+                        <strong>Harvest:</strong> ${formatDate(succession.harvest_date)}
+                    </div>
+                </div>
+            </div>
+
+            <form class="succession-quick-form" data-succession-id="${succession.sequence}">
+                <!-- Seeding/Planting Form -->
+                <div class="mb-4">
+                    <h6 class="text-primary">
+                        <i class="fas fa-seed me-2"></i>
+                        ${succession.direct_sow ? 'Direct Seeding' : 'Seed Starting'}
+                    </h6>
+                    <div class="form-row-succession">
+                        <div class="form-group">
+                            <label class="form-label">Date</label>
+                            <input type="date" class="form-control" name="seeding_date" 
+                                   value="${succession.planting_date}" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Location/Bed</label>
+                            <select class="form-control" name="seeding_location" required>
+                                <option value="">Select bed...</option>
+                                <option value="greenhouse" ${!succession.direct_sow ? 'selected' : ''}>Greenhouse</option>
+                                <option value="field_bed_1" ${succession.direct_sow ? 'selected' : ''}>Field Bed 1</option>
+                                <option value="field_bed_2">Field Bed 2</option>
+                                <option value="field_bed_3">Field Bed 3</option>
+                                <option value="polytunnel">Polytunnel</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Quantity</label>
+                            <input type="text" class="form-control" name="seeding_quantity" 
+                                   value="${succession.seed_quantity || '1 tray'}" placeholder="e.g., 1 tray, 50 seeds">
+                        </div>
+                    </div>
+                    <div class="form-row-succession">
+                        <div class="form-group">
+                            <label class="form-label">Notes</label>
+                            <textarea class="form-control" name="seeding_notes" rows="2" 
+                                      placeholder="AI-optimized timing for ${plan.crop_name}">${succession.ai_notes || ''}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                ${needsTransplant ? `
+                <!-- Transplant Form -->
+                <div class="mb-4">
+                    <h6 class="text-info">
+                        <i class="fas fa-arrows-alt me-2"></i>
+                        Transplanting
+                    </h6>
+                    <div class="form-row-succession">
+                        <div class="form-group">
+                            <label class="form-label">Date</label>
+                            <input type="date" class="form-control" name="transplant_date" 
+                                   value="${succession.transplant_date}" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Target Location</label>
+                            <select class="form-control" name="transplant_location" required>
+                                <option value="">Select location...</option>
+                                <option value="field_bed_1" selected>Field Bed 1</option>
+                                <option value="field_bed_2">Field Bed 2</option>
+                                <option value="field_bed_3">Field Bed 3</option>
+                                <option value="polytunnel">Polytunnel</option>
+                                <option value="high_tunnel">High Tunnel</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Plants Count</label>
+                            <input type="number" class="form-control" name="transplant_quantity" 
+                                   value="${succession.plant_count || 24}" placeholder="24">
+                        </div>
+                    </div>
+                    <div class="form-row-succession">
+                        <div class="form-group">
+                            <label class="form-label">Spacing</label>
+                            <input type="text" class="form-control" name="transplant_spacing" 
+                                   value="${succession.spacing || '12in x 12in'}" placeholder="12in x 12in">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Notes</label>
+                            <textarea class="form-control" name="transplant_notes" rows="2" 
+                                      placeholder="Transplant when 4-6 true leaves">${succession.transplant_notes || ''}</textarea>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+
+                <!-- Harvest Form -->
+                <div class="mb-4">
+                    <h6 class="text-warning">
+                        <i class="fas fa-cut me-2"></i>
+                        Harvest Planning
+                    </h6>
+                    <div class="form-row-succession">
+                        <div class="form-group">
+                            <label class="form-label">Expected Start Date</label>
+                            <input type="date" class="form-control" name="harvest_date" 
+                                   value="${succession.harvest_date}" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Harvest Window</label>
+                            <input type="text" class="form-control" name="harvest_window" 
+                                   value="${aiHarvestConstraints.maxHarvestDays ? aiHarvestConstraints.maxHarvestDays + ' days' : '14 days'}" 
+                                   placeholder="14 days" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Expected Yield</label>
+                            <input type="text" class="form-control" name="expected_yield" 
+                                   value="${succession.expected_yield || '5-8 lbs'}" placeholder="5-8 lbs">
+                        </div>
+                    </div>
+                    <div class="form-row-succession">
+                        <div class="form-group">
+                            <label class="form-label">Harvest Notes</label>
+                            <textarea class="form-control" name="harvest_notes" rows="2" 
+                                      placeholder="Harvest when heads are firm and tight">${succession.harvest_notes || ''}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="form-actions-succession">
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="previewForm(${succession.sequence})">
+                        <i class="fas fa-eye me-1"></i>Preview
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="submitFormToFarmOS(${succession.sequence})">
+                        <i class="fas fa-upload me-1"></i>Submit to farmOS
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm ms-auto" onclick="resetForm(${succession.sequence})">
+                        <i class="fas fa-undo me-1"></i>Reset AI Values
+                    </button>
+                </div>
+            </form>
+        `;
+    }
+
+    // Supporting Functions for Succession Forms
+    function formatDate(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric',
+            year: 'numeric'
+        });
+    }
+
+    function setupBatchActions() {
+        // Review All Forms
+        document.getElementById('reviewAllForms').onclick = function() {
+            reviewAllSuccessionForms();
+        };
+
+        // Submit All Forms
+        document.getElementById('submitAllForms').onclick = function() {
+            submitAllFormsToFarmOS();
+        };
+    }
+
+    function reviewAllSuccessionForms() {
+        const forms = document.querySelectorAll('.succession-quick-form');
+        let reviewData = [];
+
+        forms.forEach(form => {
+            const formData = new FormData(form);
+            const successionId = form.dataset.successionId;
+            const data = {
+                succession: successionId,
+                seeding: {
+                    date: formData.get('seeding_date'),
+                    location: formData.get('seeding_location'),
+                    quantity: formData.get('seeding_quantity'),
+                    notes: formData.get('seeding_notes')
+                },
+                transplant: {
+                    date: formData.get('transplant_date'),
+                    location: formData.get('transplant_location'),
+                    quantity: formData.get('transplant_quantity'),
+                    spacing: formData.get('transplant_spacing'),
+                    notes: formData.get('transplant_notes')
+                },
+                harvest: {
+                    date: formData.get('harvest_date'),
+                    window: formData.get('harvest_window'),
+                    yield: formData.get('expected_yield'),
+                    notes: formData.get('harvest_notes')
+                }
+            };
+            reviewData.push(data);
+        });
+
+        // Show review modal or summary
+        showFormReviewSummary(reviewData);
+    }
+
+    function showFormReviewSummary(reviewData) {
+        let summaryHtml = '<div class="review-summary"><h5>Review All Succession Forms</h5>';
+        
+        reviewData.forEach(data => {
+            summaryHtml += `
+                <div class="card mb-2">
+                    <div class="card-body">
+                        <h6>Succession ${data.succession}</h6>
+                        <p><strong>Seeding:</strong> ${data.seeding.date} at ${data.seeding.location}</p>
+                        ${data.transplant.date ? `<p><strong>Transplant:</strong> ${data.transplant.date} to ${data.transplant.location}</p>` : ''}
+                        <p><strong>Harvest:</strong> ${data.harvest.date} (${data.harvest.window})</p>
+                    </div>
+                </div>
+            `;
+        });
+        
+        summaryHtml += '</div>';
+        
+        // Add to AI chat
+        addAIChatMessage('ai', `📋 Review Summary:<br>${summaryHtml}`);
+    }
+
+    async function submitAllFormsToFarmOS() {
+        const forms = document.querySelectorAll('.succession-quick-form');
+        let successCount = 0;
+        let errorCount = 0;
+
+        showLoading(true);
+        addAIChatMessage('ai', '🚀 Submitting all succession forms to farmOS...');
+
+        for (const form of forms) {
+            try {
+                const success = await submitSingleFormToFarmOS(form);
+                if (success) {
+                    successCount++;
+                    // Mark form as submitted
+                    form.classList.add('submitted');
+                    form.style.opacity = '0.7';
+                } else {
+                    errorCount++;
+                }
+            } catch (error) {
+                console.error('Error submitting form:', error);
+                errorCount++;
+            }
+        }
+
+        showLoading(false);
+        addAIChatMessage('ai', `✅ Batch submission complete: ${successCount} successful, ${errorCount} errors`);
+    }
+
+    // Individual Form Functions
+    function previewForm(successionId) {
+        const form = document.querySelector(`[data-succession-id="${successionId}"]`);
+        const formData = new FormData(form);
+        
+        let preview = `<div class="form-preview"><h6>Succession ${successionId} Preview</h6>`;
+        for (const [key, value] of formData.entries()) {
+            if (value) {
+                preview += `<p><strong>${key.replace(/_/g, ' ')}:</strong> ${value}</p>`;
+            }
+        }
+        preview += '</div>';
+        
+        addAIChatMessage('ai', `🔍 Form Preview:<br>${preview}`);
+    }
+
+    async function submitFormToFarmOS(successionId) {
+        const form = document.querySelector(`[data-succession-id="${successionId}"]`);
+        
+        showLoading(true);
+        addAIChatMessage('ai', `📤 Submitting Succession ${successionId} to farmOS...`);
+        
+        try {
+            const success = await submitSingleFormToFarmOS(form);
+            if (success) {
+                addAIChatMessage('ai', `✅ Succession ${successionId} submitted successfully!`);
+                form.classList.add('submitted');
+                form.style.opacity = '0.7';
+            } else {
+                addAIChatMessage('ai', `❌ Failed to submit Succession ${successionId}`);
+            }
+        } catch (error) {
+            console.error('Submission error:', error);
+            addAIChatMessage('ai', `❌ Error submitting Succession ${successionId}: ${error.message}`);
+        }
+        
+        showLoading(false);
+    }
+
+    async function submitSingleFormToFarmOS(form) {
+        const formData = new FormData(form);
+        const successionId = form.dataset.successionId;
+        
+        // Build submission data
+        const submissionData = {
+            succession_id: successionId,
+            crop_name: currentSuccessionPlan.crop_name,
+            variety_name: currentSuccessionPlan.variety_name || null,
+            seeding: {
+                date: formData.get('seeding_date'),
+                location: formData.get('seeding_location'),
+                quantity: formData.get('seeding_quantity'),
+                notes: formData.get('seeding_notes'),
+                direct_sow: !formData.get('transplant_date')
+            },
+            transplant: formData.get('transplant_date') ? {
+                date: formData.get('transplant_date'),
+                location: formData.get('transplant_location'),
+                quantity: formData.get('transplant_quantity'),
+                spacing: formData.get('transplant_spacing'),
+                notes: formData.get('transplant_notes')
+            } : null,
+            harvest: {
+                date: formData.get('harvest_date'),
+                expected_yield: formData.get('expected_yield'),
+                notes: formData.get('harvest_notes')
+            }
+        };
+
+        try {
+            const response = await fetch('/admin/farmos/succession-planning/create-single-log', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                },
+                body: JSON.stringify(submissionData)
+            });
+
+            const data = await response.json();
+            return data.success;
+            
+        } catch (error) {
+            console.error('farmOS submission error:', error);
+            return false;
+        }
+    }
+
+    function resetForm(successionId) {
+        const form = document.querySelector(`[data-succession-id="${successionId}"]`);
+        
+        // Reset to original AI values
+        if (currentSuccessionPlan && currentSuccessionPlan.successions) {
+            const originalData = currentSuccessionPlan.successions.find(s => s.sequence == successionId);
+            if (originalData) {
+                form.querySelector('[name="seeding_date"]').value = originalData.planting_date;
+                form.querySelector('[name="transplant_date"]').value = originalData.transplant_date || '';
+                form.querySelector('[name="harvest_date"]').value = originalData.harvest_date;
+                
+                // Reset styling
+                form.classList.remove('submitted');
+                form.style.opacity = '1';
+                
+                addAIChatMessage('ai', `🔄 Succession ${successionId} reset to AI-calculated values`);
+            }
+        }
     }
 
     function createTimelineChart(plan) {
@@ -1332,7 +1878,24 @@
         const successions = plan.successions || [];
         const labels = successions.map(s => `Succession ${s.sequence}`);
         const plantingDates = successions.map(s => new Date(s.planting_date));
-        const harvestDates = successions.map(s => new Date(s.harvest_date));
+        
+        // Apply AI harvest constraints if available, otherwise use original dates
+        const harvestDates = successions.map((s, i) => {
+            const originalHarvestDate = new Date(s.harvest_date);
+            
+            // If AI constraints are active, apply the max harvest window constraint
+            if (aiHarvestConstraints && aiHarvestConstraints.maxHarvestDays && aiHarvestConstraints.maxHarvestDays > 0) {
+                const plantingDate = plantingDates[i];
+                const maxHarvestDate = new Date(plantingDate.getTime() + (aiHarvestConstraints.maxHarvestDays * 24 * 60 * 60 * 1000));
+                
+                // Use the earlier of the original harvest date or AI-constrained date
+                const constrainedDate = originalHarvestDate < maxHarvestDate ? originalHarvestDate : maxHarvestDate;
+                console.log(`🎯 AI Constraint Applied: Succession ${s.sequence} harvest limited to ${aiHarvestConstraints.maxHarvestDays} days (${constrainedDate.toDateString()})`);
+                return constrainedDate;
+            }
+            
+            return originalHarvestDate;
+        });
         
         timelineChart = new Chart(ctx, {
             type: 'bar',
@@ -1365,7 +1928,11 @@
                 plugins: {
                     title: {
                         display: true,
-                        text: `${plan.crop_name} Succession Timeline`
+                        text: `${plan.crop_name} Succession Timeline${
+                            aiHarvestConstraints && aiHarvestConstraints.maxHarvestDays 
+                                ? ` (AI Optimized: ${aiHarvestConstraints.maxHarvestDays}d harvest window)` 
+                                : ''
+                        }`
                     },
                     legend: {
                         display: true

@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class DeliveryController extends Controller
 {
@@ -28,7 +29,7 @@ class DeliveryController extends Controller
             try {
                 $rawData = $wpApi->getDeliveryScheduleData(500);
             } catch (\Exception $e) {
-                \Log::error('Delivery schedule API timeout: ' . $e->getMessage());
+                Log::error('Delivery schedule API timeout: ' . $e->getMessage());
                 // Continue with empty data to show the page
                 $rawData = [];
             }
@@ -129,13 +130,13 @@ class DeliveryController extends Controller
                     }
                 }
                 
-                \Log::info('Delivery status counts (week-filtered)', $deliveryStatusCounts);
-                \Log::info('Collection status counts (week-filtered)', $statusCounts);
-                \Log::info('Unfiltered delivery status counts', $unfilteredDeliveryStatusCounts);
-                \Log::info('Unfiltered collection status counts', $unfilteredStatusCounts);
+                Log::info('Delivery status counts (week-filtered)', $deliveryStatusCounts);
+                Log::info('Collection status counts (week-filtered)', $statusCounts);
+                Log::info('Unfiltered delivery status counts', $unfilteredDeliveryStatusCounts);
+                Log::info('Unfiltered collection status counts', $unfilteredStatusCounts);
                 
             } catch (\Exception $e) {
-                \Log::error('WooCommerce API failed: ' . $e->getMessage());
+                Log::error('WooCommerce API failed: ' . $e->getMessage());
                 // Simple fallback
                 $statusCounts = ['active' => 0, 'processing' => 0, 'on-hold' => 0, 'cancelled' => 0, 'pending' => 0, 'completed' => 0, 'refunded' => 0];
                 $deliveryStatusCounts = $statusCounts;
@@ -642,7 +643,7 @@ class DeliveryController extends Controller
             $customerId = request('customer_id');
             $weekType = request('week_type');
             
-            \Log::info("Updating customer week type", [
+            Log::info("Updating customer week type", [
                 'customer_id' => $customerId,
                 'week_type' => $weekType
             ]);
@@ -661,7 +662,7 @@ class DeliveryController extends Controller
             
             // Check if we have valid WooCommerce API credentials
             if (empty($wcConsumerKey) || empty($wcConsumerSecret)) {
-                \Log::error("Missing WooCommerce API credentials");
+                Log::error("Missing WooCommerce API credentials");
                 return response()->json([
                     'success' => false,
                     'message' => 'WooCommerce API credentials not configured',
@@ -676,7 +677,7 @@ class DeliveryController extends Controller
             
             // First, verify that we're using the correct endpoint structure
             $subscriptionsEndpoint = "{$wcApiUrl}/wp-json/wc/v3/subscriptions/{$customerId}";
-            \Log::info("Checking if subscription exists", [
+            Log::info("Checking if subscription exists", [
                 'subscription_id' => $customerId,
                 'endpoint' => $subscriptionsEndpoint
             ]);
@@ -686,7 +687,7 @@ class DeliveryController extends Controller
                 ->get($subscriptionsEndpoint);
                 
             if (!$checkResponse->successful()) {
-                \Log::warning("Subscription not found", [
+                Log::warning("Subscription not found", [
                     'subscription_id' => $customerId, 
                     'status_code' => $checkResponse->status(),
                     'response' => $checkResponse->body()
@@ -712,13 +713,13 @@ class DeliveryController extends Controller
             // The subscription exists, now try to update its metadata
             // We'll try several approaches in sequence until one works
             try {
-                \Log::info("Updating subscription metadata", [
+                Log::info("Updating subscription metadata", [
                     'customer_id' => $customerId,
                     'week_type' => $weekType
                 ]);
                 
                 // Approach 1: Standard WooCommerce Subscriptions REST API
-                \Log::info("Trying approach 1: WooCommerce Subscriptions REST API");
+                Log::info("Trying approach 1: WooCommerce Subscriptions REST API");
                 $response = Http::withBasicAuth($wcConsumerKey, $wcConsumerSecret)
                     ->put("{$wcApiUrl}/wp-json/wc/v3/subscriptions/{$customerId}", [
                         'meta_data' => [
@@ -730,7 +731,7 @@ class DeliveryController extends Controller
                     ]);
 
                 if ($response->successful()) {
-                    \Log::info("Successfully updated via WooCommerce API");
+                    Log::info("Successfully updated via WooCommerce API");
                     return response()->json([
                         'success' => true,
                         'message' => "Customer week type updated to Week {$weekType}",
@@ -740,13 +741,13 @@ class DeliveryController extends Controller
                     ]);
                 }
                 
-                \Log::warning("WooCommerce API update failed", [
+                Log::warning("WooCommerce API update failed", [
                     'status' => $response->status(),
                     'response' => $response->body()
                 ]);
                 
                 // Approach 2: Try MWF Custom REST endpoint if available
-                \Log::info("Trying approach 2: MWF Custom API");
+                Log::info("Trying approach 2: MWF Custom API");
                 $apiKey = config('services.wp_api.key');
                 $apiSecret = config('services.wp_api.secret');
                 $apiUrl = config('services.wp_api.url');
@@ -759,7 +760,7 @@ class DeliveryController extends Controller
                     ]);
                     
                 if ($mwfResponse->successful()) {
-                    \Log::info("Successfully updated via MWF plugin API");
+                    Log::info("Successfully updated via MWF plugin API");
                     return response()->json([
                         'success' => true,
                         'message' => "Customer week type updated to Week {$weekType}",
@@ -769,13 +770,13 @@ class DeliveryController extends Controller
                     ]);
                 }
                 
-                \Log::warning("MWF plugin API update failed", [
+                Log::warning("MWF plugin API update failed", [
                     'status' => $mwfResponse->status(),
                     'response' => $mwfResponse->body()
                 ]);
                 
                 // Approach 3: Create a temporary flag in the session and apply it on next page load
-                \Log::info("Trying approach 3: Session-based temporary update");
+                Log::info("Trying approach 3: Session-based temporary update");
                 session()->put("customer_week_type_{$customerId}", $weekType);
                 // Also save by customer ID as fallback
                 session()->put("customer_week_type_" . $checkResponse->json('customer_id'), $weekType);
@@ -790,7 +791,7 @@ class DeliveryController extends Controller
                 ]);
                 
             } catch (\Exception $apiException) {
-                \Log::error("API exception", [
+                Log::error("API exception", [
                     'message' => $apiException->getMessage(),
                     'trace' => $apiException->getTraceAsString()
                 ]);
@@ -802,7 +803,7 @@ class DeliveryController extends Controller
             }
             
         } catch (\Exception $e) {
-            \Log::error("General exception in updateCustomerWeek", [
+            Log::error("General exception in updateCustomerWeek", [
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);

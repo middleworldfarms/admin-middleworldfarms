@@ -21,6 +21,7 @@ return [
     */
     'wordpress_email_mapping' => [
         'martin@middleworldfarms.org' => 'middleworldfarms@gmail.com',
+        'humanityawakeningproject@hotmail.com' => 'humanityawakeningproject@hotmail.com', // Jonathan uses same email for both
         // Add more mappings here if needed
     ],
 
@@ -39,6 +40,14 @@ return [
             'password' => 'MWF2025Admin!', // Will be hashed in controller
             'role' => 'admin',
             'created_at' => '2025-06-09',
+            'active' => true,
+        ],
+        [
+            'name' => 'Jonathan',
+            'email' => 'humanityawakeningproject@hotmail.com',
+            'password' => 'Gump7h21', // Secure temporary password
+            'role' => 'super_admin', // Full admin rights
+            'created_at' => '2025-08-18',
             'active' => true,
         ]
     ],
