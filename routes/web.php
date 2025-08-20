@@ -185,6 +185,10 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         Route::post('/succession-planning/create-single-log', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'createSingleLog'])->name('succession-planning.create-single-log');
         Route::post('/succession-planning/harvest-window', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'getOptimalHarvestWindow'])->name('succession-planning.harvest-window');
         Route::post('/succession-planning/chat', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'chat'])->name('succession-planning.chat');
+        
+        // AI service management routes
+        Route::get('/succession-planning/ai-status', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'getAIStatus'])->name('succession-planning.ai-status');
+        Route::post('/succession-planning/wake-ai', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'wakeUpAI'])->name('succession-planning.wake-ai');
     });
 
     // Test route for AI timing

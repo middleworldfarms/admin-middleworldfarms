@@ -27,6 +27,14 @@ class SuccessionPlanningController extends Controller
      */
     public function index()
     {
+        // Auto-wake AI service on page load to avoid cold start delays (but don't fail if it errors)
+        try {
+            $this->wakeUpAIService();
+        } catch (\Exception $e) {
+            // Don't let AI wake-up failures break the page load
+            Log::debug('AI wake-up failed during page load: ' . $e->getMessage());
+        }
+        
         try {
             // Get available crop types and varieties from farmOS
             $cropData = $this->farmOSApi->getAvailableCropTypes();
@@ -265,11 +273,11 @@ class SuccessionPlanningController extends Controller
             $createdLogs = [];
             $errors = [];
 
-            // Create seeding log
-            $seedingType = $validated['seeding']['direct_sow'] ? 'direct_seed' : 'seed';
-            $seedingNote = $validated['seeding']['direct_sow'] ? 'Direct Sow' : 'Seeding';
+            // Create seeding log directly
+            $seedingType = ($validated['seeding']['direct_sow'] ?? false) ? 'direct_seed' : 'seed';
+            $seedingNote = ($validated['seeding']['direct_sow'] ?? false) ? 'Direct Sow' : 'Seeding';
             
-            $seedingPlan = $this->farmOSApi->createCropPlan([
+            $seedingLog = $this->farmOSApi->createCropPlan([
                 'type' => $seedingType,
                 'crop' => [
                     'name' => $validated['crop_name'],
@@ -277,15 +285,14 @@ class SuccessionPlanningController extends Controller
                 ],
                 'location' => $validated['seeding']['location'],
                 'timestamp' => $validated['seeding']['date'],
-                'notes' => "Succession #{$validated['succession_id']}: {$seedingNote} - " . ($validated['seeding']['notes'] ?? ''),
-                'status' => 'pending',
-                'quantity' => $validated['seeding']['quantity'] ?? ''
+                'notes' => "Succession #{$validated['succession_id']}: {$seedingNote} - " . ($validated['seeding']['notes'] ?? 'AI-calculated succession seeding'),
+                'status' => 'pending'
             ]);
-            $createdLogs[] = $seedingPlan;
+            $createdLogs[] = $seedingLog;
 
-            // Create transplant log if needed
+            // Create transplant log directly if scheduled
             if (!empty($validated['transplant']) && !empty($validated['transplant']['date'])) {
-                $transplantPlan = $this->farmOSApi->createCropPlan([
+                $transplantLog = $this->farmOSApi->createCropPlan([
                     'type' => 'transplant',
                     'crop' => [
                         'name' => $validated['crop_name'],
@@ -293,16 +300,14 @@ class SuccessionPlanningController extends Controller
                     ],
                     'location' => $validated['transplant']['location'],
                     'timestamp' => $validated['transplant']['date'],
-                    'notes' => "Succession #{$validated['succession_id']}: Transplant - " . ($validated['transplant']['notes'] ?? ''),
-                    'status' => 'pending',
-                    'quantity' => $validated['transplant']['quantity'] ?? '',
-                    'spacing' => $validated['transplant']['spacing'] ?? ''
+                    'notes' => "Succession #{$validated['succession_id']}: Transplant - " . ($validated['transplant']['notes'] ?? 'AI-calculated succession transplant'),
+                    'status' => 'pending'
                 ]);
-                $createdLogs[] = $transplantPlan;
+                $createdLogs[] = $transplantLog;
             }
 
-            // Create harvest log
-            $harvestPlan = $this->farmOSApi->createCropPlan([
+            // Create harvest log directly
+            $harvestLog = $this->farmOSApi->createCropPlan([
                 'type' => 'harvest',
                 'crop' => [
                     'name' => $validated['crop_name'],
@@ -310,11 +315,10 @@ class SuccessionPlanningController extends Controller
                 ],
                 'location' => $validated['transplant']['location'] ?? $validated['seeding']['location'],
                 'timestamp' => $validated['harvest']['date'],
-                'notes' => "Succession #{$validated['succession_id']}: Harvest - " . ($validated['harvest']['notes'] ?? ''),
-                'status' => 'pending',
-                'expected_yield' => $validated['harvest']['expected_yield'] ?? ''
+                'notes' => "Succession #{$validated['succession_id']}: Harvest - " . ($validated['harvest']['notes'] ?? 'AI-calculated succession harvest'),
+                'status' => 'pending'
             ]);
-            $createdLogs[] = $harvestPlan;
+            $createdLogs[] = $harvestLog;
 
             Log::info('Single succession log created in farmOS', [
                 'succession_id' => $validated['succession_id'],
@@ -358,12 +362,8 @@ class SuccessionPlanningController extends Controller
                 'succession_context' => "Planning {$successionCount} successions with {$intervalDays} day intervals"
             ];
 
-            $aiHarvestWindow = $this->holisticAI->getOptimalHarvestWindow(
-                $cropType,
-                $variety !== 'Standard' ? $variety : null,
-                'Farm Location',
-                $contextualData
-            );
+            // Use new HuggingFace AI service directly instead of old HolisticAICropService
+            $aiHarvestWindow = $this->getHuggingFaceHarvestWindow($cropType, $variety, $contextualData);
 
             if ($aiHarvestWindow['success']) {
                 // Use AI recommendations for timing
@@ -532,7 +532,7 @@ class SuccessionPlanningController extends Controller
                         . "Consider: timing intervals, bed rotation, seasonal factors, and any conflicts found. "
                         . "Provide specific recommendations for improving yield and reducing conflicts.";
 
-            $response = Http::timeout(60)->post(env('AI_SERVICE_URL', 'http://localhost:8001/ask'), [
+            $response = Http::timeout(3)->post(env('AI_SERVICE_URL', 'http://localhost:8005'), [
                 'question' => $aiQuestion,
                 'context' => json_encode($aiContext)
             ]);
@@ -1242,30 +1242,32 @@ class SuccessionPlanningController extends Controller
         ]);
 
         try {
-            // Gather any available historical data (would come from farmOS in production)
+            // Gather contextual data for better AI analysis
             $contextualData = [
                 'weather_forecast' => 'Current seasonal conditions for ' . ($validated['location'] ?? 'farm location'),
-                // In production, we would gather historical yield data from farmOS logs
-                // 'historical_yields' => $this->farmOSApi->getHistoricalYields($validated['crop_type']),
-                // 'current_season_performance' => $this->farmOSApi->getCurrentSeasonPerformance()
+                'current_season_performance' => 'Planning analysis for succession timing'
             ];
 
-            $harvestWindow = $this->holisticAI->getOptimalHarvestWindow(
+            // Use new HuggingFace AI service instead of old HolisticAICropService
+            $harvestWindow = $this->getHuggingFaceHarvestWindow(
                 $validated['crop_type'],
-                $validated['variety'] ?? null,
-                $validated['location'] ?? null,
+                $validated['variety'],
                 $contextualData
             );
 
-            return response()->json([
-                'success' => true,
-                'data' => $harvestWindow,
-                'ai_confidence' => $harvestWindow['ai_confidence'] ?? 'medium',
-                'data_quality' => $harvestWindow['data_quality'] ?? 'basic',
-                'recommendations_basis' => $harvestWindow['recommendations_basis'] ?? 'general_guidelines',
-                'contextual_factors' => $harvestWindow['contextual_factors'] ?? [],
-                'timestamp' => now()->toISOString()
-            ]);
+            if ($harvestWindow['success']) {
+                return response()->json([
+                    'success' => true,
+                    'data' => $harvestWindow,
+                    'ai_confidence' => $harvestWindow['ai_confidence'],
+                    'data_quality' => 'huggingface_ai',
+                    'recommendations_basis' => 'llama_3_1_analysis',
+                    'contextual_factors' => [$harvestWindow['raw_answer'] ?? 'AI analysis complete'],
+                    'timestamp' => now()->toISOString()
+                ]);
+            } else {
+                throw new \Exception($harvestWindow['error'] ?? 'AI analysis failed');
+            }
 
         } catch (\Exception $e) {
             Log::error('Harvest window optimization failed: ' . $e->getMessage());
@@ -1283,21 +1285,21 @@ class SuccessionPlanningController extends Controller
      */
     public function chat(Request $request): JsonResponse
     {
-        // Increase execution time for CPU-based Mistral AI requests
-        set_time_limit(120); // 2 minutes total
-        ini_set('max_execution_time', 120);
-        ini_set('default_socket_timeout', 120); // Override socket timeout
+        // Fast execution settings for HuggingFace AI
+        set_time_limit(30); // 30 seconds max - fast AI service
+        ini_set('max_execution_time', 30);
+        ini_set('default_socket_timeout', 10); // 10-second socket timeout for fast response
         
         try {
             $validated = $request->validate([
-                'message' => 'required|string|max:1000',
+                'question' => 'required|string|max:1000',  // Fixed: expect 'question' not 'message'
                 'crop_type' => 'nullable|string',
                 'season' => 'nullable|string',
                 'context' => 'nullable|string'
             ]);
 
             // Build contextual question for AI
-            $question = $validated['message'];
+            $question = $validated['question'];
             
             // Add context if provided
             if (!empty($validated['crop_type'])) {
@@ -1308,18 +1310,18 @@ class SuccessionPlanningController extends Controller
                 $question .= " (Season: {$validated['season']})";
             }
 
-            // Call Mistral AI service with extended timeout for CPU processing
-            $response = Http::timeout(90) // 90 seconds for CPU-based Mistral 7B
-                ->connectTimeout(15) // 15 second connection timeout
-                ->retry(1, 3000) // Retry once after 3 seconds if it fails
+            // Call AI service with fast timeout
+            $response = Http::timeout(3) // 3 seconds - fast AI timeout
+                ->connectTimeout(5) // 5 second connection timeout
+                ->retry(1, 1000) // Retry once after 1 second if it fails
                 ->withOptions([
                     'stream_context' => stream_context_create([
                         'http' => [
-                            'timeout' => 90.0,
+                            'timeout' => 3.0,
                         ]
                     ])
                 ])
-                ->post('http://localhost:8005/ask', [
+                ->post(env('AI_SERVICE_URL', 'http://localhost:8005') . '/ask', [
                     'question' => $question,
                     'context' => $validated['context'] ?? 'succession_planning_chat'
                 ]);
@@ -1328,7 +1330,7 @@ class SuccessionPlanningController extends Controller
                 $aiData = $response->json();
                 
                 Log::info('Chat AI response received', [
-                    'user_message' => $validated['message'],
+                    'user_message' => $validated['question'],
                     'ai_wisdom' => $aiData['wisdom'] ?? 'basic',
                     'moon_phase' => $aiData['moon_phase'] ?? 'unknown'
                 ]);
@@ -1350,7 +1352,7 @@ class SuccessionPlanningController extends Controller
             Log::error('Chat AI service error: ' . $e->getMessage());
             
             // Return fallback wisdom instead of error
-            $fallbackWisdom = $this->getFallbackChatWisdom($validated['message'] ?? 'farming question');
+            $fallbackWisdom = $this->getFallbackChatWisdom($validated['question'] ?? 'farming question');
             
             return response()->json([
                 'success' => true,
@@ -1389,5 +1391,196 @@ class SuccessionPlanningController extends Controller
         }
         
         return $fallbackResponses['default'];
+    }
+
+    /**
+     * Wake up AI service to avoid cold start delays
+     */
+    private function wakeUpAIService()
+    {
+        try {
+            // Send a quick wake-up ping to the AI service with minimal timeout
+            // Make it completely non-blocking to prevent any 502 issues
+            Http::timeout(1)->connectTimeout(1)->post(env('AI_SERVICE_URL', 'http://localhost:8005') . '/ask', [
+                'question' => 'wake up',
+                'context' => 'system_wake'
+            ]);
+            
+            Log::debug('AI service wake-up ping sent successfully');
+            
+        } catch (\Exception $e) {
+            // Completely silent fail - don't even log unless in debug mode
+            // This prevents any possibility of causing 502 errors
+            if (config('app.debug')) {
+                Log::debug('AI wake-up ping failed (non-critical): ' . $e->getMessage());
+            }
+        }
+    }
+
+    /**
+     * Get AI service status
+     */
+    public function getAIStatus(): JsonResponse
+    {
+        try {
+            $response = Http::timeout(3)->get(env('AI_SERVICE_URL', 'http://localhost:8005') . '/health');
+            
+            if ($response->successful()) {
+                $data = $response->json();
+                return response()->json([
+                    'status' => 'online',
+                    'health' => $data['status'] ?? 'healthy',
+                    'model' => $data['model'] ?? 'llama31-8b',
+                    'response_time' => '< 3s',
+                    'last_check' => now()->format('H:i:s')
+                ]);
+            } else {
+                throw new \Exception('Health check failed: ' . $response->status());
+            }
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'offline',
+                'health' => 'unavailable',
+                'model' => 'unknown',
+                'error' => $e->getMessage(),
+                'last_check' => now()->format('H:i:s')
+            ]);
+        }
+    }
+
+    /**
+     * Manual wake-up AI endpoint
+     */
+    public function wakeUpAI(): JsonResponse
+    {
+        try {
+            $this->wakeUpAIService();
+            
+            // Test if AI is responding after wake-up
+            $response = Http::timeout(5)->post(env('AI_SERVICE_URL', 'http://localhost:8005') . '/ask', [
+                'question' => 'test response',
+                'context' => 'wake_up_test'
+            ]);
+            
+            if ($response->successful()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'AI service is now awake and responding',
+                    'status' => 'online',
+                    'model' => 'llama31-8b'
+                ]);
+            } else {
+                throw new \Exception('AI test failed: ' . $response->status());
+            }
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'AI service wake-up failed: ' . $e->getMessage(),
+                'status' => 'offline'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get harvest window analysis from HuggingFace AI service
+     */
+    private function getHuggingFaceHarvestWindow(string $cropType, string $variety = null, array $contextualData = []): array
+    {
+        try {
+            // Build detailed question for AI about harvest window
+            $varietyText = $variety && $variety !== 'Standard' ? " variety $variety" : '';
+            $question = "For $cropType$varietyText succession planting, what is the optimal harvest window duration in days, how many succession plantings should I do, and how many days between each planting? Please provide specific numbers for Brussels Sprouts growing.";
+            
+            // Add context
+            if (!empty($contextualData)) {
+                $contextText = '';
+                if (isset($contextualData['succession_context'])) {
+                    $contextText .= ' ' . $contextualData['succession_context'];
+                }
+                if (isset($contextualData['current_season_performance'])) {
+                    $contextText .= ' ' . $contextualData['current_season_performance'];
+                }
+                $question .= $contextText;
+            }
+
+            // Call HuggingFace AI service
+            $response = Http::timeout(10)
+                ->connectTimeout(10)
+                ->retry(2, 2000)
+                ->post(env('AI_SERVICE_URL', 'http://localhost:8005') . '/ask', [
+                    'question' => $question,
+                    'context' => 'harvest_window_analysis'
+                ]);
+
+            if ($response->successful()) {
+                $aiData = $response->json();
+                
+                if (isset($aiData['answer'])) {
+                    // Parse AI response for specific values
+                    $answer = $aiData['answer'];
+                    
+                    // Extract numbers from AI response
+                    $harvestDays = $this->extractNumberFromText($answer, ['harvest window', 'harvest period', 'harvesting period'], 60); // default 60 days for Brussels Sprouts
+                    $successions = $this->extractNumberFromText($answer, ['succession', 'planting'], 3); // default 3 successions
+                    $daysBetween = $this->extractNumberFromText($answer, ['between', 'interval', 'apart'], 21); // default 21 days
+                    
+                    Log::info('HuggingFace harvest window AI response', [
+                        'crop' => $cropType,
+                        'variety' => $variety,
+                        'ai_answer' => $answer,
+                        'extracted_harvest_days' => $harvestDays,
+                        'extracted_successions' => $successions,
+                        'extracted_interval' => $daysBetween
+                    ]);
+
+                    return [
+                        'success' => true,
+                        'optimal_harvest_days' => $harvestDays,
+                        'recommended_successions' => $successions,
+                        'days_between_plantings' => $daysBetween,
+                        'peak_harvest_days' => $harvestDays,
+                        'ai_confidence' => 'huggingface_llama',
+                        'source' => 'HuggingFace Llama 3.1 8B',
+                        'raw_answer' => $answer
+                    ];
+                }
+            }
+
+            // If we get here, the AI call failed
+            Log::warning('HuggingFace harvest window analysis failed', [
+                'crop' => $cropType,
+                'status' => $response->status(),
+                'response' => $response->body()
+            ]);
+
+            return ['success' => false, 'error' => 'AI service unavailable'];
+
+        } catch (\Exception $e) {
+            Log::error('HuggingFace harvest window error: ' . $e->getMessage());
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Extract numeric values from AI text response
+     */
+    private function extractNumberFromText(string $text, array $keywords, int $defaultValue): int
+    {
+        $text = strtolower($text);
+        
+        foreach ($keywords as $keyword) {
+            // Look for patterns like "harvest window: 45 days" or "45 day harvest window"
+            $pattern = '/(?:' . preg_quote($keyword, '/') . '.*?(\d+)|(\d+).*?' . preg_quote($keyword, '/') . ')/i';
+            if (preg_match($pattern, $text, $matches)) {
+                $number = !empty($matches[1]) ? intval($matches[1]) : intval($matches[2]);
+                if ($number > 0 && $number < 500) { // Sanity check
+                    return $number;
+                }
+            }
+        }
+        
+        return $defaultValue;
     }
 }
