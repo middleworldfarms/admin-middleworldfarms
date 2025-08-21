@@ -658,6 +658,8 @@
     // Global variables - with proper fallbacks
     let cropTypes = {!! json_encode($cropData['types'] ?? []) !!};
     let cropVarieties = {!! json_encode($cropData['varieties'] ?? []) !!};
+    // Global API base (always use same origin/protocol to avoid mixed-content)
+    const API_BASE = window.location.origin + '/api';
     let availableBeds = {!! json_encode($availableBeds ?? []) !!};
     let currentSuccessionPlan = null;
     let timelineChart = null;
@@ -669,43 +671,56 @@
     // Initialize the application with real farmOS data
     document.addEventListener('DOMContentLoaded', function() {
         console.log('🚀 Succession Planner Loading...');
-        
+
+        // Initialize app which will also initialize the harvest bar once
         initializeApp();
-        initializeHarvestBar(); // This includes setupDragFunctionality()
+        // Removed duplicate initializeHarvestBar() call to avoid race conditions
         setupSeasonYearHandlers();
     });
 
     async function initializeApp() {
         console.log('🌱 Initializing farmOS Succession Planner with real data...');
-        
+
         // Test connections
         await testConnections();
-        
+
         // Show the harvest bar immediately with default dates
         initializeHarvestBar();
-        
+
         // Set up AI status monitoring
         setupAIStatusMonitoring();
-        
-        // Set up crop change listeners
-        document.getElementById('cropSelect').addEventListener('change', function() {
-            // Update the global cropId variable for variety filtering
-            cropId = this.value;
-            updateVarieties();
-            // Don't trigger AI on crop selection - only filter varieties
-        });
-        
-        document.getElementById('varietySelect').addEventListener('change', function() {
-            console.log('🔄 Variety selected:', this.value, this.options[this.selectedIndex]?.text);
-            calculateAIHarvestWindow();
-        });
 
-        // Set up date input listeners
-        document.getElementById('harvestStart').addEventListener('change', updateDragBar);
-        document.getElementById('harvestEnd').addEventListener('change', updateDragBar);
-        
-        // No minimum date restrictions - we're planning for future seasons
-        console.log('📅 Date inputs initialized for future season planning');
+        // Set up crop change listeners
+        const cropSelectEl = document.getElementById('cropSelect');
+        const varietySelectEl = document.getElementById('varietySelect');
+
+        if (cropSelectEl) {
+            cropSelectEl.addEventListener('change', function() {
+                // Update the global cropId variable for variety filtering
+                cropId = this.value;
+                updateVarieties();
+                // Don't trigger AI on crop selection - only filter varieties
+            });
+        }
+
+        if (varietySelectEl) {
+            varietySelectEl.addEventListener('change', async function() {
+                console.log('🔄 Variety selected:', this.value, this.options[this.selectedIndex]?.text);
+                // Update harvest bar for the selected variety (use global API_BASE)
+                if (this.value) updateHarvestBarForVariety(this.value);
+                // Ask AI for refined harvest window asynchronously
+                awaitMaybeCalculateAI(this.value);
+            });
+        }
+    }
+
+    // helper to call AI but avoid blocking UI if route missing
+    async function awaitMaybeCalculateAI(varietyId) {
+        try {
+            await calculateAIHarvestWindow();
+        } catch (e) {
+            console.warn('AI calculation skipped or failed:', e);
+        }
     }
 
     function setupDragFunctionality() {
@@ -1007,209 +1022,182 @@
     }
 
     async function calculateAIHarvestWindow() {
-        console.log('🤖 calculateAIHarvestWindow() called');
-        
-        const cropSelect = document.getElementById('cropSelect');
-        const varietySelect = document.getElementById('varietySelect');
-        
-        console.log('🌱 Crop:', cropSelect.value, cropSelect.options[cropSelect.selectedIndex]?.text);
-        console.log('🌿 Variety:', varietySelect.value, varietySelect.options[varietySelect.selectedIndex]?.text);
-        
-        if (!cropSelect.value) {
-            console.log('❌ No crop selected, aborting AI calculation');
-            return;
-        }
-        
-        const cropName = cropSelect.options[cropSelect.selectedIndex].text;
-        const varietyName = varietySelect.value ? varietySelect.options[varietySelect.selectedIndex].text : null;
-        
-        // Show loading spinner
-        showLoading(true);
-        
-        // Skip AI status check for now since it's causing issues - just proceed with the request
-        // The AI service is confirmed working, we just need to fix the status check
-        
         try {
-            // Use the AI service directly for better variety-specific advice
-            const question = `What is the optimal harvest window for ${cropName}${varietyName ? ` variety ${varietyName}` : ''} planted on ${new Date().toISOString().split('T')[0]}? Please provide specific start and end dates.`;
-            
-            console.log('🤖 Asking AI:', question);
-            console.log('🌐 Calling AI service at: http://localhost:8005/ask');
-            
-            const response = await fetch('http://localhost:8005/ask', {
+            console.log('🤖 calculateAIHarvestWindow() called');
+
+            const cropSelect = document.getElementById('cropSelect');
+            const varietySelect = document.getElementById('varietySelect');
+
+            if (!cropSelect || !cropSelect.value) {
+                console.log('❌ No crop selected, aborting AI calculation');
+                return;
+            }
+
+            const cropName = cropSelect.options[cropSelect.selectedIndex].text;
+            const varietyName = varietySelect && varietySelect.value ? varietySelect.options[varietySelect.selectedIndex].text : null;
+            const varietyId = varietySelect && varietySelect.value ? varietySelect.value : null;
+
+            // Try to fetch full variety metadata from farmOS to pass to AI
+            let varietyMeta = null;
+            if (varietyId) {
+                try {
+                    const metaResp = await fetch(`${API_BASE}/varieties/${varietyId}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                    if (metaResp.ok) varietyMeta = await metaResp.json();
+                } catch (e) {
+                    console.warn('Could not fetch variety metadata for AI context:', e);
+                }
+            }
+
+            const contextPayload = {
+                crop: cropName,
+                variety: varietyName || null,
+                variety_meta: varietyMeta,
+                planning_year: document.getElementById('planningYear')?.value || new Date().getFullYear(),
+                planning_season: document.getElementById('planningSeason')?.value || null,
+                planted_on: new Date().toISOString().split('T')[0]
+            };
+
+            // Build a strict prompt requesting JSON output to make parsing deterministic
+            const prompt = `You are an expert agronomist. Given the context JSON, return ONLY a JSON object with the exact keys: optimal_start (YYYY-MM-DD), optimal_end (YYYY-MM-DD), days_to_harvest (number), yield_peak (YYYY-MM-DD) and notes (string).\\nContext: ${JSON.stringify(contextPayload)}\\nIf unsure, make a best-effort estimate for the specified planning season/year. Do NOT include extra text.`;
+
+            // Use same-origin Laravel route that exists in this app (chat endpoint)
+            const chatUrl = window.location.origin + '/admin/farmos/succession-planning/chat';
+
+            // Debug: log payload and endpoint
+            console.log('🛰️ AI request ->', { chatUrl, prompt, context: contextPayload });
+
+            // Use AbortController to timeout requests that hang
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+            const response = await fetch(chatUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
                 },
-                body: JSON.stringify({
-                    question: question
-                })
+                body: JSON.stringify({ message: prompt, context: contextPayload }),
+                signal: controller.signal
             });
 
-            console.log('📡 AI service response status:', response.status);
-            
-            const data = await response.json();
-            console.log('🤖 AI response data:', data);
-            
-            if (data.answer) {
-                // Parse the AI response to extract harvest window info
-                const harvestInfo = parseHarvestWindow(data.answer, cropName, varietyName);
-                displayAIHarvestWindow(harvestInfo);
-                
-                // Also display the full response in the AI chat area
-                displayAIResponseInChat(data, cropName, varietyName);
-                
-                // Auto-set the harvest window if not manually set
-                if (!document.getElementById('harvestStart').value && harvestInfo.optimal_start) {
-                    document.getElementById('harvestStart').value = harvestInfo.optimal_start;
-                    document.getElementById('harvestEnd').value = harvestInfo.optimal_end;
-                    updateDragBar();
-                }
-                
-                console.log('✅ AI response processed successfully');
-            } else {
-                console.log('⚠️ No answer received from AI service');
+            clearTimeout(timeoutId);
+
+            console.log('🛰️ AI response status:', response.status);
+
+            if (!response.ok) {
+                // Try to read body for debugging
+                let text = '';
+                try { text = await response.text(); } catch (e) { text = `<failed to read body: ${e}>`; }
+                console.error('Failed to fetch AI response:', response.status, response.statusText, text);
+                return;
             }
+
+            const data = await response.json();
+            console.log('🛰️ AI raw response:', data);
+
+            // data.answer may be plain text containing JSON or already parsed
+            const aiText = (typeof data.answer === 'string') ? data.answer.trim() : data.answer;
+
+            // Try to parse guaranteed JSON response first
+            let harvestInfo = null;
+            try {
+                if (typeof aiText === 'object') {
+                    harvestInfo = aiText;
+                } else {
+                    // Sometimes AI wraps JSON in markdown fences - try to find JSON substring
+                    const jsonMatch = String(aiText).match(/\{[\s\S]*\}/);
+                    const candidate = jsonMatch ? jsonMatch[0] : String(aiText);
+                    harvestInfo = JSON.parse(candidate);
+                }
+            } catch (e) {
+                console.warn('AI did not return strict JSON or parsing failed, falling back to text parsing:', e);
+                harvestInfo = parseHarvestWindow(String(aiText), cropName, varietyName);
+            }
+
+            if (!harvestInfo || !harvestInfo.optimal_start || !harvestInfo.optimal_end) {
+                console.warn('AI returned incomplete harvest info, falling back to parsed/fallback values');
+                harvestInfo = parseHarvestWindow(String(aiText), cropName, varietyName);
+            }
+
+            displayAIHarvestWindow(harvestInfo);
+
+            // Auto-set the harvest window inputs and drag bar
+            if (harvestInfo.optimal_start) document.getElementById('harvestStart').value = harvestInfo.optimal_start;
+            if (harvestInfo.optimal_end) document.getElementById('harvestEnd').value = harvestInfo.optimal_end;
+            updateDragBar();
+
+            console.log('✅ AI response processed successfully', harvestInfo);
         } catch (error) {
-            console.error('❌ Error calculating AI harvest window:', error);
-        } finally {
-            // Always hide loading spinner
-            showLoading(false);
+            if (error.name === 'AbortError') {
+                console.error('AI request timed out');
+            } else {
+                console.error('Error calculating AI harvest window:', error);
+            }
         }
-    }
-
-    function displayAIHarvestWindow(harvestWindow) {
-        const infoDiv = document.getElementById('harvestWindowInfo');
-        const detailsDiv = document.getElementById('aiHarvestDetails');
-        
-        let detailsHTML = `
-            <div><strong>Optimal Window:</strong> ${new Date(harvestWindow.optimal_start).toLocaleDateString()} - ${new Date(harvestWindow.optimal_end).toLocaleDateString()}</div>
-            <div><strong>Days to Harvest:</strong> ${harvestWindow.days_to_harvest || 'Calculating...'}</div>
-            <div><strong>Expected Yield Peak:</strong> ${new Date(harvestWindow.yield_peak).toLocaleDateString()}</div>
-        `;
-        
-        if (harvestWindow.notes) {
-            detailsHTML += `<div class="mt-2"><strong>AI Notes:</strong> ${harvestWindow.notes}</div>`;
-        }
-        
-        detailsDiv.innerHTML = detailsHTML;
-        infoDiv.style.display = 'block';
-    }
-
-    function displayAIResponseInChat(data, cropName, varietyName) {
-        const responseArea = document.getElementById('aiResponseArea');
-        
-        // Clear welcome message if it exists
-        const welcomeMessage = document.getElementById('welcomeMessage');
-        if (welcomeMessage) {
-            welcomeMessage.remove();
-        }
-        
-        // Create AI response element
-        const aiResponse = document.createElement('div');
-        aiResponse.className = 'ai-response';
-        aiResponse.innerHTML = `
-            <div class="mb-2">
-                <strong>🧠 farmOS AI Analysis for ${cropName}${varietyName ? ` - ${varietyName}` : ''}:</strong>
-            </div>
-            <div class="ai-response-content">
-                ${data.answer.replace(/\n/g, '<br>')}
-            </div>
-            <div class="text-muted small mt-2">
-                Model: ${data.model || 'AI'} | Cost: ${data.cost || 'Unknown'} | Method: ${data.method || 'Standard'}
-            </div>
-        `;
-        
-        responseArea.appendChild(aiResponse);
-        
-        // Scroll to bottom of chat area
-        responseArea.scrollTop = responseArea.scrollHeight;
-    }
-
-    function displayAIErrorInChat(errorMessage) {
-        const responseArea = document.getElementById('aiResponseArea');
-        
-        // Create error response element
-        const errorResponse = document.createElement('div');
-        errorResponse.className = 'ai-response border-danger';
-        errorResponse.style.borderLeft = '4px solid #dc3545';
-        errorResponse.innerHTML = `
-            <div class="mb-2">
-                <strong>⚠️ AI Service Error:</strong>
-            </div>
-            <div class="text-danger">
-                ${errorMessage}
-            </div>
-            <div class="text-muted small mt-2">
-                Try refreshing the AI status or check if the AI service is running.
-            </div>
-        `;
-        
-        responseArea.appendChild(errorResponse);
-        responseArea.scrollTop = responseArea.scrollHeight;
     }
 
     function parseHarvestWindow(aiResponse, cropName, varietyName) {
-        // Parse the AI response to extract actual harvest window information
+        // Robust parsing: accept JSON objects or free text
         console.log('🔍 Parsing AI response for harvest window...');
-        
-        // For F1 Doric Brussels Sprouts - it's a WINTER variety (Nov-Feb harvest)
-        if (varietyName && varietyName.toLowerCase().includes('doric')) {
-            console.log('🥬 F1 Doric detected - using winter harvest window (Nov-Feb)');
-            
-            // Current year's winter harvest window
-            const currentYear = new Date().getFullYear();
-            const harvestStart = new Date(currentYear, 10, 1); // Nov 1st
-            const harvestEnd = new Date(currentYear + 1, 1, 28); // Feb 28th next year
-            
+
+        if (!aiResponse) {
+            return null;
+        }
+
+        // If aiResponse is an object already, normalize
+        if (typeof aiResponse === 'object') {
             return {
-                optimal_start: harvestStart.toISOString().split('T')[0],
-                optimal_end: harvestEnd.toISOString().split('T')[0],
-                yield_peak: new Date(currentYear, 11, 15).toISOString().split('T')[0], // Mid December
-                days_to_harvest: 75, // F1 Doric typical harvest window
-                notes: `F1 Doric is a winter variety harvested November through February. Best after frost improves flavor.`
+                optimal_start: aiResponse.optimal_start || aiResponse.optimalStart || aiResponse.start || null,
+                optimal_end: aiResponse.optimal_end || aiResponse.optimalEnd || aiResponse.end || null,
+                days_to_harvest: aiResponse.days_to_harvest || aiResponse.daysToHarvest || aiResponse.days || null,
+                yield_peak: aiResponse.yield_peak || aiResponse.yieldPeak || null,
+                notes: aiResponse.notes || ''
             };
         }
-        
-        // For other Brussels Sprouts varieties - typical autumn harvest  
-        if (cropName && cropName.toLowerCase().includes('brussels')) {
-            console.log('🥬 Brussels Sprouts (generic) - using autumn harvest window');
-            
-            const currentYear = new Date().getFullYear();
-            const harvestStart = new Date(currentYear, 8, 15); // Sept 15th
-            const harvestEnd = new Date(currentYear, 10, 30); // Nov 30th
-            
+
+        const text = String(aiResponse);
+
+        // Try to extract ISO dates first
+        const isoStartMatch = text.match(/(\d{4}-\d{2}-\d{2})/);
+        const isoDates = text.match(/(\d{4}-\d{2}-\d{2})/g);
+        if (isoDates && isoDates.length >= 2) {
             return {
-                optimal_start: harvestStart.toISOString().split('T')[0],
-                optimal_end: harvestEnd.toISOString().split('T')[0],
-                yield_peak: new Date(currentYear, 9, 15).toISOString().split('T')[0], // Mid October  
-                days_to_harvest: 67, // Brussels Sprouts average
-                notes: `Brussels Sprouts harvested September through November. Multiple harvests from same plant.`
+                optimal_start: isoDates[0],
+                optimal_end: isoDates[1],
+                days_to_harvest: extractDaysFromResponse(text),
+                yield_peak: isoDates[Math.min(2, isoDates.length-1)] || isoDates[0],
+                notes: `AI analysis for ${cropName}${varietyName ? ` (${varietyName})` : ''}`
             };
         }
-        
-        // Generic fallback for other crops
+
+        // Try to find month/day/year formats (e.g., 20 Oct 2025)
+        const altDateMatch = text.match(/(\b\d{1,2}[-\s]\w{3,9}[-\s]\d{4}\b)/);
+        if (altDateMatch) {
+            // Fall back to generic window (2 months from now)
+            const today = new Date();
+            const defaultStart = new Date(today); defaultStart.setMonth(today.getMonth() + 2);
+            const defaultEnd = new Date(defaultStart); defaultEnd.setMonth(defaultStart.getMonth() + 1);
+            return {
+                optimal_start: defaultStart.toISOString().split('T')[0],
+                optimal_end: defaultEnd.toISOString().split('T')[0],
+                days_to_harvest: extractDaysFromResponse(text),
+                yield_peak: defaultStart.toISOString().split('T')[0],
+                notes: `AI analysis for ${cropName}${varietyName ? ` (${varietyName})` : ''}`
+            };
+        }
+
+        // Generic fallback
         const today = new Date();
-        const defaultStart = new Date(today);
-        defaultStart.setMonth(today.getMonth() + 2); // 2 months from now
-        const defaultEnd = new Date(defaultStart);
-        defaultEnd.setMonth(defaultStart.getMonth() + 1); // 1 month window
-        
-        console.log('🌱 Using generic harvest window fallback');
-        
+        const defaultStart = new Date(today); defaultStart.setMonth(today.getMonth() + 2);
+        const defaultEnd = new Date(defaultStart); defaultEnd.setMonth(defaultStart.getMonth() + 1);
         return {
             optimal_start: defaultStart.toISOString().split('T')[0],
             optimal_end: defaultEnd.toISOString().split('T')[0],
+            days_to_harvest: extractDaysFromResponse(text),
             yield_peak: defaultStart.toISOString().split('T')[0],
-            days_to_harvest: extractDaysFromResponse(aiResponse),
             notes: `AI analysis for ${cropName}${varietyName ? ` (${varietyName})` : ''}`
         };
-    }
-
-    function extractDaysFromResponse(text) {
-        // Try to extract days to harvest from AI response
-        const dayMatches = text.match(/(\d+)\s*days?/i);
-        return dayMatches ? parseInt(dayMatches[1]) : 90; // Default to 90 days
     }
 
     async function checkAIServiceStatus() {
@@ -1308,9 +1296,8 @@
     function updateVarieties() {
         const varietySelect = document.getElementById('varietySelect');
         varietySelect.innerHTML = '<option value="">Generic variety</option>';
-        
         if (!cropId) return;
-        
+
         console.log('Filtering varieties for cropId:', cropId);
         console.log('Available varieties count:', Array.isArray(cropVarieties) ? cropVarieties.length : typeof cropVarieties, cropVarieties);
         
@@ -1359,7 +1346,7 @@
             option.textContent = variety.name || (variety.title || 'Unnamed variety');
             option.dataset.name = variety.name || option.textContent;
             // Attach raw data for debugging if needed
-            option.dataset.raw = JSON.stringify({ id: variety.id, parent_id: variety.parent_id, crop_id: variety.crop_id, crop_type: variety.crop_type });
+            option.dataset.raw = JSON.stringify({ id: variety.id, parent_id: variety.parent_id, crop_id: variety.crop_id, crop_type: variety.crop });
             varietySelect.appendChild(option);
         });
     }
@@ -1826,7 +1813,66 @@
         alert('✅ Success: ' + message);
     }
     
-    // Add syntax validation
-    console.log('🔍 JavaScript syntax validation complete - no errors detected');
+    async function updateHarvestBarForVariety(varietyId) {
+        try {
+            if (!varietyId) return;
+
+            const response = await fetch(`${API_BASE}/varieties/${varietyId}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            if (!response.ok) {
+                console.error('Failed to fetch variety data:', response.statusText);
+                return;
+            }
+
+            const varietyData = await response.json();
+            const harvestStart = varietyData.harvestStart || varietyData.harvest_start || varietyData.harvest_start_date || varietyData.harvest_from;
+            const harvestEnd = varietyData.harvestEnd || varietyData.harvest_end || varietyData.harvest_to || varietyData.harvest_end_date;
+
+            if (!harvestStart || !harvestEnd) {
+                console.warn('Missing harvest dates on variety record, falling back to AI/generic');
+                return;
+            }
+
+            const startDate = new Date(harvestStart);
+            const endDate = new Date(harvestEnd);
+
+            const dragBar = document.getElementById('dragHarvestBar');
+            const startDisplay = document.getElementById('startDateDisplay');
+            const endDisplay = document.getElementById('endDateDisplay');
+
+            // If dragBar isn't mounted yet, just set the date inputs and displays and return
+            if (!dragBar) {
+                console.warn('Deferred DOM Node could not be resolved to a valid node - setting date inputs only');
+                if (startDisplay) startDisplay.textContent = startDate.toLocaleDateString();
+                if (endDisplay) endDisplay.textContent = endDate.toLocaleDateString();
+                document.getElementById('harvestStart').value = startDate.toISOString().split('T')[0];
+                document.getElementById('harvestEnd').value = endDate.toISOString().split('T')[0];
+                return;
+            }
+
+            const startPercentage = dateToPercentage(startDate);
+            const endPercentage = dateToPercentage(endDate);
+
+            dragBar.style.left = `${startPercentage}%`;
+            dragBar.style.width = `${endPercentage - startPercentage}%`;
+
+            if (startDisplay) startDisplay.textContent = startDate.toLocaleDateString();
+            if (endDisplay) endDisplay.textContent = endDate.toLocaleDateString();
+
+            console.log(`Updated harvest bar for variety ${varietyId}: ${startDate.toDateString()} - ${endDate.toDateString()}`);
+        } catch (error) {
+            console.error('Error updating harvest bar for variety:', error);
+        }
+    }
+
+    // Example usage
+    const selectedVarietyId = document.getElementById('varietySelect').value;
+    updateHarvestBarForVariety(selectedVarietyId);
 </script>
 @endsection
