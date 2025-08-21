@@ -538,9 +538,12 @@ class DeliveryController extends Controller
                 $status = str_replace('wc-', '', $status);
                 
                 // Map statuses consistently - handle WooCommerce subscription statuses
-                if (in_array($status, ['active', 'processing'])) {
-                    // Both 'active' and 'processing' are considered active for deliveries
+                if (in_array($status, ['active'])) {
+                    // Only 'active' subscriptions are considered active for deliveries
+                    // Exclude 'processing', 'on-hold', 'pending' from active deliveries
                     $mappedStatus = 'active';
+                } elseif ($status === 'processing') {
+                    $mappedStatus = 'processing';
                 } elseif ($status === 'on-hold') {
                     $mappedStatus = 'on-hold';
                 } elseif ($status === 'cancelled') {
@@ -2337,9 +2340,9 @@ class DeliveryController extends Controller
                     foreach ($dateData['deliveries'] as $delivery) {
                         $deliveryId = $delivery['id'] ?? $delivery['order_number'] ?? null;
                         if (in_array($deliveryId, $ids)) {
-                            // Only include active deliveries in schedule prints
+                            // Only include truly active deliveries in schedule prints
                             $status = strtolower($delivery['status'] ?? 'pending');
-                            if ($status === 'active' || $status === 'processing' || $status === 'pending') {
+                            if ($status === 'active') {
                                 $items[] = $delivery;
                             }
                         }
@@ -2351,9 +2354,9 @@ class DeliveryController extends Controller
                     foreach ($dateData['collections'] as $collection) {
                         $collectionId = $collection['id'] ?? $collection['order_number'] ?? null;
                         if (in_array($collectionId, $ids)) {
-                            // Only include active collections in schedule prints
+                            // Only include truly active collections in schedule prints
                             $status = strtolower($collection['status'] ?? 'pending');
-                            if ($status === 'active' || $status === 'processing' || $status === 'pending') {
+                            if ($status === 'active') {
                                 $items[] = $collection;
                             }
                         }
@@ -2430,9 +2433,9 @@ class DeliveryController extends Controller
                     foreach ($dateData['deliveries'] as $delivery) {
                         $deliveryId = $delivery['id'] ?? $delivery['order_number'] ?? null;
                         if (in_array($deliveryId, $ids)) {
-                            // Only include active deliveries in slip prints
+                            // Only include truly active deliveries in slip prints
                             $status = strtolower($delivery['status'] ?? 'pending');
-                            if ($status === 'active' || $status === 'processing' || $status === 'pending') {
+                            if ($status === 'active') {
                                 $deliveries[] = $delivery;
                             }
                         }

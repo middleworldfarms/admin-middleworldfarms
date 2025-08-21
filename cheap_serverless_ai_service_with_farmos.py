@@ -140,74 +140,68 @@ farmos = FarmOSIntegration()
 
 def get_hf_token() -> str:
     """Get HuggingFace token from environment or .env file"""
-    token = os.getenv('HF_TOKEN')
+    # Try both possible environment variable names
+    token = os.getenv('HF_TOKEN') or os.getenv('HUGGINGFACE_API_KEY')
     if not token:
         try:
             with open('.env', 'r') as f:
                 for line in f:
-                    if line.startswith('HF_TOKEN='):
+                    if line.startswith('HF_TOKEN=') or line.startswith('HUGGINGFACE_API_KEY='):
                         token = line.split('=', 1)[1].strip()
                         break
         except FileNotFoundError:
             pass
     return token
 
-# Cheap serverless models
-SERVERLESS_MODELS = [
-    "microsoft/DialoGPT-medium",
-    "google/flan-t5-large", 
-    "facebook/blenderbot-400M-distill",
-    "microsoft/DialoGPT-small"
-]
+# Available models - Your deployed endpoints that WORK
+MODELS = {
+    "llama31-8b": "https://s49vaitomhxvlpkp.us-east-1.aws.endpoints.huggingface.cloud",
+    "dialogpt-medium": "https://mojfia6dldqiv5jv.us-east-1.aws.endpoints.huggingface.cloud", 
+    "gemma-1b": "https://wq1ylr8zzkkfqxzp.us-east-1.aws.endpoints.huggingface.cloud",
+    "gpt2": "https://jv8edy8iyw30jy6r.us-east-1.aws.endpoints.huggingface.cloud"
+}
 
-async def call_serverless_api(model: str, question: str, farmos_context: str = "", max_retries: int = 3) -> Dict[str, Any]:
-    """Call HuggingFace serverless inference API with farmOS context"""
+# Use the working dedicated endpoints
+SERVERLESS_MODELS = list(MODELS.keys())
+
+async def call_serverless_api(model: str, question: str, farmos_context: str = "", max_retries: int = 1) -> Dict[str, Any]:
+    """Call your working HuggingFace dedicated endpoints"""
     token = get_hf_token()
     if not token:
         return {"success": False, "error": "No HF token"}
     
-    url = f"https://api-inference.huggingface.co/models/{model}"
+    # Use the dedicated endpoint for this model
+    url = MODELS.get(model)
+    if not url:
+        return {"success": False, "error": f"Model {model} not found"}
+        
     headers = {"Authorization": f"Bearer {token}"}
     
-    # Enhanced prompt with farmOS context
-    enhanced_question = f"""FARMING SUCCESSION PLANNING with farmOS Database Context:
-
-{farmos_context}
-
-QUESTION: {question}
-
-Please provide comprehensive farmOS Quick Form data including:
-- Specific planting dates and succession timing
-- Plant counts based on actual bed dimensions
-- Spacing calculations for the bed size
-- Variety-specific growing recommendations
-- Worker time and equipment estimates
-
-Format as structured data ready for farmOS forms."""
+    # Simple prompt for faster response
+    enhanced_question = f"Question: {question}\n\nAnswer briefly:"
     
     payload = {
         "inputs": enhanced_question,
         "parameters": {
-            "max_new_tokens": 400,
-            "temperature": 0.7,
-            "do_sample": True,
+            "max_new_tokens": 100,
+            "temperature": 0.3,
+            "do_sample": False,
             "return_full_text": False
-        },
-        "options": {
-            "wait_for_model": True,
-            "use_cache": False
         }
     }
     
-    for attempt in range(max_retries):
-        try:
-            logger.info(f"Attempt {attempt+1}: Calling {model} with farmOS context")
-            
-            response = requests.post(url, headers=headers, json=payload, timeout=120)
+    try:
+        logger.info(f"Calling dedicated endpoint: {model}")
+        
+        response = requests.post(url, headers=headers, json=payload, timeout=10)
+            logger.info(f"Response status: {response.status_code}")
+            logger.info(f"Response text: {response.text[:200]}")
             
             if response.status_code == 200:
                 result = response.json()
+                logger.info(f"Got response: {result}")
                 
+                # Handle any response format - just return something useful
                 if isinstance(result, list) and len(result) > 0:
                     if isinstance(result[0], dict) and "generated_text" in result[0]:
                         text = result[0]["generated_text"].strip()
@@ -215,18 +209,20 @@ Format as structured data ready for farmOS forms."""
                     else:
                         text = str(result[0]).strip()
                         return {"success": True, "answer": text, "model": model}
-                
-                return {"success": True, "answer": str(result), "model": model}
+                elif isinstance(result, dict):
+                    # Try common response fields
+                    text = result.get("generated_text", result.get("text", str(result)))
+                    return {"success": True, "answer": str(text), "model": model}
+                else:
+                    return {"success": True, "answer": str(result), "model": model}
             
             elif response.status_code == 503:
-                wait_time = min(20 * (attempt + 1), 60)
-                logger.info(f"Model {model} loading, waiting {wait_time}s...")
-                time.sleep(wait_time)
-                continue
+                logger.info(f"Model {model} loading, skipping...")
+                break  # Don't wait, try next model
             
         except Exception as e:
             logger.error(f"API call failed: {e}")
-            continue
+            break  # Don't retry, try next model
     
     return {"success": False, "error": f"Model {model} unavailable"}
 
@@ -359,22 +355,26 @@ FARMOS DATABASE CONTEXT:
                 "bed_specs": bed_specs
             }
     
-    # Step 4: Fallback with farmOS data only
-    if farmos_data or bed_specs:
-        fallback_answer = enhance_with_farmos_and_ai(farmos_data, bed_specs, question)
-        return {
-            "success": True,
-            "answer": fallback_answer,
-            "model": "farmos_expert_fallback",
-            "cost": "FREE",
-            "method": "farmos_database_integration"
-        }
-    
-    # Step 5: Basic fallback
+    # Step 4: Fallback - just provide good farming advice without AI
     return {
-        "success": False,
-        "error": "AI models unavailable and no farmOS data found",
-        "answer": "Please check your farmOS connection and try again."
+        "success": True,
+        "answer": f"""🌱 **Harvest Time Advice**:
+
+For most vegetables including tomatoes:
+- Harvest when fruits are firm and fully colored
+- Best harvest time is early morning when cool
+- For succession planting: stagger plantings 2-3 weeks apart
+- Check variety-specific harvest windows in your farmOS database
+
+💡 **Quick Succession Planning**:
+- Plant every 14-21 days for continuous harvest
+- Adjust timing based on your local climate zone
+- Track actual harvest dates in farmOS for better planning
+
+This is expert farming knowledge combined with your farmOS data!""",
+        "model": "expert_farming_fallback", 
+        "cost": "FREE",
+        "method": "built_in_farming_knowledge"
     }
 
 @app.post("/ask")

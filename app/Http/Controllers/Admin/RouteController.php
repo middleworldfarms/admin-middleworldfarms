@@ -49,6 +49,11 @@ class RouteController extends Controller
             // Method 2: Check if delivery IDs are passed from delivery schedule page
             if ($request->has('delivery_ids') && !empty($request->get('delivery_ids'))) {
                 $deliveryIds = explode(',', $request->get('delivery_ids'));
+                Log::info('Route planner - received delivery IDs from schedule page', [
+                    'raw_delivery_ids' => $request->get('delivery_ids'),
+                    'parsed_ids' => $deliveryIds,
+                    'count' => count($deliveryIds)
+                ]);
                 $deliveries = $this->getDeliveriesByIds($deliveryIds);
             }
             
@@ -480,7 +485,8 @@ class RouteController extends Controller
             // Get all subscription data
             $allSubscriptions = $wpApi->getDeliveryScheduleData(100);
             
-            // Filter to only the requested IDs and format for routing
+            // Just find the requested IDs and format for routing - no additional filtering
+            // The delivery schedule already filtered to show only active customers
             foreach ($allSubscriptions as $subscription) {
                 $subscriptionId = $subscription['id'] ?? '';
                 
@@ -492,7 +498,8 @@ class RouteController extends Controller
                         'phone' => $this->extractCustomerPhone($subscription),
                         'email' => $this->extractCustomerEmail($subscription),
                         'products' => $this->extractProducts($subscription),
-                        'notes' => $subscription['customer_note'] ?? ''
+                        'notes' => $subscription['customer_note'] ?? '',
+                        'status' => $subscription['status'] ?? 'unknown'
                     ];
                 }
             }
