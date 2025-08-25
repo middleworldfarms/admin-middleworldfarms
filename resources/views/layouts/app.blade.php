@@ -369,6 +369,11 @@
             <a href="/admin/logs" class="nav-link {{ request()->is('admin/logs*') ? 'active' : '' }}">
                 <i class="fas fa-file-alt"></i>
                 <span>System Logs</span>
+
+            <a href="/admin/chatbot-settings" class="nav-link {{ request()->is('admin/chatbot-settings*') ? 'active' : '' }}">
+                <i class="fas fa-robot"></i>
+                <span>Chatbot Settings</span>
+            </a>
             </a>
             
             <a href="/admin/backups" class="nav-link {{ request()->is('admin/backups*') ? 'active' : '' }}">

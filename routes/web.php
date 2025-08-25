@@ -97,6 +97,41 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         return view('admin.placeholder', ['title' => 'System Logs', 'description' => 'Activity logs and debugging coming soon']);
     })->name('admin.logs');
 
+    // Chatbot settings page
+    Route::get('/chatbot-settings', function () {
+        // Check AI service status
+        $aiStatus = ['status' => (@file_get_contents('http://localhost:8005/health') !== false) ? 'online' : 'offline'];
+        $knowledgeStatus = ['status' => 'unavailable']; // Default status, update as needed
+        return view('admin.chatbot-settings', compact('aiStatus', 'knowledgeStatus'));
+    })->name('admin.chatbot-settings');
+
+    // Chatbot API endpoint
+    Route::post('/chatbot-api', function (\Illuminate\Http\Request $request) {
+        try {
+            $data = [
+                'question' => $request->input('message'),
+                'context' => 'general'
+            ];
+            
+            $response = file_get_contents('http://localhost:8005/ask', false, stream_context_create([
+                'http' => [
+                    'method' => 'POST',
+                    'header' => 'Content-Type: application/json',
+                    'content' => json_encode($data)
+                ]
+            ]));
+            
+            if ($response !== false) {
+                $result = json_decode($response, true);
+                return response()->json(['success' => true, 'response' => $result['answer'] ?? 'Response received']);
+            } else {
+                return response()->json(['success' => false, 'error' => 'AI service unavailable']);
+            }
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'error' => $e->getMessage()]);
+        }
+    })->name('admin.chatbot-api');
+
     // Simple test route
     Route::get('/test', function () {
         return response()->json(['message' => 'Admin system is working', 'timestamp' => now()]);

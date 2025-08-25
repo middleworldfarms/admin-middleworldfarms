@@ -56,9 +56,9 @@
                                     <div class="card-body" style="max-height: 400px; overflow-y: auto;">
                                         <div id="deliveries-list">
                                             @foreach($deliveries as $index => $delivery)
-                                                <div class="delivery-item border rounded p-2 mb-2" data-index="{{ $index }}" data-delivery-id="{{ $delivery['id'] ?? $index }}">
+                                                <div class="delivery-item border rounded p-2 mb-2" data-index="{{ $index }}">
                                                     <div class="d-flex justify-content-between align-items-start">
-                                                        <div class="flex-grow-1">
+                                                        <div>
                                                             <strong>{{ $delivery['name'] ?? 'Unknown Customer' }}</strong>
                                                             <br>
                                                             <small class="text-muted">
@@ -77,14 +77,7 @@
                                                                 </small>
                                                             @endif
                                                         </div>
-                                                        <div class="d-flex align-items-center">
-                                                            <span class="badge badge-primary me-2">{{ $index + 1 }}</span>
-                                                            <button type="button" class="btn btn-outline-danger btn-sm" 
-                                                                    onclick="removeDelivery({{ $index }}, '{{ $delivery['name'] ?? 'Unknown Customer' }}')"
-                                                                    title="Remove from route">
-                                                                <i class="fas fa-times"></i>
-                                                            </button>
-                                                        </div>
+                                                        <span class="badge badge-primary">{{ $index + 1 }}</span>
                                                     </div>
                                                 </div>
                                             @endforeach
@@ -866,63 +859,6 @@ function shareRouteLink() {
         // Fallback for older browsers
         prompt('Copy this route link:', url);
     }
-}
-
-// Remove delivery from route planning
-function removeDelivery(index, customerName) {
-    if (!confirm(`Remove ${customerName} from the route?`)) {
-        return;
-    }
-    
-    // Remove delivery from the global deliveries array
-    if (window.deliveries && window.deliveries[index]) {
-        window.deliveries.splice(index, 1);
-        console.log('Removed delivery at index', index, 'Remaining deliveries:', window.deliveries.length);
-    }
-    
-    // Remove the delivery item from the DOM
-    const deliveryItem = document.querySelector(`.delivery-item[data-index="${index}"]`);
-    if (deliveryItem) {
-        deliveryItem.remove();
-    }
-    
-    // Update the badge numbers for remaining deliveries
-    const remainingItems = document.querySelectorAll('.delivery-item');
-    remainingItems.forEach((item, newIndex) => {
-        item.setAttribute('data-index', newIndex);
-        const badge = item.querySelector('.badge');
-        if (badge) {
-            badge.textContent = newIndex + 1;
-        }
-        // Update the remove button onclick as well
-        const removeBtn = item.querySelector('.btn-outline-danger');
-        if (removeBtn) {
-            const nameMatch = removeBtn.getAttribute('onclick').match(/'([^']+)'/);
-            const name = nameMatch ? nameMatch[1] : 'Customer';
-            removeBtn.setAttribute('onclick', `removeDelivery(${newIndex}, '${name}')`);
-        }
-    });
-    
-    // Update the header count
-    const headerTitle = document.querySelector('.card-header h5');
-    if (headerTitle) {
-        const newCount = remainingItems.length;
-        headerTitle.innerHTML = `<i class="fas fa-truck"></i> Deliveries (${newCount})`;
-    }
-    
-    // Clear any existing route optimization
-    clearMarkers();
-    
-    // Hide route actions if no deliveries left
-    if (remainingItems.length === 0) {
-        document.getElementById('route-actions').style.display = 'none';
-        const mapContainer = document.getElementById('map');
-        if (mapContainer) {
-            mapContainer.innerHTML = '<div class="text-center p-4 text-muted">No deliveries to display</div>';
-        }
-    }
-    
-    console.log(`Removed ${customerName} from route. ${remainingItems.length} deliveries remaining.`);
 }
 
 // ...existing functions...

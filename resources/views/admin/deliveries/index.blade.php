@@ -967,25 +967,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.target.id === 'addToRouteBtn' || e.target.closest('#addToRouteBtn')) {
             e.preventDefault();
             const selectedIds = getSelectedDeliveryIds();
-            
-            // Debug: show what's selected
-            console.log('Selected delivery IDs for route planner:', selectedIds);
-            console.log('Number of selected deliveries:', selectedIds.length);
-            
             if (selectedIds.length === 0) {
                 alert('Please select at least one delivery to add to route planner.');
-                return;
-            }
-            
-            // Safety check - if more than 15 deliveries, confirm it's intentional
-            if (selectedIds.length > 15) {
-                if (!confirm(`WARNING: You have ${selectedIds.length} deliveries selected. This seems like a lot for one route.\n\nAre you sure you want to add ALL ${selectedIds.length} deliveries to the route planner?\n\nClick Cancel to go back and select fewer deliveries.`)) {
-                    return;
-                }
-            }
-            
-            // Confirm with user how many deliveries are being added
-            if (!confirm(`Add ${selectedIds.length} selected deliveries to route planner?`)) {
                 return;
             }
             

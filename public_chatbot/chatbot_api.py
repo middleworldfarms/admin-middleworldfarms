@@ -148,14 +148,44 @@ def select_best_model(message: str, preferred_model: str = "auto") -> str:
     else:
         return "tinyllama"  # Default to fast model for public chatbot
         
+def query_enhanced_farm_ai(question: str, timeout: int = 60) -> str:
+    """Query the enhanced farm AI system (premium option)"""
+    try:
+        payload = {
+            "question": question,
+            "context": "public_chatbot"
+        }
+        
+        response = requests.post(
+            "http://localhost:8005/ask",
+            json=payload,
+            timeout=timeout
+        )
+        response.raise_for_status()
+        
+        result = response.json()
+        if result.get("success"):
+            return result.get("answer", "Enhanced AI temporarily unavailable")
+        else:
+            return "Enhanced AI temporarily unavailable - using backup model"
+            
+    except Exception as e:
+        logger.error(f"Enhanced AI error: {e}")
+        return "Enhanced AI temporarily unavailable - using backup model"
+
 def query_ollama_model(model: str, prompt: str, timeout: int = 30) -> str:
-    """Query Ollama model with specified prompt"""
+    """Query Ollama model with specified prompt (backup/basic option)"""
     try:
         model_map = {
             "tinyllama": "tinyllama:latest",
             "gemma2": "gemma2:2b", 
-            "phi3": "phi3:mini"
+            "phi3": "phi3:mini",
+            "enhanced": "enhanced_farm_ai"  # Special marker for enhanced AI
         }
+        
+        # Use enhanced AI if requested
+        if model == "enhanced" or model == "premium":
+            return query_enhanced_farm_ai(prompt, timeout)
         
         ollama_model = model_map.get(model, "tinyllama:latest")
         
