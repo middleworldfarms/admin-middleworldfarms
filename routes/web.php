@@ -163,19 +163,7 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
     // New route planner page
     Route::get('/deliveries/route-planner', [\App\Http\Controllers\Admin\RouteController::class, 'index'])->name('admin.route-planner');
     
-    // Backup management routes
-    Route::prefix('backups')->name('admin.backups.')->group(function () {
-        Route::get('/', [App\Http\Controllers\Admin\BackupController::class, 'index'])->name('index');
-        Route::post('/create', [App\Http\Controllers\Admin\BackupController::class, 'create'])->name('create');
-        Route::post('/rename/{filename}', [App\Http\Controllers\Admin\BackupController::class, 'rename'])->name('rename');
-        Route::delete('/delete/{filename}', [App\Http\Controllers\Admin\BackupController::class, 'delete'])->name('delete');
-        Route::get('/download/{filename}', [App\Http\Controllers\Admin\BackupController::class, 'download'])->name('download');
-        Route::post('/schedule', [App\Http\Controllers\Admin\BackupController::class, 'updateSchedule'])->name('schedule');
-        Route::get('/status', [App\Http\Controllers\Admin\BackupController::class, 'status'])->name('status');
-        Route::post('/upload', [App\Http\Controllers\Admin\BackupController::class, 'upload'])->name('upload');
-        Route::get('/preview/{filename}', [App\Http\Controllers\Admin\BackupController::class, 'preview'])->name('preview');
-        Route::post('/restore/{filename}', [App\Http\Controllers\Admin\BackupController::class, 'restore'])->name('restore');
-    });
+
 
     // Plesk Backup management routes
     Route::prefix('plesk-backup')->name('admin.plesk-backup.')->group(function () {

@@ -376,14 +376,9 @@
             </a>
             </a>
             
-            <a href="/admin/backups" class="nav-link {{ request()->is('admin/backups*') ? 'active' : '' }}">
+            <a href="/admin/plesk-backup" class="nav-link {{ request()->is('admin/plesk-backup*') ? 'active' : '' }}">
                 <i class="fas fa-database"></i>
                 <span>Backup Management</span>
-            </a>
-            
-            <a href="/admin/plesk-backup" class="nav-link {{ request()->is('admin/plesk-backup*') ? 'active' : '' }}">
-                <i class="fas fa-server"></i>
-                <span>Plesk Backups</span>
             </a>
             
             <div class="nav-section">External</div>
