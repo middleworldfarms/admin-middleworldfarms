@@ -231,12 +231,13 @@ class UnifiedBackupService
     }
 
     /**
-     * Create Plesk backup
+     * Create Plesk domain backup
      */
     protected function createPleskBackup($siteName, $siteConfig)
     {
         try {
             $sitePath = "/var/www/vhosts/{$siteName}";
+            $httpdocsPath = "/var/www/vhosts/{$siteName}/httpdocs";
             $backupDir = "/var/www/vhosts/{$siteName}/backups";
 
             // Ensure backup directory exists
@@ -244,21 +245,55 @@ class UnifiedBackupService
                 mkdir($backupDir, 0755, true);
             }
 
+            // Check what content directories exist
+            $contentDirs = [];
+            if (is_dir($httpdocsPath)) {
+                $contentDirs[] = 'httpdocs';
+            }
+
+            // Look for other common web directories
+            $possibleDirs = ['public_html', 'www', 'web', 'html'];
+            foreach ($possibleDirs as $dir) {
+                if (is_dir("/var/www/vhosts/{$siteName}/{$dir}")) {
+                    $contentDirs[] = $dir;
+                }
+            }
+
+            // If no content directories found, backup the whole site (excluding backups to avoid recursion)
+            if (empty($contentDirs)) {
+                Log::warning("No standard web directories found for {$siteName}, backing up entire site");
+                $contentDirs = ['.'];
+            }
+
             // Create timestamp for backup filename
             $timestamp = date('Y-m-d-H-i-s');
             $backupFilename = "{$siteName}_backup_{$timestamp}.tar.gz";
             $backupPath = $backupDir . '/' . $backupFilename;
 
-            // Create tar.gz backup of the site
-            $command = "cd /var/www/vhosts && tar -czf {$backupPath} {$siteName} 2>&1";
+            // Create tar.gz backup
+            $excludeBackups = "--exclude='backups' --exclude='*.tar.gz' --exclude='*.zip' --exclude='*.log' --exclude='cache' --exclude='.git'";
+            $dirsToBackup = implode(' ', array_map(function($dir) use ($siteName) {
+                return "{$siteName}/{$dir}";
+            }, $contentDirs));
+
+            $command = "cd /var/www/vhosts && tar {$excludeBackups} -czf {$backupPath} {$dirsToBackup} 2>&1";
             $output = shell_exec($command);
 
+            // Check if backup was created and is reasonably sized
             if (file_exists($backupPath)) {
-                Log::info("Plesk backup created successfully: {$backupPath}");
-                return ['success' => true, 'message' => "Plesk backup created: {$backupFilename}"];
+                $fileSize = filesize($backupPath);
+
+                if ($fileSize > 1000) { // More than 1KB
+                    Log::info("Plesk backup created successfully: {$backupPath} ({$fileSize} bytes)");
+                    return ['success' => true, 'message' => "Plesk backup created: {$backupFilename} (" . $this->formatBytes($fileSize) . ")"];
+                } else {
+                    Log::warning("Plesk backup too small: {$backupPath} ({$fileSize} bytes)");
+                    unlink($backupPath); // Remove the tiny file
+                    return ['success' => false, 'message' => 'Backup created but too small - site may be empty'];
+                }
             } else {
-                Log::error("Plesk backup failed: {$output}");
-                return ['success' => false, 'message' => 'Plesk backup creation failed'];
+                Log::error("Plesk backup creation failed: {$output}");
+                return ['success' => false, 'message' => 'Backup creation failed: ' . $output];
             }
 
         } catch (Exception $e) {
