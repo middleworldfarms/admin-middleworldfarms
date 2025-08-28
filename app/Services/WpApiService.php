@@ -915,4 +915,43 @@ class WpApiService
             ];
         }
     }
+
+    /**
+     * Get customer count from WooCommerce API
+     */
+    public function getCustomerCount()
+    {
+        try {
+            // Use WooCommerce REST API to get customers
+            $response = Http::withBasicAuth($this->wcConsumerKey, $this->wcConsumerSecret)
+                ->get("{$this->wcApiUrl}/wp-json/wc/v3/customers", [
+                    'per_page' => 1, // Just get one to check if API works
+                    'page' => 1
+                ]);
+            
+            if ($response->successful()) {
+                $data = $response->json();
+                
+                // Get total count from response headers
+                $totalCount = $response->header('X-WP-Total');
+                
+                if ($totalCount !== null) {
+                    return intval($totalCount);
+                }
+                
+                // Fallback: count the returned items
+                return is_array($data) ? count($data) : 0;
+            } else {
+                Log::error('WooCommerce API failed for customers', [
+                    'status' => $response->status(),
+                    'body' => $response->body()
+                ]);
+                return 0;
+            }
+            
+        } catch (\Exception $e) {
+            Log::error('Error fetching customer count: ' . $e->getMessage());
+            return 0;
+        }
+    }
 }
