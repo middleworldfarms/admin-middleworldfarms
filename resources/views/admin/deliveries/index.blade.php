@@ -261,101 +261,7 @@ body {
                 }
             @endphp
             
-            {{-- Week Information Banner --}}
-            <div class="alert alert-info mb-4">
-                <div class="row">
-                    <div class="col-md-8">
-                        <h5 class="mb-1">📅 {{ $isCurrentWeek ? 'Current' : 'Viewing' }} Week Information</h5>
-                        <p class="mb-0">
-                            <strong>Week {{ $displayWeek }} of {{ date('Y') }}</strong> - 
-                            <span class="badge bg-{{ $displayWeekType === 'A' ? 'success' : 'warning' }} ms-1">Week {{ $displayWeekType }}</span>
-                            @if(!$isCurrentWeek)
-                                <small class="text-muted ms-2">(Current week: {{ $currentWeekActual }})</small>
-                            @endif
-                        </p>
-                        <p class="mb-1">
-                            <strong>{{ $isCurrentWeek ? date('l, F j, Y') : 'Week ' . $displayWeek . ' Schedule' }}</strong>
-                        </p>
-                        <small class="text-muted">
-                            Odd weeks = Week A (Fortnightly deliveries) | Even weeks = Week B (Alternate fortnightly)
-                        </small>
-                    </div>
-                    <div class="col-md-4 text-end">
-                        <div class="d-flex flex-column align-items-end">
-                            <div class="mb-2">
-                                {{-- Use the controller-provided unfiltered counts for overview badges --}}
-                                @php
-                                    $activeDeliveryCount = $unfilteredDeliveryStatusCounts['active'] ?? 0;
-                                    $activeCollectionCount = $unfilteredStatusCounts['active'] ?? 0;
-                                    
-                                    // Debug info to see what we have
-                                    $totalDeliveryCount = 0;
-                                    $totalCollectionCount = 0;
-                                    foreach($scheduleData['data'] as $dateKey => $dateData) {
-                                        $totalDeliveryCount += count($dateData['deliveries'] ?? []);
-                                        $totalCollectionCount += count($dateData['collections'] ?? []);
-                                    }
-                                @endphp
-                                {{-- Debug info --}}
-                                <div class="small text-muted mb-1">
-                                    Schedule Data: {{ $totalDeliveryCount }} deliveries, {{ $totalCollectionCount }} collections<br>
-                                    API Counts: {{ $activeDeliveryCount }} active deliveries, {{ $activeCollectionCount }} active collections<br>
-                                    Debug - Unfiltered Delivery: @json($unfilteredDeliveryStatusCounts)<br>
-                                    Debug - Unfiltered Collection: @json($unfilteredStatusCounts)
-                                </div>
-                                <span class="badge bg-primary">{{ $activeDeliveryCount }} active deliveries</span>
-                                <span class="badge bg-success ms-1">{{ $activeCollectionCount }} active collections</span>
-                            </div>
-                            
-                            {{-- Week Navigation Buttons --}}
-                            <div class="d-flex align-items-center gap-1">
-                                @php
-                                    $selectedWeek = isset($selectedWeek) ? (int)$selectedWeek : (int)date('W');
-                                    $currentWeekActual = (int)date('W');
-                                    $prevWeek = max(1, $selectedWeek - 1);
-                                    $nextWeek = min(53, $selectedWeek + 1);
-                                @endphp
-                                
-                                {{-- Previous Week Button --}}
-                                <form method="GET" action="{{ route('admin.deliveries.index') }}" class="d-inline">
-                                    <input type="hidden" name="week" value="{{ $prevWeek }}">
-                                    <button type="submit" class="btn btn-outline-secondary btn-sm" title="Previous Week ({{ $prevWeek }})" @if($selectedWeek <= 1) disabled @endif>
-                                        <i class="fas fa-chevron-left"></i>
-                                    </button>
-                                </form>
-                                
-                                {{-- Current Week Button --}}
-                                <form method="GET" action="{{ route('admin.deliveries.index') }}" class="d-inline">
-                                    <input type="hidden" name="week" value="{{ $currentWeekActual }}">
-                                    <button type="submit" class="btn btn-outline-primary btn-sm @if($selectedWeek == $currentWeekActual) active fw-bold @endif" title="Current Week ({{ $currentWeekActual }})">
-                                        <i class="fas fa-calendar-day"></i>
-                                    </button>
-                                </form>
-                                
-                                {{-- Next Week Button --}}
-                                <form method="GET" action="{{ route('admin.deliveries.index') }}" class="d-inline">
-                                    <input type="hidden" name="week" value="{{ $nextWeek }}">
-                                    <button type="submit" class="btn btn-outline-secondary btn-sm" title="Next Week ({{ $nextWeek }})" @if($selectedWeek >= 53) disabled @endif>
-                                        <i class="fas fa-chevron-right"></i>
-                                    </button>
-                                </form>
-                                
-                                {{-- Week Dropdown --}}
-                                <form method="GET" action="{{ route('admin.deliveries.index') }}" class="d-inline ms-2">
-                                    <select name="week" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit();" title="Jump to specific week">
-                                        @for($w = 1; $w <= 53; $w++)
-                                            <option value="{{ $w }}" @if($selectedWeek == $w) selected @endif>
-                                                Week {{ $w }}
-                                            </option>
-                                        @endfor
-                                    </select>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
+            {{-- Main Content Cards --}}
             <div class="card">
                 <div class="card-header">
                     {{-- Navigation Tabs --}}
@@ -1257,7 +1163,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
             })
             .then(response => response.json())
-            .then(data => {
+            .then data => {
                 if (data.success && data.subscription_url) {
                     // Open in new tab
                     window.open(data.subscription_url, '_blank');

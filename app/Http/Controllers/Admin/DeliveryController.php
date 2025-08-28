@@ -28,6 +28,10 @@ class DeliveryController extends Controller
             $rawData = [];
             try {
                 $rawData = $wpApi->getDeliveryScheduleData(500);
+                \Log::info('DeliveryController Raw Data', [
+                    'count' => count($rawData),
+                    'first_item' => !empty($rawData) ? array_slice($rawData, 0, 1) : null
+                ]);
             } catch (\Exception $e) {
                 Log::error('Delivery schedule API timeout: ' . $e->getMessage());
                 // Continue with empty data to show the page
@@ -51,26 +55,8 @@ class DeliveryController extends Controller
             
             // Get ALL subscription statuses and split by delivery type (properly)
             try {
-                // Fetch all subscriptions from WooCommerce API
-                $allStatuses = ['wc-active', 'wc-on-hold', 'wc-cancelled', 'wc-pending', 'wc-completed', 'wc-processing', 'wc-refunded'];
-                $allSubscriptions = [];
-                
-                foreach ($allStatuses as $statusToCheck) {
-                    $response = Http::timeout(10)
-                        ->withBasicAuth(config('services.woocommerce.consumer_key'), config('services.woocommerce.consumer_secret'))
-                        ->get(config('services.woocommerce.api_url') . '/wp-json/wc/v3/subscriptions', [
-                            'status' => $statusToCheck,
-                            'per_page' => 100
-                        ]);
-                    
-                    if ($response->successful()) {
-                        $subscriptions = $response->json();
-                        foreach ($subscriptions as $sub) {
-                            $sub['api_status'] = $statusToCheck; // Keep track of original status
-                            $allSubscriptions[] = $sub;
-                        }
-                    }
-                }
+                // Use the same raw data that was fetched for schedule transformation
+                $allSubscriptions = $rawData;
                 
                 // Now split all subscriptions by delivery type AND status AND week
                 $deliveryStatusCounts = ['active' => 0, 'processing' => 0, 'on-hold' => 0, 'cancelled' => 0, 'pending' => 0, 'completed' => 0, 'refunded' => 0];
@@ -86,8 +72,7 @@ class DeliveryController extends Controller
                 foreach ($allSubscriptions as $sub) {
                     // Determine delivery type (same logic as transform method)
                     $type = $this->determineCustomerType($sub['shipping_total'] ?? null, $sub);
-                    $rawStatus = $sub['api_status']; // Use the original status we queried for
-                    $status = str_replace('wc-', '', $rawStatus); // Normalize status
+                    $status = $sub['status']; // Use the normalized status from the API response
                     
                     // Always count for unfiltered totals (for overview badges)
                     if ($type === 'deliveries') {
@@ -1834,6 +1819,8 @@ class DeliveryController extends Controller
             return response()->json([
                 'success' => true,
                 'analysis' => $analysis
+           
+
             ]);
             
         } catch (\Exception $e) {

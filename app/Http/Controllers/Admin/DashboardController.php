@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Services\WpApiService;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 
 class DashboardController extends Controller
 {
@@ -56,21 +57,87 @@ class DashboardController extends Controller
     private function getDeliveryStats()
     {
         try {
-            // Get delivery data from the WP API service
-            $scheduleData = $this->wpApiService->getDeliveryScheduleData();
+            // Use the same approach as DeliveryController
+            $wpApi = $this->wpApiService;
             
-            $stats = [
-                'active' => $scheduleData['total_deliveries'] ?? 0,
-                'collections' => $scheduleData['total_collections'] ?? 0,
-                'total' => ($scheduleData['total_deliveries'] ?? 0) + ($scheduleData['total_collections'] ?? 0),
-                'processing' => $scheduleData['total_deliveries'] ?? 0,
+            // Get raw data the same way as DeliveryController
+            $rawData = [];
+            try {
+                $rawData = $wpApi->getDeliveryScheduleData(500);
+            } catch (\Exception $e) {
+                \Log::error('Dashboard delivery schedule API timeout: ' . $e->getMessage());
+                return [
+                    'active' => 0,
+                    'collections' => 0,
+                    'total' => 0,
+                    'processing' => 0,
+                    'completed' => 0,
+                    'on_hold' => 0
+                ];
+            }
+            
+            if (empty($rawData)) {
+                \Log::info('Dashboard: No raw delivery schedule data');
+                return [
+                    'active' => 0,
+                    'collections' => 0,
+                    'total' => 0,
+                    'processing' => 0,
+                    'completed' => 0,
+                    'on_hold' => 0
+                ];
+            }
+            
+            // Use current week like DeliveryController
+            $currentWeek = (int) date('W');
+            
+            // Transform data the same way as DeliveryController
+            $scheduleData = $this->transformScheduleData($rawData, $currentWeek);
+            
+            // Add completion data the same way as DeliveryController
+            $scheduleData = $this->addCompletionData($scheduleData);
+            
+            // Calculate ACTIVE totals only (same as delivery schedule view)
+            $activeDeliveries = 0;
+            $activeCollections = 0;
+            
+            foreach ($scheduleData['data'] as $dateData) {
+                // Count only active deliveries
+                if(isset($dateData['deliveries'])) {
+                    foreach($dateData['deliveries'] as $delivery) {
+                        if(isset($delivery['status']) && $delivery['status'] === 'active') {
+                            $activeDeliveries++;
+                        }
+                    }
+                }
+                
+                // Count only active collections
+                if(isset($dateData['collections'])) {
+                    foreach($dateData['collections'] as $collection) {
+                        if(isset($collection['status']) && $collection['status'] === 'active') {
+                            $activeCollections++;
+                        }
+                    }
+                }
+            }
+            
+            \Log::info('Dashboard Active Counts', [
+                'active_deliveries' => $activeDeliveries,
+                'active_collections' => $activeCollections,
+                'schedule_dates' => count($scheduleData['data'])
+            ]);
+            
+            return [
+                'active' => $activeDeliveries,
+                'collections' => $activeCollections,
+                'total' => $activeDeliveries + $activeCollections,
+                'processing' => $activeDeliveries,
                 'completed' => 0,
                 'on_hold' => 0
             ];
-            
-            return $stats;
-            
+
         } catch (\Exception $e) {
+            \Log::error('Dashboard delivery stats error: ' . $e->getMessage());
             return [
                 'active' => 0,
                 'collections' => 0,
@@ -82,28 +149,328 @@ class DashboardController extends Controller
         }
     }
 
+    private function determineCustomerType($shippingTotal, $subscription = null)
+    {
+        // Method 1: Check shipping lines for collection class/method
+        if ($subscription && isset($subscription['shipping_lines']) && is_array($subscription['shipping_lines'])) {
+            foreach ($subscription['shipping_lines'] as $shippingLine) {
+                if (isset($shippingLine['method_title']) && is_string($shippingLine['method_title'])) {
+                    $methodTitle = strtolower($shippingLine['method_title']);
+                    if (strpos($methodTitle, 'collection') !== false) {
+                        return 'collections';
+                    }
+                }
+            }
+        }
+        
+        // Method 2: Check shipping classes in line_items
+        if ($subscription && isset($subscription['line_items']) && is_array($subscription['line_items'])) {
+            foreach ($subscription['line_items'] as $item) {
+                if (isset($item['shipping_class']) && is_string($item['shipping_class'])) {
+                    $shippingClass = strtolower($item['shipping_class']);
+                    if (strpos($shippingClass, 'collection') !== false) {
+                        return 'collections';
+                    }
+                }
+            }
+        }
+        
+        // Method 3: Check meta_data for shipping class
+        if ($subscription && isset($subscription['meta_data']) && is_array($subscription['meta_data'])) {
+            foreach ($subscription['meta_data'] as $meta) {
+                if (isset($meta['key']) && isset($meta['value']) && is_string($meta['key']) && is_string($meta['value'])) {
+                    $key = strtolower($meta['key']);
+                    $value = strtolower($meta['value']);
+                    
+                    if (strpos($key, 'shipping') !== false && strpos($value, 'collection') !== false) {
+                        return 'collections';
+                    }
+                }
+            }
+        }
+        
+        // Method 4: Check if customer has a delivery address
+        $hasDeliveryAddress = false;
+        if ($subscription) {
+            // Check shipping address first
+            if (isset($subscription['shipping']['address_1']) && !empty(trim($subscription['shipping']['address_1']))) {
+                $hasDeliveryAddress = true;
+            }
+            // Fallback to billing address
+            elseif (isset($subscription['billing']['address_1']) && !empty(trim($subscription['billing']['address_1']))) {
+                $hasDeliveryAddress = true;
+            }
+        }
+        
+        // Method 5: Check shipping total
+        $normalizedShippingTotal = $this->normalizeShippingTotal($shippingTotal);
+        
+        // If shipping total is greater than 0, it's likely a delivery
+        if ($normalizedShippingTotal > 0) {
+            return 'deliveries';
+        }
+        
+        // If customer has a delivery address but no shipping cost, 
+        // it might be a delivery with free shipping or promotional delivery
+        if ($hasDeliveryAddress) {
+            return 'deliveries';
+        }
+        
+        // Default to collection if no shipping cost, no delivery address, and no other indicators
+        return 'collections';
+    }
+
+    // Simplified version of DeliveryController's transformScheduleData for counting
+    private function transformScheduleData($rawData, $selectedWeek = null)
+    {
+        // Use current week if no selectedWeek provided
+        if ($selectedWeek === null) {
+            $selectedWeek = (int) date('W');
+        }
+        $selectedWeek = (int) $selectedWeek;
+        
+        // Calculate the selected week type (A or B)
+        $selectedWeekType = ($selectedWeek % 2 === 1) ? 'A' : 'B';
+        
+        $result = ['data' => []];
+        
+        // If rawData is a flat API response (list of subscriptions), split into deliveries/collections
+        if (isset($rawData[0]) && is_array($rawData[0])) {
+            $subscriptions = $rawData;
+            
+            foreach ($subscriptions as $sub) {
+                // Use the same delivery type determination as DeliveryController
+                $type = $this->determineCustomerType($sub['shipping_total'] ?? null, $sub);
+                
+                // Extract frequency - same logic as DeliveryController
+                $frequency = 'Weekly'; // Default
+                
+                // Method 1: Check WooCommerce subscription billing_period and billing_interval (standard approach)
+                if (isset($sub['billing_period']) && strtolower($sub['billing_period']) === 'week') {
+                    $interval = intval($sub['billing_interval'] ?? 1);
+                    if ($interval === 2) {
+                        $frequency = 'Fortnightly';
+                    } elseif ($interval === 1) {
+                        $frequency = 'Weekly';
+                    }
+                }
+                
+                // Method 2: Check line items meta_data as fallback
+                if ($frequency === 'Weekly' && isset($sub['line_items'][0]['meta_data'])) {
+                    foreach ($sub['line_items'][0]['meta_data'] as $meta) {
+                        if ($meta['key'] === 'frequency') {
+                            $frequency = $meta['value'];
+                            break;
+                        }
+                    }
+                }
+                
+                // Method 3: Check top-level meta_data as final fallback
+                if ($frequency === 'Weekly' && isset($sub['meta_data'])) {
+                    foreach ($sub['meta_data'] as $meta) {
+                        if ($meta['key'] === 'frequency' || $meta['key'] === '_subscription_frequency') {
+                            $frequency = $meta['value'];
+                            break;
+                        }
+                    }
+                }
+                
+                // Method 4: Check product name for frequency indicators
+                if ($frequency === 'Weekly' && isset($sub['line_items'][0]['name'])) {
+                    $productName = strtolower($sub['line_items'][0]['name']);
+                    if (strpos($productName, 'fortnightly') !== false) {
+                        $frequency = 'Fortnightly';
+                    } elseif (strpos($productName, 'weekly') !== false) {
+                        $frequency = 'Weekly';
+                    }
+                }
+                
+                // Normalize frequency values
+                $frequency = trim(strtolower($frequency));
+                if (strpos($frequency, 'fortnightly') !== false) {
+                    $frequency = 'Fortnightly';
+                } elseif (strpos($frequency, 'weekly') !== false) {
+                    $frequency = 'Weekly';
+                } else {
+                    $frequency = 'Weekly';
+                }
+                
+                // Extract customer week type from meta_data if available
+                $customerWeekType = 'Weekly'; // Default
+                
+                // Check meta_data from API for customer week type
+                if (isset($sub['meta_data'])) {
+                    foreach ($sub['meta_data'] as $meta) {
+                        if ($meta['key'] === 'customer_week_type') {
+                            $customerWeekType = $meta['value'];
+                            break;
+                        }
+                    }
+                }
+                
+                // Week filtering logic - same as DeliveryController
+                $shouldIncludeInSelectedWeek = true;
+                
+                if (strtolower($frequency) === 'fortnightly') {
+                    // Use customer week type from meta_data if available, otherwise auto-assign
+                    if ($customerWeekType === 'Weekly' || !in_array($customerWeekType, ['A', 'B'])) {
+                        // Auto-assign fortnightly customers to a week type based on their subscription ID
+                        $customerWeekType = ((int)$sub['id'] % 2 === 1) ? 'A' : 'B';
+                    }
+                    
+                    // Check if this fortnightly customer should appear in the selected week
+                    $shouldIncludeInSelectedWeek = ($customerWeekType === $selectedWeekType);
+                    
+                    // Debug logging for fortnightlies
+                    \Log::info('Dashboard Fortnightly Filtering', [
+                        'subscription_id' => $sub['id'],
+                        'frequency' => $frequency,
+                        'customer_week_type' => $customerWeekType,
+                        'selected_week_type' => $selectedWeekType,
+                        'should_include' => $shouldIncludeInSelectedWeek,
+                        'type' => $type
+                    ]);
+                }
+                
+                // Skip this subscription if it shouldn't appear in the selected week
+                if (!$shouldIncludeInSelectedWeek) {
+                    continue;
+                }
+                
+                // Add to appropriate type array
+                $dateKey = date('Y-m-d'); // Use today's date as key
+                if (!isset($result['data'][$dateKey])) {
+                    $result['data'][$dateKey] = ['deliveries' => [], 'collections' => []];
+                }
+                
+                if ($type === 'deliveries') {
+                    $result['data'][$dateKey]['deliveries'][] = $sub;
+                } else {
+                    $result['data'][$dateKey]['collections'][] = $sub;
+                }
+            }
+        }
+        
+        return $result;
+    }
+
+    // Simplified version of DeliveryController's addCompletionData
+    private function addCompletionData($scheduleData)
+    {
+        // For dashboard counting purposes, we don't need actual completion data
+        // Just return the schedule data as-is
+        return $scheduleData;
+    }
+
+    private function normalizeShippingTotal($shippingTotal)
+    {
+        if ($shippingTotal === null || $shippingTotal === '') {
+            return 0.0;
+        }
+        
+        if (is_string($shippingTotal)) {
+            $shippingTotal = trim($shippingTotal);
+            if (!is_numeric($shippingTotal)) {
+                return 0.0;
+            }
+        }
+        
+        return (float) $shippingTotal;
+    }
+
+    private function simpleTransformForWeek($rawData, $selectedWeek)
+    {
+        $result = [];
+        
+        if (!is_array($rawData)) {
+            return $result;
+        }
+        
+        // If rawData is a flat array of subscriptions (from API)
+        if (isset($rawData[0]['id'])) {
+            foreach ($rawData as $subscription) {
+                // Get the delivery/collection type
+                $type = 'deliveries'; // Default
+                if (isset($subscription['shipping_total']) && $subscription['shipping_total'] == 0) {
+                    $type = 'collections';
+                }
+                
+                // Get delivery dates for this subscription (simplified)
+                $dates = $this->getSubscriptionDates($subscription, $selectedWeek);
+                
+                foreach ($dates as $date) {
+                    if (!isset($result[$date])) {
+                        $result[$date] = ['deliveries' => [], 'collections' => []];
+                    }
+                    
+                    // Add subscription to appropriate type
+                    if ($type === 'collections') {
+                        $result[$date]['collections'][] = $subscription;
+                    } else {
+                        $result[$date]['deliveries'][] = $subscription;
+                    }
+                }
+            }
+        }
+        
+        return $result;
+    }
+    
+    private function getSubscriptionDates($subscription, $selectedWeek)
+    {
+        $dates = [];
+        $currentWeek = (int) date('W');
+        
+        // Simplified date calculation - just return current week's Monday
+        if ($selectedWeek == $currentWeek) {
+            $dates[] = date('Y-m-d', strtotime('monday this week'));
+        }
+        
+        return $dates;
+    }
+
     private function getCustomerStats()
     {
         try {
-            // Use the recent users method to get a count estimate
-            $recentUsers = $this->wpApiService->getRecentUsers(100); // Get more users for better stats
+            $wpApiService = new WpApiService();
+            
+            // Get customer count from WooCommerce API
+            $customerData = $wpApiService->getCustomerCount();
+            
+            // Log the response for debugging
+            Log::info('Customer API Response:', [
+                'data' => $customerData,
+                'type' => gettype($customerData)
+            ]);
+            
+            // Handle different response formats
+            if (is_array($customerData) && isset($customerData['count'])) {
+                $customerCount = intval($customerData['count']);
+            } elseif (is_numeric($customerData)) {
+                $customerCount = intval($customerData);
+            } elseif (is_array($customerData) && isset($customerData['total'])) {
+                $customerCount = intval($customerData['total']);
+            } else {
+                // Fallback: try to count array elements if it's an array of customers
+                $customerCount = is_array($customerData) ? count($customerData) : 0;
+            }
+            
+            Log::info('Final customer count:', ['count' => $customerCount]);
             
             return [
-                'total' => count($recentUsers),
-                'active' => count($recentUsers), // All recent users are considered active
-                'new_this_week' => collect($recentUsers)->filter(function($user) {
-                    return isset($user['date_created']) && 
-                           \Carbon\Carbon::parse($user['date_created'])->isAfter(now()->subWeek());
-                })->count(),
-                'orders_this_month' => 0 // Can be enhanced later
+                'total' => $customerCount,
+                'active' => $customerCount,
+                'inactive' => 0
             ];
             
         } catch (\Exception $e) {
+            Log::error('Error fetching customer stats: ' . $e->getMessage());
+            
+            // Return zero values on error to prevent dashboard crash
             return [
-                'total' => 0, 
+                'total' => 0,
                 'active' => 0,
-                'new_this_week' => 0,
-                'orders_this_month' => 0
+                'inactive' => 0
             ];
         }
     }
@@ -218,27 +585,14 @@ class DashboardController extends Controller
                 'duration_ms' => round((microtime(true) - $started) * 1000, 1)
             ]);
             return response()->json([
-                'type' => 'FeatureCollection',
-                'features' => [],
-                'error' => $e->getMessage()
+                'error' => 'Unable to retrieve FarmOS map data',
+                'details' => $e->getMessage()
             ], 500);
         }
     }
 
     public function plantingRecommendations()
     {
-        try {
-            $service = app(\App\Services\PlantingRecommendationService::class);
-            return response()->json($service->forWeek());
-        } catch (\Throwable $e) {
-            Log::error('Planting recommendations error', ['msg' => $e->getMessage()]);
-            return response()->json(['error' => 'Failed generating recommendations','detail'=>$e->getMessage()], 500);
-        }
-    }
-
-    public function dataCatalog()
-    {
-        $svc = app(\App\Services\AiDataAccessService::class);
-        return response()->json($svc->catalog());
+        return view('admin.planting-recommendations');
     }
 }
