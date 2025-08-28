@@ -11,7 +11,7 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between">
                     <div>
-                        <h6 class="card-title">Active Deliveries</h6>
+                        <h6 class="card-title">This Week's Deliveries</h6>
                         <h2 class="mb-0">{{ $deliveryStats['active'] ?? '0' }}</h2>
                     </div>
                     <div class="align-self-center">
@@ -32,7 +32,7 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between">
                     <div>
-                        <h6 class="card-title">Active Collections</h6>
+                        <h6 class="card-title">This Week's Collections</h6>
                         <h2 class="mb-0">{{ $deliveryStats['collections'] ?? '0' }}</h2>
                     </div>
                     <div class="align-self-center">

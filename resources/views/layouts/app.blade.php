@@ -39,6 +39,9 @@
             border-bottom: 1px solid rgba(255,255,255,0.1);
             position: relative;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
         
         .sidebar.collapsed .sidebar-header {
@@ -66,10 +69,11 @@
         
         .logo-container {
             transition: all 0.3s ease;
-            padding: 10px;
-            margin: 10px auto;
-            max-width: 120px;
-            text-align: center;
+            padding: 5px;
+            margin: 10px 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
         }
         
         .logo-container img,
@@ -273,9 +277,8 @@
                 <i class="fas fa-bars"></i>
             </button>
             <div class="logo-container mt-4">
-                <img src="/Middle World Logo Image White - PNG FOR SCREENS.png" alt="Middle World Farms" class="rounded-logo">
+                <img src="/symbiosis_final_440x100.png" alt="Middle World Farms Symbiosis" style="width: 180px; height: 45px; object-fit: contain; border: none; border-radius: 0; filter: none;">
             </div>
-            <h4 class="mb-0 mt-2">Symbiosis</h4>
             @php
                 $adminUser = \App\Http\Controllers\Auth\LoginController::getAdminUser();
             @endphp
@@ -376,9 +379,9 @@
             </a>
             </a>
             
-            <a href="/admin/plesk-backup" class="nav-link {{ request()->is('admin/plesk-backup*') ? 'active' : '' }}">
-                <i class="fas fa-database"></i>
-                <span>Backup Management</span>
+            <a href="/admin/unified-backup" class="nav-link {{ request()->is('admin/unified-backup*') ? 'active' : '' }}">
+                <i class="fas fa-server"></i>
+                <span>Unified Backup</span>
             </a>
             
             <div class="nav-section">External</div>
@@ -411,7 +414,68 @@
     <div class="top-header">
         <div class="d-flex justify-content-between align-items-center">
             <div class="header-spacer">
-                <h2 class="header-brand-name">Symbiosis</h2>
+                @if(request()->routeIs('admin.deliveries.index'))
+                    @php
+                        $selectedWeek = isset($selectedWeek) ? (int)$selectedWeek : (int)date('W');
+                        $currentWeekActual = (int)date('W');
+                        $prevWeek = max(1, $selectedWeek - 1);
+                        $nextWeek = min(53, $selectedWeek + 1);
+                    @endphp
+                    <div class="d-flex flex-column">
+                        <div class="d-flex align-items-center justify-content-start mb-2">
+                            {{-- Week Dropdown --}}
+                            <form method="GET" action="{{ route('admin.deliveries.index') }}" class="d-inline me-3">
+                                <select name="week" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit();" title="Jump to specific week">
+                                    @for($w = 1; $w <= 53; $w++)
+                                        <option value="{{ $w }}" @if($selectedWeek == $w) selected @endif>
+                                            Week {{ $w }}
+                                        </option>
+                                    @endfor
+                                </select>
+                            </form>
+                        </div>
+                        <div class="d-flex align-items-center mb-2">
+                            <h2 class="header-brand-name me-3">Week {{ $selectedWeek }}</h2>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            {{-- Previous Week Button --}}
+                            <form method="GET" action="{{ route('admin.deliveries.index') }}" class="d-inline">
+                                <input type="hidden" name="week" value="{{ $prevWeek }}">
+                                <button type="submit" class="btn btn-warning btn-sm" title="Previous Week ({{ $prevWeek }})" @if($selectedWeek <= 1) disabled @endif>
+                                    <i class="fas fa-chevron-left"></i> Previous
+                                </button>
+                            </form>
+                            
+                            {{-- Current Week Button --}}
+                            <form method="GET" action="{{ route('admin.deliveries.index') }}" class="d-inline">
+                                <input type="hidden" name="week" value="{{ $currentWeekActual }}">
+                                <button type="submit" class="btn @if($selectedWeek == $currentWeekActual) btn-outline-primary active fw-bold @else btn-outline-danger @endif btn-sm" title="Current Week ({{ $currentWeekActual }})">
+                                    <i class="fas fa-calendar-day"></i> Current
+                                </button>
+                            </form>
+                            
+                            {{-- Next Week Button --}}
+                            <form method="GET" action="{{ route('admin.deliveries.index') }}" class="d-inline">
+                                <input type="hidden" name="week" value="{{ $nextWeek }}">
+                                <button type="submit" class="btn btn-warning btn-sm" title="Next Week ({{ $nextWeek }})" @if($selectedWeek >= 53) disabled @endif>
+                                    Next <i class="fas fa-chevron-right"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                @elseif(request()->is('admin') && !request()->is('admin/*'))
+                    @php
+                        $currentWeekActual = (int)date('W');
+                    @endphp
+                    <div class="d-flex align-items-center">
+                        <h2 class="header-brand-name me-3">Week {{ $currentWeekActual }}</h2>
+                        <small class="text-muted">
+                            <i class="fas fa-calendar-day text-primary"></i> Current Week
+                        </small>
+                    </div>
+                @else
+                    <h2 class="header-brand-name">Symbiosis</h2>
+                @endif
             </div>
             <div class="header-content">
                 @hasSection('page-header')

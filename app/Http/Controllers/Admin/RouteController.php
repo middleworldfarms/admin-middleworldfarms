@@ -43,7 +43,16 @@ class RouteController extends Controller
             
             // Method 1: Check if deliveries are passed in the request
             if ($request->has('deliveries')) {
-                $deliveries = $request->get('deliveries', []);
+                $rawDeliveries = $request->get('deliveries', []);
+                // Filter to only include active deliveries (if status field is present)
+                $deliveries = array_filter($rawDeliveries, function($delivery) {
+                    $status = strtolower($delivery['status'] ?? '');
+                    // If no status field, assume delivery is valid (pre-filtered)
+                    if (empty($status)) {
+                        return true;
+                    }
+                    return in_array($status, ['wc-active', 'active']);
+                });
             }
             
             // Method 2: Check if delivery IDs are passed from delivery schedule page
@@ -110,6 +119,9 @@ class RouteController extends Controller
                 ], 400);
             }
 
+            // Note: Filtering is already done upstream in getDeliveriesByIds method
+            // No need to filter again here as deliveries are pre-filtered
+
             // Optimize the route
             $result = $this->routeService->optimizeRoute($deliveries, $startLocation);
             
@@ -152,9 +164,12 @@ class RouteController extends Controller
                 'route_details' => 'required|array'
             ]);
 
+            $deliveries = $request->input('deliveries', []);
+            
+
             $result = $this->driverService->sendRouteByEmail(
                 $request->input('driver_email'),
-                $request->input('deliveries'),
+                $deliveries,
                 $request->input('route_details'),
                 $request->input('delivery_date')
             );
@@ -193,9 +208,12 @@ class RouteController extends Controller
                 'route_details' => 'required|array'
             ]);
 
+            $deliveries = $request->input('deliveries', []);
+            
+
             $result = $this->driverService->sendRouteBySMS(
                 $request->input('driver_phone'),
-                $request->input('deliveries'),
+                $deliveries,
                 $request->input('route_details'),
                 $request->input('delivery_date')
             );
@@ -229,6 +247,9 @@ class RouteController extends Controller
     {
         try {
             $deliveries = $request->input('deliveries', []);
+            
+            // Note: Filtering is already done upstream in getDeliveriesByIds method
+            // No need to filter again here as deliveries are pre-filtered
             
             $mapData = [
                 'markers' => [],
@@ -299,8 +320,13 @@ class RouteController extends Controller
                 'delivery_date' => 'required|date'
             ]);
 
+            $deliveries = $request->input('deliveries', []);
+            
+            // Note: Filtering is already done upstream in getDeliveriesByIds method
+            // No need to filter again here as deliveries are pre-filtered
+
             $result = $this->wpGoMapsService->createDeliveryRouteMap(
-                $request->input('deliveries'),
+                $deliveries,
                 $request->input('route_details'),
                 $request->input('delivery_date')
             );
@@ -483,8 +509,11 @@ class RouteController extends Controller
             // Filter to only the requested IDs and format for routing
             foreach ($allSubscriptions as $subscription) {
                 $subscriptionId = $subscription['id'] ?? '';
+                $status = $subscription['status'] ?? '';
                 
-                if (in_array($subscriptionId, $deliveryIds)) {
+                // Only include active subscriptions, exclude on-hold
+                if (in_array($subscriptionId, $deliveryIds) && 
+                    in_array(strtolower($status), ['wc-active', 'active'])) {
                     $deliveries[] = [
                         'id' => $subscriptionId,
                         'name' => $this->extractCustomerName($subscription),
@@ -500,7 +529,8 @@ class RouteController extends Controller
             Log::info('Route planner - fetched deliveries by IDs', [
                 'requested_ids' => $deliveryIds,
                 'found_count' => count($deliveries),
-                'found_ids' => array_column($deliveries, 'id')
+                'found_ids' => array_column($deliveries, 'id'),
+                'filtered_out_on_hold' => true
             ]);
             
         } catch (\Exception $e) {

@@ -175,6 +175,14 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         Route::get('/download/{filename}', [App\Http\Controllers\Admin\PleskBackupController::class, 'download'])->name('download');
         Route::get('/details/{filename}', [App\Http\Controllers\Admin\PleskBackupController::class, 'details'])->name('details');
     });
+
+    // Unified Backup management routes
+    Route::prefix('unified-backup')->name('admin.unified-backup.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Admin\UnifiedBackupController::class, 'index'])->name('index');
+        Route::post('/create', [App\Http\Controllers\Admin\UnifiedBackupController::class, 'create'])->name('create');
+        Route::get('/status', [App\Http\Controllers\Admin\UnifiedBackupController::class, 'status'])->name('status');
+        Route::get('/download/{siteName}/{filename}', [App\Http\Controllers\Admin\UnifiedBackupController::class, 'download'])->name('download');
+    });
     
     // Print packing slips
     Route::get('/deliveries/print', [App\Http\Controllers\Admin\DeliveryController::class, 'print'])->name('admin.deliveries.print');
