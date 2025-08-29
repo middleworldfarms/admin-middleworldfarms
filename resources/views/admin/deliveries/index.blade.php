@@ -1163,7 +1163,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
             })
             .then(response => response.json())
-            .then data => {
+            .then(data => {
                 if (data.success && data.subscription_url) {
                     // Open in new tab
                     window.open(data.subscription_url, '_blank');
