@@ -31,6 +31,16 @@ class UnifiedBackupController extends Controller
                 'summary' => $this->calculateSummary($allBackups),
             ];
 
+            // Debug logging
+            Log::info('UnifiedBackup Dashboard Data', [
+                'sites_count' => count($sites),
+                'sites' => $sites,
+                'backups_count' => count($allBackups),
+                'backups' => array_map(function($siteBackups) {
+                    return count($siteBackups);
+                }, $allBackups),
+            ]);
+
             return view('admin.unified-backup.index', $data);
 
         } catch (\Exception $e) {
