@@ -180,6 +180,11 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
     Route::prefix('unified-backup')->name('admin.unified-backup.')->group(function () {
         Route::get('/', [App\Http\Controllers\Admin\UnifiedBackupController::class, 'index'])->name('index');
         Route::post('/create', [App\Http\Controllers\Admin\UnifiedBackupController::class, 'create'])->name('create');
+        Route::post('/restore', [App\Http\Controllers\Admin\UnifiedBackupController::class, 'restore'])->name('restore');
+        Route::post('/rename', [App\Http\Controllers\Admin\UnifiedBackupController::class, 'rename'])->name('rename');
+        Route::post('/delete', [App\Http\Controllers\Admin\UnifiedBackupController::class, 'delete'])->name('delete');
+        Route::post('/toggle-auto-backup', [App\Http\Controllers\Admin\UnifiedBackupController::class, 'toggleAutoBackup'])->name('toggle-auto-backup');
+        Route::post('/update-backup-time', [App\Http\Controllers\Admin\UnifiedBackupController::class, 'updateBackupTime'])->name('update-backup-time');
         Route::get('/status', [App\Http\Controllers\Admin\UnifiedBackupController::class, 'status'])->name('status');
         Route::get('/download/{siteName}/{filename}', [App\Http\Controllers\Admin\UnifiedBackupController::class, 'download'])->name('download');
     });

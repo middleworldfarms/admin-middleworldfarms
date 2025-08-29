@@ -24,11 +24,13 @@ class UnifiedBackupController extends Controller
         try {
             $sites = $this->backupService->getSites();
             $allBackups = $this->backupService->getAllBackups();
+            $backupSettings = $this->loadBackupSettings();
 
             $data = [
                 'sites' => $sites,
                 'backups' => $allBackups,
                 'summary' => $this->calculateSummary($allBackups),
+                'backupSettings' => $backupSettings,
             ];
 
             // Debug logging
@@ -150,6 +152,131 @@ class UnifiedBackupController extends Controller
     }
 
     /**
+     * Restore backup for a specific site
+     */
+    public function restore(Request $request)
+    {
+        try {
+            $siteName = $request->input('site');
+            $backupFilename = $request->input('backup');
+            $restoreType = $request->input('type', 'full');
+
+            if (!$siteName || !$backupFilename) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Site name and backup filename are required'
+                ], 400);
+            }
+
+            Log::info("Restoring backup for site: {$siteName}, file: {$backupFilename}, type: {$restoreType}");
+
+            $result = $this->backupService->restoreBackup($siteName, $backupFilename, $restoreType);
+
+            if ($result['success']) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $result['message']
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => $result['message']
+                ], 500);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Backup restore failed: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Restore failed: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Rename a backup file
+     */
+    public function rename(Request $request)
+    {
+        try {
+            $siteName = $request->input('site');
+            $currentFilename = $request->input('current_name');
+            $newFilename = $request->input('new_name');
+
+            if (!$siteName || !$currentFilename || !$newFilename) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Site name, current filename, and new filename are required'
+                ], 400);
+            }
+
+            Log::info("Renaming backup: {$siteName}/{$currentFilename} -> {$newFilename}");
+
+            $result = $this->backupService->renameBackup($siteName, $currentFilename, $newFilename);
+
+            if ($result['success']) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $result['message']
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => $result['message']
+                ], 500);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Backup rename failed: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Rename failed: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete a backup file
+     */
+    public function delete(Request $request)
+    {
+        try {
+            $siteName = $request->input('site');
+            $filename = $request->input('filename');
+
+            if (!$siteName || !$filename) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Site name and filename are required'
+                ], 400);
+            }
+
+            Log::info("Deleting backup: {$siteName}/{$filename}");
+
+            $result = $this->backupService->deleteBackup($siteName, $filename);
+
+            if ($result['success']) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $result['message']
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => $result['message']
+                ], 500);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Backup delete failed: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Delete failed: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Calculate summary statistics
      */
     protected function calculateSummary($allBackups)
@@ -188,5 +315,135 @@ class UnifiedBackupController extends Controller
         $base = log($size, 1024);
 
         return round(pow(1024, $base - floor($base)), $precision) . ' ' . $units[floor($base)];
+    }
+
+    /**
+     * Toggle auto backup for a site
+     */
+    public function toggleAutoBackup(Request $request)
+    {
+        try {
+            $siteName = $request->input('site');
+            $enabled = $request->input('enabled', false);
+
+            if (!$siteName) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Site name is required'
+                ], 400);
+            }
+
+            Log::info("Toggling auto backup for site: {$siteName} to " . ($enabled ? 'enabled' : 'disabled'));
+
+            // Store the setting (we'll implement storage later)
+            $this->storeAutoBackupSetting($siteName, $enabled);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Auto backup ' . ($enabled ? 'enabled' : 'disabled') . ' for ' . $siteName
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Auto backup toggle failed: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to toggle auto backup: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Update backup time for a site
+     */
+    public function updateBackupTime(Request $request)
+    {
+        try {
+            $siteName = $request->input('site');
+            $time = $request->input('time');
+
+            if (!$siteName || !$time) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Site name and time are required'
+                ], 400);
+            }
+
+            Log::info("Updating backup time for site: {$siteName} to {$time}");
+
+            // Store the setting (we'll implement storage later)
+            $this->storeBackupTimeSetting($siteName, $time);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Backup time updated to ' . $time . ' for ' . $siteName
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Backup time update failed: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update backup time: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Store auto backup setting (placeholder - implement storage)
+     */
+    protected function storeAutoBackupSetting($siteName, $enabled)
+    {
+        // TODO: Implement persistent storage for auto backup settings
+        $settingsFile = storage_path('app/backup_settings.json');
+
+        $settings = [];
+        if (file_exists($settingsFile)) {
+            $settings = json_decode(file_get_contents($settingsFile), true) ?: [];
+        }
+
+        if (!isset($settings[$siteName])) {
+            $settings[$siteName] = [];
+        }
+
+        $settings[$siteName]['auto_backup'] = $enabled;
+
+        file_put_contents($settingsFile, json_encode($settings, JSON_PRETTY_PRINT));
+    }
+
+    /**
+     * Store backup time setting (placeholder - implement storage)
+     */
+    protected function storeBackupTimeSetting($siteName, $time)
+    {
+        // TODO: Implement persistent storage for backup time settings
+        $settingsFile = storage_path('app/backup_settings.json');
+
+        $settings = [];
+        if (file_exists($settingsFile)) {
+            $settings = json_decode(file_get_contents($settingsFile), true) ?: [];
+        }
+
+        if (!isset($settings[$siteName])) {
+            $settings[$siteName] = [];
+        }
+
+        $settings[$siteName]['backup_time'] = $time;
+
+        file_put_contents($settingsFile, json_encode($settings, JSON_PRETTY_PRINT));
+    }
+
+    /**
+     * Load backup settings from storage
+     */
+    protected function loadBackupSettings()
+    {
+        $settingsFile = storage_path('app/backup_settings.json');
+
+        if (!file_exists($settingsFile)) {
+            return [];
+        }
+
+        $settings = json_decode(file_get_contents($settingsFile), true);
+
+        return $settings ?: [];
     }
 }
