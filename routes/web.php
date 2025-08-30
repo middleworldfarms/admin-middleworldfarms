@@ -224,6 +224,7 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         
         // AI service management routes
         Route::get('/succession-planning/ai-status', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'getAIStatus'])->name('succession-planning.ai-status');
+        Route::post('/succession-planning/wake-ai', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'wakeUpAI'])->name('succession-planning.wake-ai');
     });
 
     // Test route for AI timing

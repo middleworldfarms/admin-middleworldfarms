@@ -13,11 +13,11 @@ class SymbiosisAIService
     public function __construct()
     {
         $this->apiKey = null; // Not needed for local Ollama
-        $this->baseUrl = 'http://127.0.0.1:8005/api'; // Using custom Ollama port
+        $this->baseUrl = 'http://localhost:11434/api'; // Using default Ollama port
     }
 
     /**
-     * Process a chat completion request using phi3:mini via Ollama
+     * Process a chat completion request using Mistral via Ollama
      */
     public function chat(array $messages, array $options = []): array
     {
@@ -26,7 +26,7 @@ class SymbiosisAIService
             $prompt = $this->convertMessagesToPrompt($messages);
             
             $response = Http::timeout(60)->post($this->baseUrl . '/generate', [
-                'model' => 'phi3:mini',
+                'model' => 'tinyllama:latest',
                 'prompt' => $prompt,
                 'stream' => false,
                 'options' => [
@@ -48,9 +48,9 @@ class SymbiosisAIService
                 ];
             }
 
-            throw new \Exception('phi3:mini/Ollama API request failed: ' . $response->body());
+            throw new \Exception('Mistral/Ollama API request failed: ' . $response->body());
         } catch (\Exception $e) {
-            Log::error('SymbiosisAI phi3:mini chat error: ' . $e->getMessage());
+            Log::error('SymbiosisAI Mistral chat error: ' . $e->getMessage());
             throw $e;
         }
     }

@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Services\FarmOSApi;
-use App\Services\AI\SymbiosisAIService;
+use App\Services\HolisticAICropService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -14,12 +14,12 @@ use Carbon\Carbon;
 class SuccessionPlanningController extends Controller
 {
     protected $farmOSApi;
-    protected $symbiosisAI;
+    protected $holisticAI;
 
-    public function __construct(FarmOSApi $farmOSApi, SymbiosisAIService $symbiosisAI)
+    public function __construct(FarmOSApi $farmOSApi, HolisticAICropService $holisticAI)
     {
         $this->farmOSApi = $farmOSApi;
-        $this->symbiosisAI = $symbiosisAI;
+        $this->holisticAI = $holisticAI;
     }
 
     /**
@@ -27,8 +27,13 @@ class SuccessionPlanningController extends Controller
      */
     public function index()
     {
-        // Note: AI service is now running as systemd service, no wake-up needed
-        // Auto-wake was removed to avoid undefined method errors
+        // Auto-wake AI service on page load to avoid cold start delays (but don't fail if it errors)
+        try {
+            $this->wakeUpAIService();
+        } catch (\Exception $e) {
+            // Don't let AI wake-up failures break the page load
+            Log::debug('AI wake-up failed during page load: ' . $e->getMessage());
+        }
         
         try {
             // Get available crop types and varieties from farmOS
@@ -981,61 +986,22 @@ class SuccessionPlanningController extends Controller
                 'moon_phase' => 'checking'
             ]);
 
-            // Get holistic recommendations using SymbiosisAIService
-            $aiResponse = $this->symbiosisAI->chat([
-                [
-                    'role' => 'system',
-                    'content' => 'You are an expert in holistic and biodynamic farming practices.'
-                ],
-                [
-                    'role' => 'user',
-                    'content' => "Provide holistic farming recommendations for {$cropType} in {$season} season, including companion planting and lunar timing considerations."
-                ]
+            // Get comprehensive holistic recommendations
+            $holisticRec = $this->holisticAI->getHolisticRecommendations($cropType, [
+                'season' => $season,
+                'include_sacred_geometry' => true,
+                'include_lunar_timing' => true,
+                'include_biodynamic' => true
             ]);
-            
-            $holisticRec = $aiResponse['choices'][0]['message']['content'] ?? 'AI recommendations not available';
 
-            // Get spacing recommendations
-            $spacingResponse = $this->symbiosisAI->chat([
-                [
-                    'role' => 'system',
-                    'content' => 'You are an expert in crop spacing and sacred geometry in farming.'
-                ],
-                [
-                    'role' => 'user',
-                    'content' => "What is the recommended spacing for {$cropType}?"
-                ]
-            ]);
-            
-            $spacing = $spacingResponse['choices'][0]['message']['content'] ?? 'Standard spacing recommended';
+            // Get sacred geometry spacing
+            $spacing = $this->holisticAI->getSacredGeometrySpacing($cropType);
 
-            // Get companion planting recommendations
-            $companionResponse = $this->symbiosisAI->chat([
-                [
-                    'role' => 'system',
-                    'content' => 'You are an expert in companion planting.'
-                ],
-                [
-                    'role' => 'user',
-                    'content' => "What are good companion plants for {$cropType}?"
-                ]
-            ]);
-            
-            $companions = $companionResponse['choices'][0]['message']['content'] ?? 'No specific companions recommended';
+            // Get companion mandala
+            $companions = $this->holisticAI->getCompanionMandala($cropType);
 
-            // Get lunar timing recommendations
-            $lunarResponse = $this->symbiosisAI->chat([
-                [
-                    'role' => 'system',
-                    'content' => 'You are an expert in lunar farming and biodynamic practices.'
-                ],
-                [
-                    'role' => 'user',
-                    'content' => "What lunar phase is best for planting {$cropType}?"
-                ]
-            ]);
-            
-            $lunarTiming = $lunarResponse['choices'][0]['message']['content'] ?? 'Plant during waxing moon';
+            // Get current lunar timing
+            $lunarTiming = $this->holisticAI->getCurrentLunarTiming();
 
             $response = [
                 'success' => true,
@@ -1081,20 +1047,7 @@ class SuccessionPlanningController extends Controller
     public function getMoonPhaseGuidance(Request $request): JsonResponse
     {
         try {
-            // Use SymbiosisAI to get lunar timing guidance
-            $messages = [
-                [
-                    'role' => 'system',
-                    'content' => 'You are an expert in biodynamic farming and lunar gardening. Provide current lunar phase information and planting guidance.'
-                ],
-                [
-                    'role' => 'user',
-                    'content' => 'What is the current lunar phase and how does it affect planting and gardening activities?'
-                ]
-            ];
-            
-            $response = $this->symbiosisAI->chat($messages);
-            $guidance = $response['choices'][0]['message']['content'] ?? 'Current lunar phase information not available.';
+            $guidance = $this->holisticAI->getCurrentLunarTiming();
             
             return response()->json([
                 'success' => true,
@@ -1134,20 +1087,7 @@ class SuccessionPlanningController extends Controller
                 return response()->json(['error' => 'Crop type is required'], 400);
             }
 
-            // Use SymbiosisAI to get sacred geometry spacing recommendations
-            $messages = [
-                [
-                    'role' => 'system',
-                    'content' => 'You are an expert in sacred geometry and biodynamic farming. Provide optimal plant spacing based on sacred geometry principles.'
-                ],
-                [
-                    'role' => 'user',
-                    'content' => "What is the optimal sacred geometry spacing for {$cropType} plants in a garden setting?"
-                ]
-            ];
-            
-            $response = $this->symbiosisAI->chat($messages);
-            $spacing = $response['choices'][0]['message']['content'] ?? 'Standard spacing recommended.';
+            $spacing = $this->holisticAI->getSacredGeometrySpacing($cropType);
             
             return response()->json([
                 'success' => true,
@@ -1178,24 +1118,8 @@ class SuccessionPlanningController extends Controller
     private function enhanceWithHolisticWisdom(array $plan, array $params): array
     {
         try {
-            // Use SymbiosisAI to enhance the succession plan
-            $messages = [
-                [
-                    'role' => 'system',
-                    'content' => 'You are an expert crop planning specialist. Enhance succession planting plans with optimal timing, spacing, and companion planting recommendations.'
-                ],
-                [
-                    'role' => 'user',
-                    'content' => 'Enhance this succession planting plan: ' . json_encode($plan) . ' with these parameters: ' . json_encode($params)
-                ]
-            ];
-            
-            $response = $this->symbiosisAI->chat($messages);
-            $enhanced = [
-                'success' => true,
-                'enhanced_plan' => $response['choices'][0]['message']['content'] ?? 'Plan enhancement suggestions not available.',
-                'ai_insights' => 'AI-enhanced succession planning recommendations provided.'
-            ];
+            // Add holistic enhancements to the basic plan
+            $enhanced = $this->holisticAI->enhanceSuccessionPlan($plan, $params);
             
             if ($enhanced['success'] ?? false) {
                 Log::info('✨ Plan enhanced with holistic wisdom', [
@@ -1361,131 +1285,302 @@ class SuccessionPlanningController extends Controller
      */
     public function chat(Request $request): JsonResponse
     {
+        // Fast execution settings for HuggingFace AI
+        set_time_limit(30); // 30 seconds max - fast AI service
+        ini_set('max_execution_time', 30);
+        ini_set('default_socket_timeout', 10); // 10-second socket timeout for fast response
+        
         try {
             $validated = $request->validate([
-                'message' => 'required|string|max:1000',
-                'context' => 'nullable|array'
+                'question' => 'required|string|max:1000',  // Fixed: expect 'question' not 'message'
+                'crop_type' => 'nullable|string',
+                'season' => 'nullable|string',
+                'context' => 'nullable|string'
             ]);
 
-            // Use SymbiosisAIService with phi3:mini
-            $aiService = app(\App\Services\AI\SymbiosisAIService::class);
+            // Build contextual question for AI
+            $question = $validated['question'];
             
-            // Build messages array for AI
-            $messages = [
-                [
-                    'role' => 'system',
-                    'content' => 'You are an expert agricultural AI assistant integrated with farmOS, specializing in sustainable farming, crop planning, succession planting, and regenerative agriculture for the year 2025.
-
-EXPERTISE AREAS:
-- Succession planting and crop rotation strategies
-- Organic and sustainable farming practices
-- Soil health and regenerative agriculture
-- Climate-resilient crop planning
-- Market garden management
-- Biodynamic and lunar gardening
-- Companion planting and polycultures
-- Seed saving and heirloom varieties
-
-CURRENT CONTEXT:
-- Date: August 30, 2025 (late summer/early fall planning season)
-- Focus: Sustainable, regenerative farming practices
-- Integration: farmOS farm management system
-
-RESPONSE GUIDELINES:
-- CONVERSATIONAL AWARENESS: Match response length and detail to the user\'s input complexity
-- Simple greetings ("hi", "hello", "hey"): Give brief, friendly responses (1-2 sentences)
-- Basic questions ("what\'s the best time for X?"): Provide concise, direct answers (2-4 key points)
-- Complex planning questions: Give detailed, step-by-step guidance with timelines
-- Follow-up questions: Reference previous context and build on prior advice
-- Always include practical, actionable advice when relevant
-- Consider seasonal timing and climate factors for 2025
-- Reference sustainable and regenerative practices when relevant
-- If suggesting crops/varieties, consider local adaptation and market demand
-- Use bullet points or numbered lists for clarity when appropriate, but avoid over-formatting simple responses
-
-RESPONSE STYLE:
-- Be professional but approachable
-- Use farming terminology appropriately
-- Focus on solutions and positive outcomes
-- Acknowledge when more specific local information would be helpful'
-                ],
-                [
-                    'role' => 'user',
-                    'content' => $validated['message']
-                ]
-            ];
-
-            // Add context if provided - but be smart about when to include detailed context
-            if (!empty($validated['context'])) {
-                $userMessage = strtolower(trim($validated['message']));
-                $isSimpleGreeting = in_array($userMessage, ['hi', 'hello', 'hey', 'hi!', 'hello!', 'hey!', 'sup', 'yo']);
-                $isBasicQuestion = preg_match('/^(what|how|when|where|why|who)/i', $userMessage) && strlen($userMessage) < 50;
-                
-                // For simple greetings or basic questions, keep context minimal
-                if ($isSimpleGreeting) {
-                    $messages[0]['content'] .= "\n\nCONTEXT: User is greeting the AI assistant.";
-                } elseif ($isBasicQuestion) {
-                    $contextParts = [];
-                    if (isset($validated['context']['crop_name']) && $validated['context']['crop_name']) {
-                        $contextParts[] = "Crop: {$validated['context']['crop_name']}";
-                    }
-                    if (isset($validated['context']['planning_season'])) {
-                        $contextParts[] = "Season: {$validated['context']['planning_season']}";
-                    }
-                    if (!empty($contextParts)) {
-                        $messages[0]['content'] .= "\n\nCONTEXT: " . implode(" | ", $contextParts);
-                    }
-                } else {
-                    // For complex questions, provide full context
-                    $contextParts = [];
-                    
-                    if (isset($validated['context']['crop_name']) && $validated['context']['crop_name']) {
-                        $contextParts[] = "Selected Crop: {$validated['context']['crop_name']}";
-                    }
-                    
-                    if (isset($validated['context']['variety_name']) && $validated['context']['variety_name']) {
-                        $contextParts[] = "Selected Variety: {$validated['context']['variety_name']}";
-                    }
-                    
-                    if (isset($validated['context']['planning_year'])) {
-                        $contextParts[] = "Planning Year: {$validated['context']['planning_year']}";
-                    }
-                    
-                    if (isset($validated['context']['planning_season'])) {
-                        $contextParts[] = "Planning Season: {$validated['context']['planning_season']}";
-                    }
-                    
-                    if (isset($validated['context']['harvest_window']) && $validated['context']['harvest_window']) {
-                        $start = $validated['context']['harvest_window']['start'] ?? 'Unknown';
-                        $end = $validated['context']['harvest_window']['end'] ?? 'Unknown';
-                        $contextParts[] = "Harvest Window: {$start} to {$end}";
-                    }
-                    
-                    if (!empty($contextParts)) {
-                        $contextText = "\n\nCURRENT FARMING CONTEXT:\n" . implode("\n", $contextParts);
-                        $messages[0]['content'] .= $contextText;
-                    }
-                }
+            // Add context if provided
+            if (!empty($validated['crop_type'])) {
+                $question .= " (Context: working with {$validated['crop_type']} crop)";
+            }
+            
+            if (!empty($validated['season'])) {
+                $question .= " (Season: {$validated['season']})";
             }
 
-            $response = $aiService->chat($messages);
+            // Call AI service with fast timeout
+            $response = Http::timeout(3) // 3 seconds - fast AI timeout
+                ->connectTimeout(5) // 5 second connection timeout
+                ->retry(1, 1000) // Retry once after 1 second if it fails
+                ->withOptions([
+                    'stream_context' => stream_context_create([
+                        'http' => [
+                            'timeout' => 3.0,
+                        ]
+                    ])
+                ])
+                ->post(env('AI_SERVICE_URL', 'http://localhost:8005') . '/ask', [
+                    'question' => $question,
+                    'context' => $validated['context'] ?? 'succession_planning_chat'
+                ]);
+
+            if ($response->successful()) {
+                $aiData = $response->json();
+                
+                Log::info('Chat AI response received', [
+                    'user_message' => $validated['question'],
+                    'ai_wisdom' => $aiData['wisdom'] ?? 'basic',
+                    'moon_phase' => $aiData['moon_phase'] ?? 'unknown'
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'answer' => $aiData['answer'] ?? 'AI response unavailable',
+                    'wisdom' => $aiData['wisdom'] ?? 'Basic agricultural guidance',
+                    'moon_phase' => $aiData['moon_phase'] ?? 'unknown',
+                    'context' => $aiData['context'] ?? null,
+                    'source' => 'Mistral 7B Holistic AI',
+                    'timestamp' => now()->toISOString()
+                ]);
+            } else {
+                throw new \Exception('AI service returned: ' . $response->status());
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Chat AI service error: ' . $e->getMessage());
+            
+            // Return fallback wisdom instead of error
+            $fallbackWisdom = $this->getFallbackChatWisdom($validated['question'] ?? 'farming question');
             
             return response()->json([
                 'success' => true,
-                'answer' => $response['choices'][0]['message']['content'] ?? 'AI response unavailable',
-                'model' => 'phi3:mini',
-                'source' => 'phi3:mini via Ollama',
+                'answer' => $fallbackWisdom,
+                'wisdom' => 'Fallback wisdom - AI service temporarily unavailable',
+                'moon_phase' => 'unknown',
+                'source' => 'Fallback System',
                 'timestamp' => now()->toISOString()
             ]);
+        }
+    }
+
+    /**
+     * Generate fallback wisdom when AI is unavailable
+     */
+    private function getFallbackChatWisdom(string $message): string
+    {
+        $fallbackResponses = [
+            'planting' => 'For optimal planting, consider soil temperature, moisture levels, and local frost dates. Each crop has specific requirements for successful germination.',
+            'harvest' => 'Harvest timing depends on crop maturity indicators. Look for size, color, and texture changes that signal peak readiness.',
+            'spacing' => 'Proper plant spacing prevents competition and disease. Follow seed packet recommendations and adjust for your growing conditions.',
+            'companion' => 'Companion planting can improve soil health, deter pests, and maximize garden space efficiency.',
+            'soil' => 'Healthy soil is the foundation of successful farming. Test pH, add organic matter, and ensure proper drainage.',
+            'season' => 'Work with your local growing season. Know your frost dates and choose varieties suited to your climate zone.',
+            'water' => 'Consistent moisture is key. Water deeply but less frequently to encourage strong root systems.',
+            'default' => 'Successful farming combines traditional wisdom with observation of your specific growing conditions.'
+        ];
+
+        // Match keywords to appropriate responses
+        $message = strtolower($message);
+        
+        foreach ($fallbackResponses as $keyword => $response) {
+            if (strpos($message, $keyword) !== false) {
+                return $response;
+            }
+        }
+        
+        return $fallbackResponses['default'];
+    }
+
+    /**
+     * Wake up AI service to avoid cold start delays
+     */
+    private function wakeUpAIService()
+    {
+        try {
+            // Send a quick wake-up ping to the AI service with minimal timeout
+            // Make it completely non-blocking to prevent any 502 issues
+            Http::timeout(1)->connectTimeout(1)->post(env('AI_SERVICE_URL', 'http://localhost:8005') . '/ask', [
+                'question' => 'wake up',
+                'context' => 'system_wake'
+            ]);
+            
+            Log::debug('AI service wake-up ping sent successfully');
             
         } catch (\Exception $e) {
-            Log::error('Succession Planning Chat Error: ' . $e->getMessage());
+            // Completely silent fail - don't even log unless in debug mode
+            // This prevents any possibility of causing 502 errors
+            if (config('app.debug')) {
+                Log::debug('AI wake-up ping failed (non-critical): ' . $e->getMessage());
+            }
+        }
+    }
+
+    /**
+     * Get AI service status
+     */
+    public function getAIStatus(): JsonResponse
+    {
+        try {
+            $response = Http::timeout(3)->get(env('AI_SERVICE_URL', 'http://localhost:8005') . '/health');
             
+            if ($response->successful()) {
+                $data = $response->json();
+                return response()->json([
+                    'status' => 'online',
+                    'health' => $data['status'] ?? 'healthy',
+                    'model' => $data['model'] ?? 'llama31-8b',
+                    'response_time' => '< 3s',
+                    'last_check' => now()->format('H:i:s')
+                ]);
+            } else {
+                throw new \Exception('Health check failed: ' . $response->status());
+            }
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'offline',
+                'health' => 'unavailable',
+                'model' => 'unknown',
+                'error' => $e->getMessage(),
+                'last_check' => now()->format('H:i:s')
+            ]);
+        }
+    }
+
+    /**
+     * Manual wake-up AI endpoint
+     */
+    public function wakeUpAI(): JsonResponse
+    {
+        try {
+            $this->wakeUpAIService();
+            
+            // Test if AI is responding after wake-up
+            $response = Http::timeout(5)->post(env('AI_SERVICE_URL', 'http://localhost:8005') . '/ask', [
+                'question' => 'test response',
+                'context' => 'wake_up_test'
+            ]);
+            
+            if ($response->successful()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'AI service is now awake and responding',
+                    'status' => 'online',
+                    'model' => 'llama31-8b'
+                ]);
+            } else {
+                throw new \Exception('AI test failed: ' . $response->status());
+            }
+            
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'AI service temporarily unavailable',
-                'message' => $e->getMessage()
+                'message' => 'AI service wake-up failed: ' . $e->getMessage(),
+                'status' => 'offline'
             ], 500);
         }
+    }
+
+    /**
+     * Get harvest window analysis from HuggingFace AI service
+     */
+    private function getHuggingFaceHarvestWindow(string $cropType, string $variety = null, array $contextualData = []): array
+    {
+        try {
+            // Build detailed question for AI about harvest window
+            $varietyText = $variety && $variety !== 'Standard' ? " variety $variety" : '';
+            $question = "For $cropType$varietyText succession planting, what is the optimal harvest window duration in days, how many succession plantings should I do, and how many days between each planting? Please provide specific numbers for Brussels Sprouts growing.";
+            
+            // Add context
+            if (!empty($contextualData)) {
+                $contextText = '';
+                if (isset($contextualData['succession_context'])) {
+                    $contextText .= ' ' . $contextualData['succession_context'];
+                }
+                if (isset($contextualData['current_season_performance'])) {
+                    $contextText .= ' ' . $contextualData['current_season_performance'];
+                }
+                $question .= $contextText;
+            }
+
+            // Call HuggingFace AI service
+            $response = Http::timeout(10)
+                ->connectTimeout(10)
+                ->retry(2, 2000)
+                ->post(env('AI_SERVICE_URL', 'http://localhost:8005') . '/ask', [
+                    'question' => $question,
+                    'context' => 'harvest_window_analysis'
+                ]);
+
+            if ($response->successful()) {
+                $aiData = $response->json();
+                
+                if (isset($aiData['answer'])) {
+                    // Parse AI response for specific values
+                    $answer = $aiData['answer'];
+                    
+                    // Extract numbers from AI response
+                    $harvestDays = $this->extractNumberFromText($answer, ['harvest window', 'harvest period', 'harvesting period'], 60); // default 60 days for Brussels Sprouts
+                    $successions = $this->extractNumberFromText($answer, ['succession', 'planting'], 3); // default 3 successions
+                    $daysBetween = $this->extractNumberFromText($answer, ['between', 'interval', 'apart'], 21); // default 21 days
+                    
+                    Log::info('HuggingFace harvest window AI response', [
+                        'crop' => $cropType,
+                        'variety' => $variety,
+                        'ai_answer' => $answer,
+                        'extracted_harvest_days' => $harvestDays,
+                        'extracted_successions' => $successions,
+                        'extracted_interval' => $daysBetween
+                    ]);
+
+                    return [
+                        'success' => true,
+                        'optimal_harvest_days' => $harvestDays,
+                        'recommended_successions' => $successions,
+                        'days_between_plantings' => $daysBetween,
+                        'peak_harvest_days' => $harvestDays,
+                        'ai_confidence' => 'huggingface_llama',
+                        'source' => 'HuggingFace Llama 3.1 8B',
+                        'raw_answer' => $answer
+                    ];
+                }
+            }
+
+            // If we get here, the AI call failed
+            Log::warning('HuggingFace harvest window analysis failed', [
+                'crop' => $cropType,
+                'status' => $response->status(),
+                'response' => $response->body()
+            ]);
+
+            return ['success' => false, 'error' => 'AI service unavailable'];
+
+        } catch (\Exception $e) {
+            Log::error('HuggingFace harvest window error: ' . $e->getMessage());
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Extract numeric values from AI text response
+     */
+    private function extractNumberFromText(string $text, array $keywords, int $defaultValue): int
+    {
+        $text = strtolower($text);
+        
+        foreach ($keywords as $keyword) {
+            // Look for patterns like "harvest window: 45 days" or "45 day harvest window"
+            $pattern = '/(?:' . preg_quote($keyword, '/') . '.*?(\d+)|(\d+).*?' . preg_quote($keyword, '/') . ')/i';
+            if (preg_match($pattern, $text, $matches)) {
+                $number = !empty($matches[1]) ? intval($matches[1]) : intval($matches[2]);
+                if ($number > 0 && $number < 500) { // Sanity check
+                    return $number;
+                }
+            }
+        }
+        
+        return $defaultValue;
     }
 }
