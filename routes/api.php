@@ -27,3 +27,25 @@ Route::middleware('admin.auth')->prefix('conversations')->group(function () {
     Route::get('/user/{userId}', [ConversationController::class, 'userConversations']);
     Route::get('/{conversationId}', [ConversationController::class, 'show']);
 });
+
+// Variety API routes
+Route::middleware('admin.auth')->prefix('varieties')->group(function () {
+    Route::get('/{id}', function ($id) {
+        try {
+            // Get variety data from farmOS API
+            $farmOSApi = app(\App\Services\FarmOSApi::class);
+            $varieties = $farmOSApi->getAvailableCropTypes()['varieties'] ?? [];
+            
+            // Find the specific variety
+            $variety = collect($varieties)->firstWhere('id', $id);
+            
+            if (!$variety) {
+                return response()->json(['error' => 'Variety not found'], 404);
+            }
+            
+            return response()->json($variety);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Failed to fetch variety data'], 500);
+        }
+    });
+});

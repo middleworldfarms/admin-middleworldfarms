@@ -1200,6 +1200,33 @@
         };
     }
 
+    function extractDaysFromResponse(text) {
+        // Extract numbers that could represent days from AI response
+        const dayPatterns = [
+            /(\d+)\s*days?/i,
+            /(\d+)\s*day/i,
+            /days?\s*(\d+)/i,
+            /day\s*(\d+)/i,
+            /(\d+)\s*weeks?/i,
+            /(\d+)\s*week/i
+        ];
+        
+        for (const pattern of dayPatterns) {
+            const match = text.match(pattern);
+            if (match) {
+                const number = parseInt(match[1]);
+                // Convert weeks to days if needed
+                if (pattern.source.includes('week')) {
+                    return number * 7;
+                }
+                return number;
+            }
+        }
+        
+        // Default fallback
+        return 60; // 60 days for Brussels sprouts
+    }
+
     async function checkAIServiceStatus() {
         const statusLight = document.getElementById('aiStatusLight');
         const statusText = document.getElementById('aiStatusText');
