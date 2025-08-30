@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Services\FarmOSApi;
-use App\Services\HolisticAICropService;
+use App\Services\AI\SymbiosisAIService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -14,12 +14,12 @@ use Carbon\Carbon;
 class SuccessionPlanningController extends Controller
 {
     protected $farmOSApi;
-    protected $holisticAI;
+    protected $symbiosisAI;
 
-    public function __construct(FarmOSApi $farmOSApi, HolisticAICropService $holisticAI)
+    public function __construct(FarmOSApi $farmOSApi, SymbiosisAIService $symbiosisAI)
     {
         $this->farmOSApi = $farmOSApi;
-        $this->holisticAI = $holisticAI;
+        $this->symbiosisAI = $symbiosisAI;
     }
 
     /**
@@ -27,19 +27,34 @@ class SuccessionPlanningController extends Controller
      */
     public function index()
     {
-        // Auto-wake AI service on page load to avoid cold start delays (but don't fail if it errors)
-        try {
-            $this->wakeUpAIService();
-        } catch (\Exception $e) {
-            // Don't let AI wake-up failures break the page load
-            Log::debug('AI wake-up failed during page load: ' . $e->getMessage());
-        }
+        // Temporarily disable AI wake-up to debug the include error
+        // try {
+        //     $this->wakeUpAIService();
+        // } catch (\Exception $e) {
+        //     // Don't let AI wake-up failures break the page load
+        //     Log::debug('AI wake-up failed during page load: ' . $e->getMessage());
+        // }
         
         try {
-            // Get available crop types and varieties from farmOS
-            $cropData = $this->farmOSApi->getAvailableCropTypes();
-            $geometryAssets = $this->farmOSApi->getGeometryAssets();
-            $availableBeds = $this->extractAvailableBeds($geometryAssets);
+            // Temporarily disable FarmOS API calls to debug
+            // $cropData = $this->farmOSApi->getAvailableCropTypes();
+            // $geometryAssets = $this->farmOSApi->getGeometryAssets();
+            // $availableBeds = $this->extractAvailableBeds($geometryAssets);
+            
+            // Use fallback data for now
+            $cropData = [
+                'types' => [
+                    ['id' => 'lettuce', 'name' => 'lettuce', 'label' => 'Lettuce'],
+                    ['id' => 'carrot', 'name' => 'carrot', 'label' => 'Carrot'],
+                    ['id' => 'radish', 'name' => 'radish', 'label' => 'Radish'],
+                    ['id' => 'spinach', 'name' => 'spinach', 'label' => 'Spinach'],
+                    ['id' => 'kale', 'name' => 'kale', 'label' => 'Kale'],
+                    ['id' => 'arugula', 'name' => 'arugula', 'label' => 'Arugula'],
+                    ['id' => 'beets', 'name' => 'beets', 'label' => 'Beets']
+                ],
+                'varieties' => []
+            ];
+            $availableBeds = $this->getFallbackBeds();
             
             // Crop timing presets for common market garden crops
             $cropPresets = $this->getCropTimingPresets();
@@ -987,7 +1002,7 @@ class SuccessionPlanningController extends Controller
             ]);
 
             // Get comprehensive holistic recommendations
-            $holisticRec = $this->holisticAI->getHolisticRecommendations($cropType, [
+            $holisticRec = $this->symbiosisAI->getHolisticRecommendations($cropType, [
                 'season' => $season,
                 'include_sacred_geometry' => true,
                 'include_lunar_timing' => true,
@@ -995,13 +1010,13 @@ class SuccessionPlanningController extends Controller
             ]);
 
             // Get sacred geometry spacing
-            $spacing = $this->holisticAI->getSacredGeometrySpacing($cropType);
+            $spacing = $this->symbiosisAI->getSacredGeometrySpacing($cropType);
 
             // Get companion mandala
-            $companions = $this->holisticAI->getCompanionMandala($cropType);
+            $companions = $this->symbiosisAI->getCompanionMandala($cropType);
 
             // Get current lunar timing
-            $lunarTiming = $this->holisticAI->getCurrentLunarTiming();
+            $lunarTiming = $this->symbiosisAI->getCurrentLunarTiming();
 
             $response = [
                 'success' => true,
@@ -1047,7 +1062,7 @@ class SuccessionPlanningController extends Controller
     public function getMoonPhaseGuidance(Request $request): JsonResponse
     {
         try {
-            $guidance = $this->holisticAI->getCurrentLunarTiming();
+            $guidance = $this->symbiosisAI->getCurrentLunarTiming();
             
             return response()->json([
                 'success' => true,
@@ -1087,7 +1102,7 @@ class SuccessionPlanningController extends Controller
                 return response()->json(['error' => 'Crop type is required'], 400);
             }
 
-            $spacing = $this->holisticAI->getSacredGeometrySpacing($cropType);
+            $spacing = $this->symbiosisAI->getSacredGeometrySpacing($cropType);
             
             return response()->json([
                 'success' => true,
@@ -1119,7 +1134,7 @@ class SuccessionPlanningController extends Controller
     {
         try {
             // Add holistic enhancements to the basic plan
-            $enhanced = $this->holisticAI->enhanceSuccessionPlan($plan, $params);
+            $enhanced = $this->symbiosisAI->enhanceSuccessionPlan($plan, $params);
             
             if ($enhanced['success'] ?? false) {
                 Log::info('✨ Plan enhanced with holistic wisdom', [
