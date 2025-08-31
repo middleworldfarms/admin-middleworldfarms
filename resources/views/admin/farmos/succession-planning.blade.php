@@ -396,24 +396,62 @@
         padding: 2rem;
         text-align: center;
         color: #6c757d;
-        font-style: italic;
+        background: #f8f9fa;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .loading-indicator i {
+        margin-right: 0.5rem;
+    }
+
+    .quick-form-error {
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+        border-radius: 0.5rem;
+        padding: 2rem;
+        text-align: center;
+        color: #721c24;
+    }
+
+    .iframe-loading {
+        position: relative;
+    }
+
+    .iframe-loading::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+        border-radius: 0.5rem;
+    }
+
+    .iframe-loading::after {
+        content: 'Loading farmOS Quick Form...';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #6c757d;
+        font-weight: 500;
+        z-index: 11;
     }
 
     .tab-button.overdue {
+        background: rgba(220, 53, 69, 0.1);
         color: #dc3545;
     }
 
-    .tab-button.overdue::before {
-        content: '⚠️ ';
-    }
-
-    .quick-form-container h6 {
-        margin-bottom: 0.5rem;
-        font-weight: 600;
-    }
-
-    .quick-form-container p {
-        margin-bottom: 1rem;
+    .tab-button.overdue.active {
+        background: #dc3545;
+        color: white;
     }
 
     /* Responsive design for mobile */
@@ -423,16 +461,18 @@
         }
 
         .tab-button {
-            padding: 0.75rem 1rem;
+            flex: 1 1 auto;
+            min-width: 120px;
             font-size: 0.9rem;
+            padding: 0.75rem 1rem;
         }
 
         .quick-form-iframe {
             height: 400px;
         }
 
-        .tab-pane {
-            padding: 1rem;
+        .succession-info {
+            padding: 0.75rem;
         }
     }
 </style>
@@ -687,6 +727,16 @@
                 <div class="planning-card">
                     <div class="planning-section">
                         <h4><i class="fas fa-list-check text-success"></i> Succession Schedule</h4>
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-lightbulb text-primary"></i> Quick Start Guide</h6>
+                            <ul class="mb-0 small">
+                                <li><strong>Click tabs</strong> to switch between successions</li>
+                                <li><strong>Review forms</strong> in each tab (Seeding → Transplant → Harvest)</li>
+                                <li><strong>Submit to farmOS</strong> using the embedded Quick Forms</li>
+                                <li><strong>Keyboard shortcuts:</strong> Number keys (1-9) or arrow keys to navigate</li>
+                                <li><strong>Track progress:</strong> Completed tabs show a green checkmark</li>
+                            </ul>
+                        </div>
                         <div id="successionSummary" class="row">
                             <!-- Succession cards will be populated here -->
                         </div>
@@ -1598,8 +1648,9 @@ Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, co
             notes = `Extended root vegetable harvest: June-November (${defaultDays} days). Can extend with row covers.`;
         } else if (cropNameLower.includes('lettuce') || cropNameLower.includes('spinach')) {
             // Leafy greens: shorter harvest periods
-            defaultStart = new Date(today); defaultStart.setMonth(today.getMonth() + 1);
-            defaultEnd = new Date(defaultStart); defaultEnd.setMonth(defaultStart.getMonth() + 2);
+            defaultStart = new Date(today);
+            defaultEnd = new Date(today);
+            defaultEnd.setMonth(defaultEnd.getMonth() + 2);
             defaultDays = 60;
             notes = `Leafy green harvest window: ${defaultDays} days. Multiple successions recommended.`;
         } else {
@@ -1769,7 +1820,7 @@ Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, co
             option.value = variety.id;
             option.textContent = variety.name || (variety.title || 'Unnamed variety');
             option.dataset.name = variety.name || option.textContent;
-            // Attach raw data for debugging if needed
+                                                                                         // Attach raw data for debugging if needed
             option.dataset.raw = JSON.stringify({ id: variety.id, parent_id: variety.parent_id, crop_id: variety.crop_id, crop_type: variety.crop });
             varietySelect.appendChild(option);
         });
@@ -1783,7 +1834,7 @@ Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, co
         
         const seasonStart = new Date('2024-03-01');
         const seasonEnd = new Date('2024-11-30');
-        const seasonDays = Math.ceil((seasonEnd - seasonStart) / (1000 * 60 * 60 * 24));
+        const seasonDays = Math.ceil((seasonEnd - seasonStart) / (1000 * 60 * 60 * 60 * 24));
         
         const harvestStart = new Date(startDate);
         const harvestEnd = new Date(endDate);
@@ -1888,6 +1939,7 @@ Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, co
         // Initialize tab functionality
         setTimeout(() => {
             initializeTabs();
+            updateExportButton();
         }, 100);
     }
 
@@ -1936,31 +1988,55 @@ Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, co
                     <div class="quick-form-container">
                         <h6><i class="fas fa-file-alt text-success"></i> Quick Form - Seeding Log</h6>
                         <p class="text-muted small">Review and submit this seeding log to farmOS</p>
-                        <iframe class="quick-form-iframe"
-                                src="${planting.quick_form_urls?.seeding || '#'}"
-                                id="iframe-seeding-${index}"
-                                onload="onIframeLoad(${index}, 'seeding')">
-                        </iframe>
+                        ${planting.quick_form_urls?.seeding ?
+                            `<iframe class="quick-form-iframe iframe-loading"
+                                    src="${planting.quick_form_urls.seeding}"
+                                    id="iframe-seeding-${index}"
+                                    onload="onIframeLoad(${index}, 'seeding')">
+                            </iframe>` :
+                            `<div class="quick-form-error">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <strong>Quick Form Unavailable</strong>
+                                <br>
+                                <small>farmOS Quick Form integration not configured</small>
+                            </div>`
+                        }
                     </div>
 
                     <div class="quick-form-container">
                         <h6><i class="fas fa-spa text-warning"></i> Quick Form - Transplant Log</h6>
                         <p class="text-muted small">Review and submit this transplant log to farmOS</p>
-                        <iframe class="quick-form-iframe"
-                                src="${planting.quick_form_urls?.transplant || '#'}"
-                                id="iframe-transplant-${index}"
-                                onload="onIframeLoad(${index}, 'transplant')">
-                        </iframe>
+                        ${planting.quick_form_urls?.transplant ?
+                            `<iframe class="quick-form-iframe iframe-loading"
+                                    src="${planting.quick_form_urls.transplant}"
+                                    id="iframe-transplant-${index}"
+                                    onload="onIframeLoad(${index}, 'transplant')">
+                            </iframe>` :
+                            `<div class="quick-form-error">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <strong>Quick Form Unavailable</strong>
+                                <br>
+                                <small>farmOS Quick Form integration not configured</small>
+                            </div>`
+                        }
                     </div>
 
                     <div class="quick-form-container">
                         <h6><i class="fas fa-leaf text-danger"></i> Quick Form - Harvest Log</h6>
                         <p class="text-muted small">Review and submit this harvest log to farmOS</p>
-                        <iframe class="quick-form-iframe"
-                                src="${planting.quick_form_urls?.harvest || '#'}"
-                                id="iframe-harvest-${index}"
-                                onload="onIframeLoad(${index}, 'harvest')">
-                        </iframe>
+                        ${planting.quick_form_urls?.harvest ?
+                            `<iframe class="quick-form-iframe iframe-loading"
+                                    src="${planting.quick_form_urls.harvest}"
+                                    id="iframe-harvest-${index}"
+                                    onload="onIframeLoad(${index}, 'harvest')">
+                            </iframe>` :
+                            `<div class="quick-form-error">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <strong>Quick Form Unavailable</strong>
+                                <br>
+                                <small>farmOS Quick Form integration not configured</small>
+                            </div>`
+                        }
                     </div>
                 </div>
             `;
@@ -2220,193 +2296,177 @@ Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, co
     }
 
     function exportPlan() {
+        exportSuccessionData();
+    }
+
+    // Export succession plan summary
+    function exportSuccessionPlan() {
         if (!currentSuccessionPlan) {
-            showError('No succession plan to export');
+            showToast('No succession plan to export', 'warning');
             return;
         }
 
-        const dataStr = JSON.stringify(currentSuccessionPlan, null, 2);
-        const dataBlob = new Blob([dataStr], {type: 'application/json'});
-        
-        const link = document.createElement('a');
-               link.href = URL.createObjectURL(dataBlob);
-        link.download = `succession-plan-${new Date().toISOString().split('T')[0]}.json`;
-        link.click();
-        
-        
-        showSuccess('Succession plan exported successfully');
-    }
+        const plan = currentSuccessionPlan;
+        let exportText = `farmOS Succession Plan Export\n`;
+        exportText += `Generated: ${new Date().toLocaleString()}\n\n`;
 
-    function resetPlanner() {
-        if (confirm('Reset the succession planner and start over?')) {
-            // Reset form
-            document.getElementById('cropSelect').value = '';
-            document.getElementById('varietySelect').innerHTML = '<option value="">Select crop first...</option>';
-            document.getElementById('harvestStart').value = '';
-            document.getElementById('harvestEnd').value = '';
-            clearBedSelection();
-            
-            // Reset drag bar
-            const dragBar = document.getElementById('dragHarvestBar');
-            dragBar.style.left = '30%';
-            dragBar.style.width = '40%';
-            document.getElementById('harvestBarText').textContent = 'Harvest Window';
-            
-            // Hide results
-            document.getElementById('resultsSection').style.display = 'none';
-            
-            // Clear data
-            currentSuccessionPlan = null;
-            
-            // Destroy chart
-            if (timelineChart) {
-                timelineChart.destroy();
-                timelineChart = null;
-            }
-            
-            // Reset AI chat
-            document.getElementById('aiResponseArea').innerHTML = `
-                <div class="ai-response" id="welcomeMessage">
-                    <strong>🌱 Holistic AI Ready</strong><br>
-                    I combine traditional farming wisdom with modern succession planning. Ask me about optimal planting times, crop rotations, companion planting, or biodynamic timing for your succession crops.
-                </div>
-            `;
-            
-            showSuccess('Succession planner reset');
-        }
-    }
-
-    function showResults() {
-        document.getElementById('resultsSection').style.display = 'block';
-        document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
-    }
-
-    function showLoading(show) {
-        const overlay = document.getElementById('loadingOverlay');
-        overlay.classList.toggle('d-none', !show);
-    }
-
-    function showError(message) {
-        console.error('❌ Error:', message);
-        alert('❌ Error: ' + message);
-    }
-
-    function showSuccess(message) {
-        console.log('✅ Success:', message);
-        alert('✅ Success: ' + message);
-    }
-    
-    async function updateHarvestBarForVariety(varietyId) {
-        try {
-            if (!varietyId) return;
-
-            const response = await fetch(`${API_BASE}/varieties/${varietyId}`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            });
-
-            if (!response.ok) {
-                console.error('Failed to fetch variety data:', response.statusText);
-                return;
-            }
-
-            const varietyData = await response.json();
-            const harvestStart = varietyData.harvestStart || varietyData.harvest_start || varietyData.harvest_start_date || varietyData.harvest_from;
-            const harvestEnd = varietyData.harvestEnd || varietyData.harvest_end || varietyData.harvest_to || varietyData.harvest_end_date;
-
-            if (!harvestStart || !harvestEnd) {
-                console.warn('Missing harvest dates on variety record, falling back to AI/generic');
-                return;
-            }
-
-            const startDate = new Date(harvestStart);
-            const endDate = new Date(harvestEnd);
-
-            const dragBar = document.getElementById('dragHarvestBar');
-            const startDisplay = document.getElementById('startDateDisplay');
-            const endDisplay = document.getElementById('endDateDisplay');
-
-            // If dragBar isn't mounted yet, just set the date inputs and displays and return
-            if (!dragBar) {
-                console.warn('Deferred DOM Node could not be resolved to a valid node - setting date inputs only');
-                if (startDisplay) startDisplay.textContent = startDate.toLocaleDateString();
-                if (endDisplay) endDisplay.textContent = endDate.toLocaleDateString();
-                document.getElementById('harvestStart').value = startDate.toISOString().split('T')[0];
-                document.getElementById('harvestEnd').value = endDate.toISOString().split('T')[0];
-                return;
-            }
-
-            const startPercentage = dateToPercentage(startDate);
-            const endPercentage = dateToPercentage(endDate);
-
-            dragBar.style.left = `${startPercentage}%`;
-            dragBar.style.width = `${endPercentage - startPercentage}%`;
-
-            if (startDisplay) startDisplay.textContent = startDate.toLocaleDateString();
-            if (endDisplay) endDisplay.textContent = endDate.toLocaleDateString();
-
-            console.log(`Updated harvest bar for variety ${varietyId}: ${startDate.toDateString()} - ${endDate.toDateString()}`);
-        } catch (error) {
-            console.error('Error updating harvest bar for variety:', error);
-        }
-    }
-
-    // Example usage
-    const selectedVarietyId = document.getElementById('varietySelect').value;
-    updateHarvestBarForVariety(selectedVarietyId);
-
-    function switchTab(tabIndex) {
-        // Hide all tab panes
-        const tabPanes = document.querySelectorAll('.tab-pane');
-        tabPanes.forEach(pane => pane.classList.remove('active'));
-
-        // Remove active class from all tab buttons
-        const tabButtons = document.querySelectorAll('.tab-button');
-        tabButtons.forEach(button => button.classList.remove('active'));
-
-        // Show selected tab pane
-        const selectedPane = document.getElementById(`tab-${tabIndex}`);
-        if (selectedPane) {
-            selectedPane.classList.add('active');
+        if (plan.crop) {
+            exportText += `Crop: ${plan.crop.name || plan.crop.label}\n`;
         }
 
-        // Activate selected tab button
-        if (tabButtons[tabIndex]) {
-            tabButtons[tabIndex].classList.add('active');
+        if (plan.variety) {
+            exportText += `Variety: ${plan.variety.name || plan.variety.title}\n`;
         }
 
-        console.log(`🔄 Switched to Succession ${tabIndex + 1}`);
+        exportText += `Harvest Window: ${plan.harvest_start} to ${plan.harvest_end}\n\n`;
+
+        exportText += `Successions:\n`;
+        exportText += `==========\n\n`;
+
+        plan.plantings.forEach((planting, index) => {
+            exportText += `Succession ${index + 1}:\n`;
+            exportText += `- Seeding: ${planting.seeding_date || planting.planting_date}\n`;
+            if (planting.transplant_date) {
+                exportText += `- Transplant: ${planting.transplant_date}\n`;
+            }
+            exportText += `- Harvest: ${planting.harvest_date}`;
+            if (planting.harvest_end_date) {
+                exportText += ` to ${planting.harvest_end_date}`;
+            }
+            exportText += `\n`;
+            if (planting.bed_name) {
+                exportText += `- Bed: ${planting.bed_name}\n`;
+            }
+            if (planting.quantity) {
+                exportText += `- Quantity: ${planting.quantity}\n`;
+            }
+            exportText += `\n`;
+        });
+
+        // Create and download file
+        const blob = new Blob([exportText], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `succession-plan-${new Date().toISOString().split('T')[0]}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        showToast('Succession plan exported successfully!', 'success');
     }
 
-    function onIframeLoad(tabIndex, formType) {
-        const iframe = document.getElementById(`iframe-${formType}-${tabIndex}`);
-        if (iframe) {
-            console.log(`✅ ${formType} form loaded for Succession ${tabIndex + 1}`);
+    // Add global functions for iframe communication
+    window.farmOSFormSubmitted = function(successionIndex, formType, success) {
+        handleFormSubmission(successionIndex, formType, success);
+    };
 
-            // Add loading indicator removal
-            const container = iframe.closest('.quick-form-container');
-            if (container) {
-                // Remove any existing loading indicators
-                const loadingIndicator = container.querySelector('.loading-indicator');
-                if (loadingIndicator) {
-                    loadingIndicator.remove();
+    window.farmOSFormError = function(successionIndex, formType, error) {
+        console.error(`Form error for Succession ${successionIndex + 1} ${formType}:`, error);
+        showToast(`Error submitting ${formType} form: ${error}`, 'error');
+    };
+
+    function handleFormSubmission(successionIndex, formType, success = true) {
+        if (success) {
+            markSuccessionComplete(successionIndex, formType);
+
+            // Check if all forms for this succession are completed
+            const successionCompleted = checkSuccessionCompletion(successionIndex);
+            if (successionCompleted) {
+                showToast(`Succession ${successionIndex + 1} completed! All logs submitted to farmOS.`, 'success');
+
+                // Auto-advance to next tab if available
+                const nextTabIndex = successionIndex + 1;
+                const nextTabButton = document.querySelectorAll('.tab-button')[nextTabIndex];
+                if (nextTabButton) {
+                    setTimeout(() => {
+                        switchTab(nextTabIndex);
+                    }, 2000); // Wait 2 seconds before auto-advancing
                 }
             }
+        } else {
+            showToast(`Failed to submit ${formType} log for Succession ${successionIndex + 1}`, 'error');
         }
     }
 
-    function markSuccessionComplete(successionIndex, formType) {
+    function checkSuccessionCompletion(successionIndex) {
+        // This would ideally check with farmOS API to see if all logs exist
+        // For now, we'll use a simple local check
         const tabButton = document.querySelectorAll('.tab-button')[successionIndex];
-        if (tabButton) {
-            tabButton.classList.add('completed');
-            console.log(`✅ Succession ${successionIndex + 1} ${formType} form submitted`);
+        return tabButton && tabButton.classList.contains('completed');
+    }
+
+    function refreshTabData(successionIndex) {
+        // Refresh the data for a specific tab (useful after form submissions)
+        const tabPane = document.getElementById(`tab-${successionIndex}`);
+        if (tabPane) {
+            // Add a subtle refresh animation
+            tabPane.style.opacity = '0.7';
+            setTimeout(() => {
+                tabPane.style.opacity = '1';
+            }, 500);
+
+            console.log(`🔄 Refreshed data for Succession ${successionIndex + 1}`);
         }
     }
 
-    // Initialize tab functionality when results are shown
+    function exportSuccessionData() {
+        const plan = currentSuccessionPlan;
+        if (!plan) {
+            showToast('No succession plan to export', 'warning');
+            return;
+        }
+
+        // Create export data
+        const exportData = {
+            plan: plan,
+            exported_at: new Date().toISOString(),
+            total_successions: plan.plantings?.length || 0,
+            forms_generated: plan.plantings?.filter(p => p.quick_form_urls).length || 0
+        };
+
+        // Create and download JSON file
+        const dataStr = JSON.stringify(exportData, null, 2);
+        const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+
+        const exportFileDefaultName = `succession-plan-${plan.crop?.name || 'unknown'}-${new Date().toISOString().split('T')[0]}.json`;
+
+        const linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', exportFileDefaultName);
+        linkElement.click();
+
+        showToast('Succession plan exported successfully!', 'success');
+    }
+
+    function updateExportButton() {
+        const exportBtn = document.getElementById('exportPlanBtn');
+        if (exportBtn && currentSuccessionPlan) {
+            exportBtn.style.display = 'inline-block';
+            exportBtn.onclick = exportSuccessionData;
+        }
+    }
+
+    function testQuickFormUrls() {
+        if (!currentSuccessionPlan || !currentSuccessionPlan.plantings) {
+            console.warn('No succession plan available for testing');
+            return;
+        }
+
+        console.log('🧪 Testing Quick Form URLs:');
+        currentSuccessionPlan.plantings.forEach((planting, index) => {
+            console.log(`Succession ${index + 1}:`, {
+                seeding: planting.quick_form_urls?.seeding || 'Not available',
+                transplant: planting.quick_form_urls?.transplant || 'Not available',
+                harvest: planting.quick_form_urls?.harvest || 'Not available'
+            });
+        });
+    }
+
+    // Add to window for debugging
+    window.testQuickFormUrls = testQuickFormUrls;
+
     function initializeTabs() {
         // Add loading indicators to iframes
         const iframes = document.querySelectorAll('.quick-form-iframe');
@@ -2420,7 +2480,45 @@ Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, co
             }
         });
 
-        console.log('🔧 Tab functionality initialized');
+        // Add error handling to iframes
+        addIframeErrorHandling();
+
+        // Add toast notification styles
+        addToastStyles();
+
+        // Add keyboard navigation
+        addKeyboardNavigation();
+
+        console.log('🔧 Tab functionality initialized with error handling, notifications, and keyboard navigation');
+    }
+
+    function addIframeErrorHandling() {
+        const iframes = document.querySelectorAll('.quick-form-iframe');
+        iframes.forEach((iframe, index) => {
+            iframe.addEventListener('error', function() {
+                const container = iframe.closest('.quick-form-container');
+                if (container) {
+                    container.innerHTML = `
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Unable to load farmOS Quick Form. Please check your connection and try again.
+                            <br><small class="text-muted">If the problem persists, try refreshing the page.</small>
+                        </div>
+                    `;
+                }
+            });
+
+            // Add load timeout handling
+            setTimeout(() => {
+                if (!iframe.contentWindow || iframe.contentWindow.length === 0) {
+                    const container = iframe.closest('.quick-form-container');
+                    if (container && container.querySelector('.loading-indicator')) {
+                        container.querySelector('.loading-indicator').innerHTML =
+                            '<i class="fas fa-clock"></i> Form is taking longer than expected to load...';
+                    }
+                }
+            }, 10000); // 10 second timeout
+        });
     }
 </script>
 @endsection
