@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Services\FarmOSApi;
 use App\Services\AI\SymbiosisAIService;
+use App\Services\FarmOSQuickFormService;
 use App\Models\PlantVariety;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -16,11 +17,13 @@ class SuccessionPlanningController extends Controller
 {
     protected $farmOSApi;
     protected $symbiosisAI;
+    protected $quickFormService;
 
-    public function __construct(FarmOSApi $farmOSApi, SymbiosisAIService $symbiosisAI)
+    public function __construct(FarmOSApi $farmOSApi, SymbiosisAIService $symbiosisAI, FarmOSQuickFormService $quickFormService)
     {
         $this->farmOSApi = $farmOSApi;
         $this->symbiosisAI = $symbiosisAI;
+        $this->quickFormService = $quickFormService;
     }
 
     /**
@@ -376,7 +379,98 @@ class SuccessionPlanningController extends Controller
     }
 
     /**
-     * Generate basic succession plan with timing calculations
+     * Calculate succession plan for frontend display with Quick Form URLs
+     */
+    public function calculate(Request $request)
+    {
+        $validated = $request->validate([
+            'crop_id' => 'required|string',
+            'variety_id' => 'nullable|string',
+            'harvest_start' => 'required|date',
+            'harvest_end' => 'required|date',
+            'bed_ids' => 'nullable|array',
+            'use_ai' => 'boolean'
+        ]);
+
+        try {
+            // Get crop and variety information
+            $cropData = $this->farmOSApi->getAvailableCropTypes();
+            $cropInfo = collect($cropData['types'])->firstWhere('id', $validated['crop_id']);
+            $varietyInfo = null;
+            if ($validated['variety_id']) {
+                $varietyInfo = collect($cropData['varieties'])->firstWhere('id', $validated['variety_id']);
+            }
+
+            // Generate basic succession plan
+            $successions = $this->generateBasicSuccessions($validated);
+
+            // Add Quick Form URLs to each succession
+            foreach ($successions as $index => &$succession) {
+                $succession['succession_number'] = $index + 1;
+                $succession['crop_name'] = $cropInfo['name'] ?? $validated['crop_id'];
+                $succession['variety_name'] = $varietyInfo['name'] ?? ($varietyInfo['title'] ?? 'Generic');
+
+                // Generate Quick Form URLs
+                $succession['quick_form_urls'] = $this->quickFormService->generateAllFormUrls($succession);
+            }
+
+            $plan = [
+                'crop' => $cropInfo,
+                'variety' => $varietyInfo,
+                'harvest_start' => $validated['harvest_start'],
+                'harvest_end' => $validated['harvest_end'],
+                'plantings' => $successions,
+                'total_successions' => count($successions)
+            ];
+
+            return response()->json([
+                'success' => true,
+                'succession_plan' => $plan,
+                'message' => 'Succession plan calculated successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to calculate succession plan: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to calculate succession plan: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Generate basic successions for display
+     */
+    protected function generateBasicSuccessions(array $data): array
+    {
+        $successions = [];
+        $harvestStart = Carbon::parse($data['harvest_start']);
+        $harvestEnd = Carbon::parse($data['harvest_end']);
+
+        // Calculate harvest duration
+        $harvestDuration = $harvestStart->diffInDays($harvestEnd);
+
+        // Generate 3 successions by default (can be made configurable later)
+        for ($i = 0; $i < 3; $i++) {
+            $offsetDays = $i * 14; // 2 weeks apart
+
+            $successions[] = [
+                'succession_id' => $i + 1,
+                'seeding_date' => $harvestStart->copy()->subDays(45 + $offsetDays)->format('Y-m-d'), // ~6 weeks before harvest
+                'transplant_date' => $harvestStart->copy()->subDays(21 + $offsetDays)->format('Y-m-d'), // ~3 weeks before harvest
+                'harvest_date' => $harvestStart->copy()->addDays($offsetDays)->format('Y-m-d'),
+                'harvest_end_date' => $harvestEnd->copy()->addDays($offsetDays)->format('Y-m-d'),
+                'bed_name' => $data['bed_ids'][$i] ?? 'Bed ' . ($i + 1),
+                'quantity' => 100, // Default quantity
+                'notes' => "Succession " . ($i + 1) . " - AI calculated"
+            ];
+        }
+
+        return $successions;
+    }
+
+    /**
+     * Generate succession plan based on user input
      */
     private function generateSuccessionPlan($validated, $existingPlans, $cropPresets)
     {

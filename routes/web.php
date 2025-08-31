@@ -216,6 +216,7 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         
         // Succession Planning routes - AI-powered succession planting
         Route::get('/succession-planning', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'index'])->name('succession-planning');
+        Route::post('/succession-planning/calculate', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'calculate'])->name('succession-planning.calculate');
         Route::post('/succession-planning/generate', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'generate'])->name('succession-planning.generate');
         Route::post('/succession-planning/create-logs', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'createLogs'])->name('succession-planning.create-logs');
         Route::post('/succession-planning/create-single-log', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'createSingleLog'])->name('succession-planning.create-single-log');

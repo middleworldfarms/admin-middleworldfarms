@@ -297,6 +297,144 @@
         width: 100%;
         margin: 10px 0;
     }
+
+    .succession-tabs {
+        background: white;
+        border-radius: 1rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        overflow: hidden;
+        margin-top: 2rem;
+    }
+
+    .tab-navigation {
+        background: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        overflow-x: auto;
+    }
+
+    .tab-button {
+        background: none;
+        border: none;
+        padding: 1rem 1.5rem;
+        cursor: pointer;
+        border-bottom: 3px solid transparent;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+        font-weight: 500;
+        color: #6c757d;
+    }
+
+    .tab-button:hover {
+        background: rgba(40, 167, 69, 0.1);
+        color: #28a745;
+    }
+
+    .tab-button.active {
+        background: white;
+        color: #28a745;
+        border-bottom-color: #28a745;
+    }
+
+    .tab-button.completed {
+        color: #198754;
+    }
+
+    .tab-button.completed::after {
+        content: ' ✓';
+        font-weight: bold;
+    }
+
+    .tab-content {
+        min-height: 600px;
+        background: white;
+    }
+
+    .tab-pane {
+        display: none;
+        padding: 2rem;
+    }
+
+    .tab-pane.active {
+        display: block;
+    }
+
+    .quick-form-container {
+        background: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .quick-form-iframe {
+        width: 100%;
+        height: 500px;
+        border: 1px solid #dee2e6;
+        border-radius: 0.5rem;
+        background: white;
+    }
+
+    .succession-info {
+        background: linear-gradient(45deg, #e3f2fd, #f3e5f5);
+        border: 2px dashed #0dcaf0;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .succession-info h5 {
+        color: #0d6efd;
+        margin-bottom: 0.5rem;
+    }
+
+    .succession-info p {
+        margin-bottom: 0.25rem;
+        color: #495057;
+    }
+
+    .loading-indicator {
+        padding: 2rem;
+        text-align: center;
+        color: #6c757d;
+        font-style: italic;
+    }
+
+    .tab-button.overdue {
+        color: #dc3545;
+    }
+
+    .tab-button.overdue::before {
+        content: '⚠️ ';
+    }
+
+    .quick-form-container h6 {
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+    }
+
+    .quick-form-container p {
+        margin-bottom: 1rem;
+    }
+
+    /* Responsive design for mobile */
+    @media (max-width: 768px) {
+        .tab-navigation {
+            flex-wrap: wrap;
+        }
+
+        .tab-button {
+            padding: 0.75rem 1rem;
+            font-size: 0.9rem;
+        }
+
+        .quick-form-iframe {
+            height: 400px;
+        }
+
+        .tab-pane {
+            padding: 1rem;
+        }
+    }
 </style>
 @endsection
 
@@ -1673,6 +1811,8 @@ Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, co
         }
     }
 
+
+
     function clearBedSelection() {
         const bedSelect = document.getElementById('bedSelect');
         for (let option of bedSelect.options) {
@@ -1741,43 +1881,98 @@ Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, co
     function displaySuccessionPlan(plan) {
         // Display succession summary cards
         displaySuccessionSummary(plan);
-        
+
         // Create timeline chart
         createTimelineChart(plan);
+
+        // Initialize tab functionality
+        setTimeout(() => {
+            initializeTabs();
+        }, 100);
     }
 
     function displaySuccessionSummary(plan) {
         const summaryContainer = document.getElementById('successionSummary');
-        let summaryHTML = '';
 
-        if (plan.plantings && plan.plantings.length > 0) {
-            plan.plantings.forEach((planting, index) => {
-                const plantingDate = new Date(planting.planting_date);
-                const harvestDate = new Date(planting.harvest_date);
-                const isOverdue = plantingDate < new Date();
-                
-                summaryHTML += `
-                    <div class="col-md-6 col-lg-4 mb-3">
-                        <div class="succession-card ${isOverdue ? 'overdue' : ''}">
-                            <h6>
-                                <i class="fas fa-seedling ${isOverdue ? 'text-danger' : 'text-success'}"></i>
-                                Succession ${index + 1}
-                                ${isOverdue ? '<span class="badge bg-danger ms-2">Overdue</span>' : ''}
-                            </h6>
-                            <p class="mb-1">
-                                <strong>Plant:</strong> ${plantingDate.toLocaleDateString()}
-                                                       </p>
-                            <p class="mb-1">
-                                <strong>Harvest:</strong> ${harvestDate.toLocaleDateString()}
-                            </p>
-                            ${planting.bed_name ? `<p class="mb-0 text-muted">Bed: ${planting.bed_name}</p>` : ''}
-                        </div>
-                    </div>
-                `;
-            });
+        if (!plan.plantings || plan.plantings.length === 0) {
+            summaryContainer.innerHTML = '<div class="alert alert-warning">No succession plantings found.</div>';
+            return;
         }
 
-        summaryContainer.innerHTML = summaryHTML;
+        let tabsHTML = `
+            <div class="succession-tabs">
+                <div class="tab-navigation">
+        `;
+
+        let contentHTML = '<div class="tab-content">';
+
+        plan.plantings.forEach((planting, index) => {
+            const plantingDate = new Date(planting.planting_date || planting.seeding_date);
+            const harvestDate = new Date(planting.harvest_date);
+            const isOverdue = plantingDate < new Date();
+            const successionNumber = planting.succession_number || (index + 1);
+
+            // Tab button
+            tabsHTML += `
+                <button class="tab-button ${index === 0 ? 'active' : ''} ${isOverdue ? 'overdue' : ''}"
+                        onclick="switchTab(${index})">
+                    <i class="fas fa-seedling"></i>
+                    Succession ${successionNumber}
+                    ${isOverdue ? '<span class="badge bg-danger ms-1">Overdue</span>' : ''}
+                </button>
+            `;
+
+            // Tab content with Quick Form
+            contentHTML += `
+                <div class="tab-pane ${index === 0 ? 'active' : ''}" id="tab-${index}">
+                    <div class="succession-info">
+                        <h5><i class="fas fa-info-circle text-primary"></i> Succession ${successionNumber} Details</h5>
+                        <p><strong>Seeding:</strong> ${plantingDate.toLocaleDateString()}</p>
+                        <p><strong>Harvest:</strong> ${harvestDate.toLocaleDateString()}</p>
+                        ${planting.bed_name ? `<p><strong>Bed:</strong> ${planting.bed_name}</p>` : ''}
+                        ${planting.quantity ? `<p><strong>Quantity:</strong> ${planting.quantity} plants</p>` : ''}
+                    </div>
+
+                    <div class="quick-form-container">
+                        <h6><i class="fas fa-file-alt text-success"></i> Quick Form - Seeding Log</h6>
+                        <p class="text-muted small">Review and submit this seeding log to farmOS</p>
+                        <iframe class="quick-form-iframe"
+                                src="${planting.quick_form_urls?.seeding || '#'}"
+                                id="iframe-seeding-${index}"
+                                onload="onIframeLoad(${index}, 'seeding')">
+                        </iframe>
+                    </div>
+
+                    <div class="quick-form-container">
+                        <h6><i class="fas fa-spa text-warning"></i> Quick Form - Transplant Log</h6>
+                        <p class="text-muted small">Review and submit this transplant log to farmOS</p>
+                        <iframe class="quick-form-iframe"
+                                src="${planting.quick_form_urls?.transplant || '#'}"
+                                id="iframe-transplant-${index}"
+                                onload="onIframeLoad(${index}, 'transplant')">
+                        </iframe>
+                    </div>
+
+                    <div class="quick-form-container">
+                        <h6><i class="fas fa-leaf text-danger"></i> Quick Form - Harvest Log</h6>
+                        <p class="text-muted small">Review and submit this harvest log to farmOS</p>
+                        <iframe class="quick-form-iframe"
+                                src="${planting.quick_form_urls?.harvest || '#'}"
+                                id="iframe-harvest-${index}"
+                                onload="onIframeLoad(${index}, 'harvest')">
+                        </iframe>
+                    </div>
+                </div>
+            `;
+        });
+
+        tabsHTML += '</div>';
+        contentHTML += '</div></div>';
+
+        summaryContainer.innerHTML = tabsHTML + contentHTML;
+
+        // Initialize tab functionality
+        initializeTabs();
     }
 
     function createTimelineChart(plan) {
@@ -2162,5 +2357,70 @@ Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, co
     // Example usage
     const selectedVarietyId = document.getElementById('varietySelect').value;
     updateHarvestBarForVariety(selectedVarietyId);
+
+    function switchTab(tabIndex) {
+        // Hide all tab panes
+        const tabPanes = document.querySelectorAll('.tab-pane');
+        tabPanes.forEach(pane => pane.classList.remove('active'));
+
+        // Remove active class from all tab buttons
+        const tabButtons = document.querySelectorAll('.tab-button');
+        tabButtons.forEach(button => button.classList.remove('active'));
+
+        // Show selected tab pane
+        const selectedPane = document.getElementById(`tab-${tabIndex}`);
+        if (selectedPane) {
+            selectedPane.classList.add('active');
+        }
+
+        // Activate selected tab button
+        if (tabButtons[tabIndex]) {
+            tabButtons[tabIndex].classList.add('active');
+        }
+
+        console.log(`🔄 Switched to Succession ${tabIndex + 1}`);
+    }
+
+    function onIframeLoad(tabIndex, formType) {
+        const iframe = document.getElementById(`iframe-${formType}-${tabIndex}`);
+        if (iframe) {
+            console.log(`✅ ${formType} form loaded for Succession ${tabIndex + 1}`);
+
+            // Add loading indicator removal
+            const container = iframe.closest('.quick-form-container');
+            if (container) {
+                // Remove any existing loading indicators
+                const loadingIndicator = container.querySelector('.loading-indicator');
+                if (loadingIndicator) {
+                    loadingIndicator.remove();
+                }
+            }
+        }
+    }
+
+    function markSuccessionComplete(successionIndex, formType) {
+        const tabButton = document.querySelectorAll('.tab-button')[successionIndex];
+        if (tabButton) {
+            tabButton.classList.add('completed');
+            console.log(`✅ Succession ${successionIndex + 1} ${formType} form submitted`);
+        }
+    }
+
+    // Initialize tab functionality when results are shown
+    function initializeTabs() {
+        // Add loading indicators to iframes
+        const iframes = document.querySelectorAll('.quick-form-iframe');
+        iframes.forEach(iframe => {
+            const container = iframe.closest('.quick-form-container');
+            if (container && !container.querySelector('.loading-indicator')) {
+                const loadingDiv = document.createElement('div');
+                loadingDiv.className = 'loading-indicator text-center text-muted';
+                loadingDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading farmOS Quick Form...';
+                container.insertBefore(loadingDiv, iframe);
+            }
+        });
+
+        console.log('🔧 Tab functionality initialized');
+    }
 </script>
 @endsection
