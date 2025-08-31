@@ -14,7 +14,7 @@ class FarmOSQuickFormService
 
     public function __construct()
     {
-        $this->farmOSBaseUrl = config('services.farmos.url', 'https://farm.middleworldfarms.org');
+        $this->farmOSBaseUrl = config('services.farmos.url', 'https://farmos.middleworldfarms.org');
         $this->authToken = session('farmos_token'); // Get from session
     }
 

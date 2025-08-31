@@ -90,4 +90,13 @@ return [
         'url' => env('AI_SERVICE_URL', 'http://localhost:8005'),
         'timeout' => env('AI_SERVICE_TIMEOUT', 90),
     ],
+
+    'farmos' => [
+        'url' => env('FARMOS_URL', 'https://farmos.middleworldfarms.org'),
+        'api_url' => env('FARMOS_API_URL', 'https://farmos.middleworldfarms.org/api/v1'),
+        'client_id' => env('FARMOS_CLIENT_ID'),
+        'client_secret' => env('FARMOS_CLIENT_SECRET'),
+        'username' => env('FARMOS_USERNAME'),
+        'password' => env('FARMOS_PASSWORD'),
+    ],
 ];

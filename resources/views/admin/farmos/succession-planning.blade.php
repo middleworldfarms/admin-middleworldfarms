@@ -775,6 +775,7 @@
                             <label for="aiChatInput" class="form-label">
                                 <i class="fas fa-comments text-warning"></i>
                                 Ask about succession planning, crop timing, or growing wisdom
+                                <br><small class="text-muted">💡 The AI now has context about your current harvest window and succession plan</small>
                             </label>
                             <textarea class="form-control ai-chat-input" id="aiChatInput" rows="3" 
                                 placeholder="e.g., 'What's the best succession interval for lettuce in August?'"></textarea>
@@ -786,6 +787,10 @@
                                 Ask AI
                             </button>
                             <button class="btn btn-outline-warning" onclick="getQuickAdvice()">
+                            <button class="btn btn-outline-info" onclick="askAIAboutPlan()" id="analyzePlanBtn" style="display: none;">
+                                <i class="fas fa-chart-line"></i>
+                                Analyze Plan
+                            </button>
                                 <i class="fas fa-lightbulb"></i>
                                 Quick Tips
                             </button>
@@ -808,6 +813,16 @@
                         </div>
                         
                         <div id="aiResponseArea">
+                        <!-- Current Plan Context for AI -->
+                        <div id="aiPlanContext" class="mt-3 p-3 bg-light rounded" style="display: none;">
+                            <h6 class="text-primary mb-2">
+                                <i class="fas fa-seedling"></i> Current Succession Plan Context
+                            </h6>
+                            <div id="planContextDetails" class="small text-muted"></div>
+                            <button class="btn btn-sm btn-primary mt-2" onclick="askAIAboutPlan()">
+                                <i class="fas fa-brain"></i> AI Analyze This Plan
+                            </button>
+                        </div>
                             <div class="ai-response" id="welcomeMessage">
                                 <strong>🌱 farmOS AI Ready</strong><br>
                                 I have access to your farmOS database with 3600+ varieties and bed specifications. I can provide specific succession planning advice for your crops, including F1 Doric Brussels Sprouts winter timing, plant spacing for your 30cm beds, and variety-specific growing advice.
@@ -1562,7 +1577,142 @@ Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, co
         
         aiHarvestDetails.innerHTML = detailsHTML;
         
+        // Update AI chat context with harvest window information
+        updateAIChatContext(harvestInfo, cropName, varietyName);
+        
+        // Show the analyze plan button
+        const analyzeBtn = document.getElementById('analyzePlanBtn');
+        if (analyzeBtn) {
+            analyzeBtn.style.display = 'inline-block';
+        }
+        
         console.log('✅ AI harvest window displayed successfully');
+    
+    // Update AI chat context with current plan information
+    function updateAIChatContext(harvestInfo, cropName, varietyName) {
+        const contextDiv = document.getElementById('aiPlanContext');
+        const detailsDiv = document.getElementById('planContextDetails');
+        
+        if (!contextDiv || !detailsDiv) return;
+        
+        let contextHTML = '<div class="mb-2">
+            <strong>Crop:</strong> ' + (cropName || 'Unknown') + '<br>
+            <strong>Variety:</strong> ' + (varietyName || 'Generic') + '
+        </div>');
+        
+        if (harvestInfo.maximum_start && harvestInfo.maximum_end) {
+            const startDate = new Date(harvestInfo.maximum_start);
+            const endDate = new Date(harvestInfo.maximum_end);
+            const durationDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+            
+            contextHTML += '<div class="mb-2">
+                <strong>Harvest Window:</strong> ' + startDate.toLocaleDateString() + ' - ' + endDate.toLocaleDateString() + '<br>
+                <small>Duration: ' + durationDays + ' days</small>
+            </div>');
+        }
+        
+        if (harvestInfo.notes) {
+            contextHTML += '<div class="mb-2">
+                <strong>AI Notes:</strong> <em>' + harvestInfo.notes + '</em>
+            </div>');
+        }
+        
+        detailsDiv.innerHTML = contextHTML;
+        contextDiv.style.display = 'block');
+        
+        console.log('📝 AI chat context updated with harvest window information');
+    
+    // Test function to verify AI context integration
+    window.testAIContext = function() {
+        const context = getCurrentPlanContext();
+        console.log('🧪 AI Context Test:', context);
+        return context;
+    };
+    }
+    
+    // Ask AI to analyze the current succession plan
+    function askAIAboutPlan() {
+        const cropSelect = document.getElementById('cropSelect');
+        const varietySelect = document.getElementById('varietySelect');
+        const harvestStart = document.getElementById('harvestStart');
+        const harvestEnd = document.getElementById('harvestEnd');
+        
+        const cropName = cropSelect.options[cropSelect.selectedIndex]?.text || 'selected crop';
+        const varietyName = varietySelect.value ? varietySelect.options[varietySelect.selectedIndex]?.text : 'any variety';
+        const startDate = harvestStart.value ? new Date(harvestStart.value).toLocaleDateString() : 'not set';
+        const endDate = harvestEnd.value ? new Date(harvestEnd.value).toLocaleDateString() : 'not set';
+        
+        const question = `Please analyze this succession plan for ${cropName} (${varietyName}) with harvest window ${startDate} to ${endDate}. What are your recommendations for optimal succession intervals, planting dates, and any potential issues I should consider?`;
+        
+        document.getElementById('aiChatInput').value = question;
+        askHolisticAI();
+        
+        console.log('🤖 AI analyzing current succession plan');
+    }
+        
+        console.log('✅ AI harvest window displayed successfully');
+    
+    // Update AI chat context with current plan information
+    function updateAIChatContext(harvestInfo, cropName, varietyName) {
+        const contextDiv = document.getElementById('aiPlanContext');
+        const detailsDiv = document.getElementById('planContextDetails');
+        
+        if (!contextDiv || !detailsDiv) return;
+        
+        let contextHTML = '<div class="mb-2">
+            <strong>Crop:</strong> ' + (cropName || 'Unknown') + '<br>
+            <strong>Variety:</strong> ' + (varietyName || 'Generic') + '
+        </div>');
+        
+        if (harvestInfo.maximum_start && harvestInfo.maximum_end) {
+            const startDate = new Date(harvestInfo.maximum_start);
+            const endDate = new Date(harvestInfo.maximum_end);
+            const durationDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+            
+            contextHTML += '<div class="mb-2">
+                <strong>Harvest Window:</strong> ' + startDate.toLocaleDateString() + ' - ' + endDate.toLocaleDateString() + '<br>
+                <small>Duration: ' + durationDays + ' days</small>
+            </div>');
+        }
+        
+        if (harvestInfo.notes) {
+            contextHTML += '<div class="mb-2">
+                <strong>AI Notes:</strong> <em>' + harvestInfo.notes + '</em>
+            </div>');
+        }
+        
+        detailsDiv.innerHTML = contextHTML;
+        contextDiv.style.display = 'block');
+        
+        console.log('📝 AI chat context updated with harvest window information');
+    
+    // Test function to verify AI context integration
+    window.testAIContext = function() {
+        const context = getCurrentPlanContext();
+        console.log('🧪 AI Context Test:', context);
+        return context;
+    };
+    }
+    
+    // Ask AI to analyze the current succession plan
+    function askAIAboutPlan() {
+        const cropSelect = document.getElementById('cropSelect');
+        const varietySelect = document.getElementById('varietySelect');
+        const harvestStart = document.getElementById('harvestStart');
+        const harvestEnd = document.getElementById('harvestEnd');
+        
+        const cropName = cropSelect.options[cropSelect.selectedIndex]?.text || 'selected crop';
+        const varietyName = varietySelect.value ? varietySelect.options[varietySelect.selectedIndex]?.text : 'any variety';
+        const startDate = harvestStart.value ? new Date(harvestStart.value).toLocaleDateString() : 'not set';
+        const endDate = harvestEnd.value ? new Date(harvestEnd.value).toLocaleDateString() : 'not set';
+        
+        const question = `Please analyze this succession plan for ${cropName} (${varietyName}) with harvest window ${startDate} to ${endDate}. What are your recommendations for optimal succession intervals, planting dates, and any potential issues I should consider?`;
+        
+        document.getElementById('aiChatInput').value = question;
+        askHolisticAI();
+        
+        console.log('🤖 AI analyzing current succession plan');
+    }
     }
 
     function parseHarvestWindow(aiResponse, cropName, varietyName) {
@@ -1576,6 +1726,7 @@ Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, co
         // If aiResponse is an object already, normalize
         if (typeof aiResponse === 'object') {
             return {
+            ai_harvest_window: harvestWindowInfo,
                 maximum_start: aiResponse.maximum_start || aiResponse.maximumStart || aiResponse.optimal_start || aiResponse.optimalStart || aiResponse.start || null,
                 maximum_end: aiResponse.maximum_end || aiResponse.maximumEnd || aiResponse.optimal_end || aiResponse.optimalEnd || aiResponse.end || null,
                 days_to_harvest: aiResponse.days_to_harvest || aiResponse.daysToHarvest || aiResponse.days || null,
@@ -1595,6 +1746,7 @@ Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, co
         const isoDates = text.match(/(\d{4}-\d{2}-\d{2})/g);
         if (isoDates && isoDates.length >= 2) {
             return {
+            ai_harvest_window: harvestWindowInfo,
                 maximum_start: isoDates[0],
                 maximum_end: isoDates[1],
                 days_to_harvest: extractDaysFromResponse(text),
@@ -1615,6 +1767,7 @@ Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, co
             const defaultStart = new Date(today); defaultStart.setMonth(today.getMonth() + 2);
             const defaultEnd = new Date(defaultStart); defaultEnd.setMonth(defaultStart.getMonth() + 1);
             return {
+            ai_harvest_window: harvestWindowInfo,
                 maximum_start: defaultStart.toISOString().split('T')[0],
                 maximum_end: defaultEnd.toISOString().split('T')[0],
                 days_to_harvest: extractDaysFromResponse(text),
@@ -1662,6 +1815,7 @@ Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, co
         }
         
         return {
+            ai_harvest_window: harvestWindowInfo,
             maximum_start: defaultStart.toISOString().split('T')[0],
             maximum_end: defaultEnd.toISOString().split('T')[0],
             days_to_harvest: defaultDays,
@@ -2070,6 +2224,7 @@ Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, co
             const isOverdue = plantingDate < new Date();
 
             return {
+            ai_harvest_window: harvestWindowInfo,
                 label: `Succession ${index + 1}`,
                 data: [{
 
@@ -2213,6 +2368,18 @@ Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, co
     }
 
     function getCurrentPlanContext() {
+        // Get AI harvest window information from the UI
+        const aiHarvestDetails = document.getElementById('aiHarvestDetails');
+        let harvestWindowInfo = null;
+        
+        if (aiHarvestDetails && aiHarvestDetails.innerHTML) {
+            // Extract harvest window information from the displayed text
+            const harvestText = aiHarvestDetails.innerText || aiHarvestDetails.textContent;
+            harvestWindowInfo = {
+                ai_calculated_details: harvestText,
+                has_ai_context: true
+            };
+        }
         const cropSelect = document.getElementById('cropSelect');
         const varietySelect = document.getElementById('varietySelect');
         const harvestStart = document.getElementById('harvestStart').value;
@@ -2221,6 +2388,7 @@ Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, co
         const planningSeason = document.getElementById('planningSeason').value;
 
         return {
+            ai_harvest_window: harvestWindowInfo,
             crop_name: cropSelect.options[cropSelect.selectedIndex]?.text || null,
             variety_name: varietySelect.options[varietySelect.selectedIndex]?.text || null,
             harvest_window: harvestStart && harvestEnd ? { start: harvestStart, end: harvestEnd } : null,
