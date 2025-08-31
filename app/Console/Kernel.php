@@ -15,6 +15,7 @@ class Kernel extends ConsoleKernel
     protected $commands = [
         Commands\ManageSubscription::class,
         Commands\RunScheduledBackups::class,
+        Commands\SyncFarmOSVarieties::class,
     ];
 
     /**
@@ -31,10 +32,9 @@ class Kernel extends ConsoleKernel
                  ->withoutOverlapping()
                  ->runInBackground();
 
-        // Sync plant varieties from FarmOS weekly
+        // Sync plant varieties from FarmOS daily
         $schedule->command('farmos:sync-varieties')
-                 ->weekly()
-                 ->sundays()
+                 ->daily()
                  ->at('02:00')
                  ->withoutOverlapping()
                  ->runInBackground();

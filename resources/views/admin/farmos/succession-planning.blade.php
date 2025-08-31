@@ -297,18 +297,6 @@
         width: 100%;
         margin: 10px 0;
     }
-
-    .timeline-months {
-        font-size: 0.75rem;
-        color: #6c757d;
-    }
-    
-    .timeline-months span {
-        flex: 1;
-        text-align: center;
-        min-width: 0;
-        white-space: nowrap;
-    }
 </style>
 @endsection
 
@@ -413,8 +401,8 @@
                                 <option value="">Select crop first...</option>
                                 @if(isset($cropData['varieties']) && count($cropData['varieties']) > 0)
                                     @foreach($cropData['varieties'] as $variety)
-                                        <option value="{{ $variety['id'] ?? $variety['farmos_id'] ?? '' }}" data-crop="{{ $variety['crop_id'] ?? $variety['crop_type'] ?? '' }}" data-name="{{ $variety['name'] ?? '' }}">
-                                            {{ $variety['name'] ?? 'Unknown Variety' }}
+                                        <option value="{{ $variety['id'] }}" data-crop="{{ $variety['crop_id'] ?? '' }}" data-name="{{ $variety['name'] }}">
+                                            {{ $variety['name'] }}
                                         </option>
                                     @endforeach
                                 @endif
@@ -667,12 +655,49 @@
 <script>
     console.log('🔄 Succession Planner Loading - Version: {{ time() }}');
     
-    // Global variables - with proper fallbacks
-    let cropTypes = {!! json_encode($cropData['types'] ?? []) !!};
-    let cropVarieties = {!! json_encode($cropData['all_varieties'] ?? []) !!}; // Use flat array for JavaScript
+    // Global variables - with proper fallbacks and error handling
+    let cropTypes = [];
+    let cropVarieties = [];
+    let availableBeds = [];
+
+    // Safely parse JSON data with fallbacks
+    try {
+        cropTypes = @json($cropData['types'] ?? []);
+    } catch (e) {
+        console.warn('Failed to parse cropTypes JSON, using fallback:', e);
+        cropTypes = [
+            {id: 'lettuce', name: 'Lettuce', label: 'Lettuce'},
+            {id: 'carrot', name: 'Carrot', label: 'Carrot'},
+            {id: 'radish', name: 'Radish', label: 'Radish'},
+            {id: 'spinach', name: 'Spinach', label: 'Spinach'},
+            {id: 'kale', name: 'Kale', label: 'Kale'},
+            {id: 'arugula', name: 'Arugula', label: 'Arugula'},
+            {id: 'beets', name: 'Beets', label: 'Beets'}
+        ];
+    }
+
+    try {
+        cropVarieties = @json($cropData['varieties'] ?? []);
+    } catch (e) {
+        console.warn('Failed to parse cropVarieties JSON, using fallback:', e);
+        cropVarieties = [
+            {id: 'carrot_nantes', name: 'Nantes', parent_id: 'carrot', crop_type: 'carrot'},
+            {id: 'carrot_chantenay', name: 'Chantenay', parent_id: 'carrot', crop_type: 'carrot'},
+            {id: 'lettuce_buttercrunch', name: 'Buttercrunch', parent_id: 'lettuce', crop_type: 'lettuce'},
+            {id: 'lettuce_romaine', name: 'Romaine', parent_id: 'lettuce', crop_type: 'lettuce'}
+        ];
+    }
+
+    try {
+        availableBeds = @json($availableBeds ?? []);
+    } catch (e) {
+        console.warn('Failed to parse availableBeds JSON, using fallback:', e);
+        availableBeds = [];
+    }
+
     // Global API base (always use same origin/protocol to avoid mixed-content)
-    const API_BASE = window.location.origin + '/api';
-    let availableBeds = {!! json_encode($availableBeds ?? []) !!};
+    const API_BASE = window.location.origin + '/admin/farmos/succession-planning';
+
     let currentSuccessionPlan = null;
     let timelineChart = null;
     let isDragging = false;
@@ -688,6 +713,10 @@
         initializeApp();
         // Removed duplicate initializeHarvestBar() call to avoid race conditions
         setupSeasonYearHandlers();
+        
+        // Debug: Log initial data
+        console.log('🔍 Initial cropTypes:', cropTypes);
+        console.log('🔍 Initial cropVarieties:', cropVarieties);
     });
 
     async function initializeApp() {
@@ -702,67 +731,34 @@
         // Set up AI status monitoring
         setupAIStatusMonitoring();
 
-        // Set up crop change listeners
+        // Initialize variety select to show "Select crop first..." if no crop is selected
         const cropSelectEl = document.getElementById('cropSelect');
         const varietySelectEl = document.getElementById('varietySelect');
-
-        if (cropSelectEl) {
-            cropSelectEl.addEventListener('change', function() {
-                // Update the global cropId variable for variety filtering
-                cropId = this.value;
-                updateVarieties();
-                // Don't trigger AI on crop selection - only filter varieties
-            });
+        
+        if (varietySelectEl && (!cropSelectEl || !cropSelectEl.value)) {
+            varietySelectEl.innerHTML = '<option value="">Select crop first...</option>';
         }
 
-        if (varietySelectEl) {
-            varietySelectEl.addEventListener('change', async function() {
-                console.log('🔄 Variety selected:', this.value, this.options[this.selectedIndex]?.text);
-                
-                // Show loading feedback
-                const harvestWindowInfo = document.getElementById('harvestWindowInfo');
-                const aiHarvestDetails = document.getElementById('aiHarvestDetails');
-                if (harvestWindowInfo && aiHarvestDetails) {
-                    harvestWindowInfo.style.display = 'block';
-                    aiHarvestDetails.innerHTML = `
-                        <div class="text-center py-3">
-                            <i class="fas fa-brain fa-spin text-warning me-2"></i>
-                            <strong>AI analyzing ${this.options[this.selectedIndex]?.text}...</strong>
-                            <div class="text-muted small mt-1">Calculating optimal harvest window</div>
-                        </div>
-                    `;
-                }
-                
-                // Update harvest bar for the selected variety (use global API_BASE)
-                if (this.value) updateHarvestBarForVariety(this.value);
-                // Ask AI for refined harvest window asynchronously
-                awaitMaybeCalculateAI(this.value);
-            });
-        }
-
-        // Update the season display on initial load
-        updateSeasonDisplay();
+        // Set up crop change listeners
+        document.getElementById('cropSelect').addEventListener('change', function() {
+            // Update the global cropId variable for variety filtering
+            cropId = this.value;
+            updateVarieties();
+            // Don't trigger AI on crop selection - only filter varieties
+        });
+        
+        document.getElementById('varietySelect').addEventListener('change', function() {
+            console.log('🔄 Variety selected:', this.value, this.options[this.selectedIndex]?.text);
+            calculateAIHarvestWindow();
+        });
     }
 
     // helper to call AI but avoid blocking UI if route missing
     async function awaitMaybeCalculateAI(varietyId) {
         try {
-            console.log('🤖 Starting AI calculation for variety:', varietyId);
             await calculateAIHarvestWindow();
         } catch (e) {
             console.warn('AI calculation skipped or failed:', e);
-            
-            // Show error feedback in the harvest window info
-            const aiHarvestDetails = document.getElementById('aiHarvestDetails');
-            if (aiHarvestDetails) {
-                aiHarvestDetails.innerHTML = `
-                    <div class="text-center py-3 text-danger">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        <strong>AI Analysis Unavailable</strong>
-                        <div class="text-muted small mt-1">${e.message || 'Unable to calculate optimal harvest window'}</div>
-                    </div>
-                `;
-            }
         }
     }
 
@@ -787,17 +783,12 @@
         // Set default dates and initialize the harvest bar
         setDefaultDates();
         setupDragFunctionality();
-        
-        // Initialize timeline months for the current planning year
-        const planningYear = document.getElementById('planningYear').value || new Date().getFullYear();
-        updateTimelineMonths(parseInt(planningYear));
-        
-        console.log('✅ Harvest bar initialized with default dates and timeline');
+        console.log('✅ Harvest bar initialized with default dates');
     }
 
     function setDefaultDates() {
         // Get selected planning year and season
-        const planningYear = document.getElementById('planningYear').value || new Date().getFullYear();
+        const planningYear = document.getElementById('planningYear').value;
         const planningSeason = document.getElementById('planningSeason').value;
         
         let startDate, endDate;
@@ -817,8 +808,8 @@
                 endDate = new Date(planningYear, 10, 15);  // November 15
                 break;
             case 'winter':
-                startDate = new Date(planningYear - 1, 11, 15); // December 15 of previous year
-                endDate = new Date(planningYear, 0, 15);         // January 15 of planning year
+                startDate = new Date(planningYear, 11, 15); // December 15
+                endDate = new Date(parseInt(planningYear) + 1, 1, 15); // February 15 next year
                 break;
             default: // year-round
                 startDate = new Date(planningYear, 2, 1);  // March 1
@@ -839,47 +830,13 @@
     }
 
     function updateTimelineMonths(year) {
-        // Update the timeline months to show: Dec (prev year) | Jan-Dec (planning year) | Jan (next year)
+        // Update the timeline months to show the correct year dates
         const monthsContainer = document.querySelector('.timeline-months');
         if (monthsContainer) {
-            // Clear existing months
-            monthsContainer.innerHTML = '';
-
-            // Create month labels for the 14-month timeline
-            const monthLabels = [
-                { name: 'Dec', year: year - 1 }, // Dec of previous year (2025 when planning year is 2026)
-                { name: 'Jan', year: year },     // Jan of planning year (2026)
-                { name: 'Feb', year: year },
-                { name: 'Mar', year: year },
-                { name: 'Apr', year: year },
-                { name: 'May', year: year },
-                { name: 'Jun', year: year },
-                { name: 'Jul', year: year },
-                { name: 'Aug', year: year },
-                { name: 'Sep', year: year },
-                { name: 'Oct', year: year },
-                { name: 'Nov', year: year },
-                { name: 'Dec', year: year },
-                { name: 'Jan', year: year + 1 } // Jan of next year (2027)
-            ];
-
-            monthLabels.forEach((month, index) => {
-                const span = document.createElement('span');
-                span.className = 'small text-muted';
-                span.textContent = month.name;
-
-                // Add year indicator for months that are in different years
-                if (index === 0 || index === 13) {
-                    const yearSuffix = month.year.toString().slice(-2);
-                    span.textContent = `${month.name} ${yearSuffix}`;
-                }
-
-                span.title = `${month.name} ${month.year}`;
-                monthsContainer.appendChild(span);
-            });
-
+            // The months are static labels, but we could enhance this to show actual dates
+            // For now, just update the tooltip or data attributes if needed
             monthsContainer.setAttribute('data-year', year);
-            console.log(`📆 Timeline updated for year ${year} with cross-year support`);
+            console.log(`📆 Timeline updated for year ${year}`);
         }
     }
 
@@ -976,6 +933,9 @@
         if (!isDragging) return;
         const touch = e.touches[0];
         handleMouseMove({ clientX: touch.clientX, preventDefault: () => e.preventDefault() });
+    }
+
+    function handleTouchEnd(e) {
         handleMouseUp(e);
     }
 
@@ -1018,116 +978,87 @@
         const startDate = percentageToDate(left);
         const endDate = percentageToDate(right);
         
-        // Format dates with year information for cross-year spans
-        const startFormatted = startDate.toLocaleDateString('en-US', { 
-            month: 'short', 
-            day: 'numeric',
-            year: startDate.getFullYear() !== endDate.getFullYear() ? 'numeric' : undefined
-        });
-        const endFormatted = endDate.toLocaleDateString('en-US', { 
-            month: 'short', 
-            day: 'numeric',
-            year: 'numeric'
-        });
-        
-        document.getElementById('startDateDisplay').textContent = startFormatted;
-        document.getElementById('endDateDisplay').textContent = endFormatted;
-        
-        console.log('📅 Date displays updated:', startFormatted, '→', endFormatted);
+        document.getElementById('startDateDisplay').textContent = startDate.toLocaleDateString();
+        document.getElementById('endDateDisplay').textContent = endDate.toLocaleDateString();
     }
 
     function percentageToDate(percentage) {
-        const planningYear = parseInt(document.getElementById('planningYear').value) || new Date().getFullYear();
-
-        // Timeline spans: Dec (previous year) | Jan-Dec (planning year) | Jan (next year)
-        const timelineStart = new Date(planningYear - 1, 11, 1); // Dec 1 of previous year
-        const timelineEnd = new Date(planningYear + 1, 0, 31); // Jan 31 of next year
-        const totalDays = (timelineEnd - timelineStart) / (1000 * 60 * 60 * 24);
-
-        const dayOfTimeline = (percentage / 100) * totalDays;
-        const date = new Date(timelineStart.getTime() + dayOfTimeline * 24 * 60 * 60 * 1000);
-
-        console.log('📅 percentageToDate:', {
-            percentage: percentage.toFixed(2) + '%',
-            planningYear: planningYear,
-            calculatedDate: date.toISOString().split('T')[0]
-        });
-
-        return date;
+        const planningYear = document.getElementById('planningYear').value || new Date().getFullYear();
+        const yearStart = new Date(planningYear, 0, 1); // January 1st of planning year
+        const yearEnd = new Date(planningYear, 11, 31); // December 31st of planning year
+        
+        const totalDays = (yearEnd - yearStart) / (1000 * 60 * 60 * 24);
+        const dayOfYear = (percentage / 100) * totalDays;
+        
+        const resultDate = new Date(yearStart);
+        resultDate.setDate(yearStart.getDate() + Math.round(dayOfYear));
+        
+        return resultDate;
     }
 
     function dateToPercentage(date) {
-        const planningYear = parseInt(document.getElementById('planningYear').value) || date.getFullYear();
-        const dateYear = date.getFullYear();
-        const dateMonth = date.getMonth();
-        const dateDay = date.getDate();
-
-        // Timeline spans: Dec (previous year) | Jan-Dec (planning year) | Jan (next year)
-        let adjustedDate;
-
-        if (dateYear === planningYear - 1 && dateMonth === 11) {
-            // December of previous year - position at the beginning of timeline
-            adjustedDate = new Date(planningYear, 0, 1); // January 1 of planning year
-            const decDays = (new Date(planningYear, 0, 1) - new Date(planningYear - 1, 11, 1)) / (1000 * 60 * 60 * 24);
-            const dayOfDec = dateDay;
-            adjustedDate.setTime(adjustedDate.getTime() - (decDays - dayOfDec) * 24 * 60 * 60 * 1000);
-        } else if (dateYear === planningYear + 1 && dateMonth === 0) {
-            // January of next year - position at the end of timeline
-            adjustedDate = new Date(planningYear + 1, 0, dateDay);
-        } else if (dateYear === planningYear) {
-            // Within planning year
-            adjustedDate = new Date(dateYear, dateMonth, dateDay);
-        } else {
-            // Fallback for other dates
-            adjustedDate = new Date(planningYear, dateMonth, dateDay);
+        const planningYear = document.getElementById('planningYear').value || date.getFullYear();
+        const yearStart = new Date(planningYear, 0, 1); // January 1st of planning year
+        const yearEnd = new Date(planningYear, 11, 31); // December 31st of planning year
+        
+        // Handle dates that extend into the next year (for extended harvest windows)
+        let adjustedDate = date;
+        if (date.getFullYear() > planningYear) {
+            // If date is in next year, treat it as December 31st of current year for percentage calculation
+            adjustedDate = new Date(planningYear, 11, 31);
+        } else if (date.getFullYear() < planningYear) {
+            // If date is in previous year, treat it as January 1st of current year
+            adjustedDate = new Date(planningYear, 0, 1);
         }
-
-        // Calculate percentage based on 13-month timeline
-        const timelineStart = new Date(planningYear - 1, 11, 1); // Dec 1 of previous year
-        const timelineEnd = new Date(planningYear + 1, 0, 31); // Jan 31 of next year
-        const totalDays = (timelineEnd - timelineStart) / (1000 * 60 * 60 * 24);
-        const dayOfTimeline = (adjustedDate - timelineStart) / (1000 * 60 * 60 * 24);
-
-        const percentage = Math.max(0, Math.min(100, (dayOfTimeline / totalDays) * 100));
-
-        console.log('📊 dateToPercentage:', {
-            inputDate: date.toISOString().split('T')[0],
-            planningYear: planningYear,
-            adjustedDate: adjustedDate.toISOString().split('T')[0],
-            percentage: percentage.toFixed(2) + '%'
-        });
-
+        
+        const totalDays = (yearEnd - yearStart) / (1000 * 60 * 60 * 24);
+        const dayOfYear = (adjustedDate - yearStart) / (1000 * 60 * 60 * 24);
+        
+        const percentage = Math.max(0, Math.min(100, (dayOfYear / totalDays) * 100));
         return percentage;
     }
 
     function updateDragBar() {
         const harvestStart = document.getElementById('harvestStart').value;
         const harvestEnd = document.getElementById('harvestEnd').value;
-
-        if (!harvestStart || !harvestEnd) {
-            console.log('❌ Missing harvest dates, cannot update drag bar');
-            return;
-        }
-
+        
+        if (!harvestStart || !harvestEnd) return;
+        
         const startDate = new Date(harvestStart);
         const endDate = new Date(harvestEnd);
-
+        
         const startPercentage = dateToPercentage(startDate);
         const endPercentage = dateToPercentage(endDate);
         const width = Math.max(5, endPercentage - startPercentage); // Min 5% width
-
+        
         const dragBar = document.getElementById('dragHarvestBar');
         if (dragBar) {
             dragBar.style.left = startPercentage + '%';
             dragBar.style.width = width + '%';
             dragBar.style.display = 'block';
-
+            
             updateDateDisplays();
             checkPastDates();
-            console.log('✅ Drag bar updated successfully');
-        } else {
-            console.log('❌ Could not find dragHarvestBar element');
         }
+    }
+
+    function updateDateInputsFromBar() {
+        const dragBar = document.getElementById('dragHarvestBar');
+        if (!dragBar) return;
+        
+        const left = parseFloat(dragBar.style.left) || 20;
+        const width = parseFloat(dragBar.style.width) || 40;
+        const right = left + width;
+        
+        const startDate = percentageToDate(left);
+        const endDate = percentageToDate(right);
+        
+        // Update the form inputs
+        const startInput = document.getElementById('harvestStart');
+        const endInput = document.getElementById('harvestEnd');
+        
+        if (startInput) startInput.value = startDate.toISOString().split('T')[0];
+        if (endInput) endInput.value = endDate.toISOString().split('T')[0];
     }
 
     function checkPastDates() {
@@ -1143,6 +1074,91 @@
         }
     }
 
+    // Extend harvest window by maximum 20%
+    function extendHarvestWindow() {
+        const startInput = document.getElementById('harvestStart');
+        const endInput = document.getElementById('harvestEnd');
+        
+        if (!startInput || !endInput || !startInput.value || !endInput.value) {
+            console.warn('Cannot extend harvest window: missing date inputs');
+            return;
+        }
+        
+        const startDate = new Date(startInput.value);
+        const endDate = new Date(endInput.value);
+        const currentDuration = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24));
+        const extensionDays = Math.min(Math.floor(currentDuration * 0.2), 30); // Max 20% or 30 days
+        
+        // Extend the end date
+        const newEndDate = new Date(endDate);
+        newEndDate.setDate(newEndDate.getDate() + extensionDays);
+        
+        endInput.value = newEndDate.toISOString().split('T')[0];
+        updateDragBar();
+        
+        // Update display
+        const aiHarvestDetails = document.getElementById('aiHarvestDetails');
+        if (aiHarvestDetails) {
+            let existingHTML = aiHarvestDetails.innerHTML;
+            existingHTML = existingHTML.replace(
+                /<div class="text-muted small mt-2">[\s\S]*?<\/div>/,
+                `<div class="alert alert-warning small mt-2">
+                    <i class="fas fa-exclamation-triangle"></i> Extended by ${extensionDays} days (increased risk of quality loss)
+                </div>
+                <div class="text-muted small mt-2">
+                    <i class="fas fa-clock"></i> Extended ${new Date().toLocaleTimeString()}
+                </div>`
+            );
+            aiHarvestDetails.innerHTML = existingHTML;
+        }
+        
+        console.log(`📈 Extended harvest window by ${extensionDays} days`);
+    }
+
+    // Reduce harvest window to minimum 1 week
+    function reduceHarvestWindow() {
+        const startInput = document.getElementById('harvestStart');
+        const endInput = document.getElementById('harvestEnd');
+        
+        if (!startInput || !endInput || !startInput.value) {
+            console.warn('Cannot reduce harvest window: missing date inputs');
+            return;
+        }
+        
+        const startDate = new Date(startInput.value);
+        const minEndDate = new Date(startDate);
+        minEndDate.setDate(minEndDate.getDate() + 7); // Minimum 1 week
+        
+        endInput.value = minEndDate.toISOString().split('T')[0];
+        updateDragBar();
+        
+        // Update display
+        const aiHarvestDetails = document.getElementById('aiHarvestDetails');
+        if (aiHarvestDetails) {
+            let existingHTML = aiHarvestDetails.innerHTML;
+            existingHTML = existingHTML.replace(
+                /<div class="text-muted small mt-2">[\s\S]*?<\/div>/,
+                `<div class="alert alert-info small mt-2">
+                    <i class="fas fa-info-circle"></i> Reduced to minimum 1-week harvest window
+                </div>
+                <div class="text-muted small mt-2">
+                    <i class="fas fa-clock"></i> Reduced ${new Date().toLocaleTimeString()}
+                </div>`
+            );
+            aiHarvestDetails.innerHTML = existingHTML;
+        }
+        
+        console.log('📉 Reduced harvest window to 1 week');
+    }
+
+    // Reset harvest window to AI-calculated maximum
+    function resetHarvestWindow() {
+        // Re-run the AI calculation to get the maximum window
+        calculateAIHarvestWindow();
+        console.log('🔄 Reset harvest window to AI maximum');
+    }
+
+    // Calculate AI harvest window - main function for getting maximum possible harvest
     async function calculateAIHarvestWindow() {
         try {
             console.log('🤖 calculateAIHarvestWindow() called');
@@ -1155,199 +1171,210 @@
                 return;
             }
 
-            cropName = cropSelect.options[cropSelect.selectedIndex].text;
+            const cropName = cropSelect.options[cropSelect.selectedIndex].text;
             const varietyName = varietySelect && varietySelect.value ? varietySelect.options[varietySelect.selectedIndex].text : null;
             const varietyId = varietySelect && varietySelect.value ? varietySelect.value : null;
 
-            // First, try to get variety-specific harvest data
-            let varietySpecificData = null;
+            // Try to fetch full variety metadata from farmOS to pass to AI
+            let varietyMeta = null;
             if (varietyId) {
                 try {
-                    const varietyResponse = await fetch(`/admin/farmos/succession-planning/varieties/${varietyId}`, {
-                        method: 'GET',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest'
-                        }
-                    });
-                    if (varietyResponse.ok) {
-                        varietySpecificData = await varietyResponse.json();
-                        console.log('📊 Variety-specific data:', varietySpecificData);
-                    }
+                    const metaResp = await fetch(`${API_BASE}/varieties/${varietyId}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                    if (metaResp.ok) varietyMeta = await metaResp.json();
                 } catch (e) {
-                    console.warn('Could not fetch variety metadata:', e);
+                    console.warn('Could not fetch variety metadata for AI context:', e);
                 }
             }
 
-            // Check if we have variety-specific harvest data
-            if (varietySpecificData && (varietySpecificData.harvest_start || varietySpecificData.harvest_end)) {
-                console.log('🎯 Using variety-specific harvest data for', varietyName);
-                const harvestStart = varietySpecificData.harvest_start;
-                const harvestEnd = varietySpecificData.harvest_end;
-                const daysToHarvest = varietySpecificData.days_to_harvest;
+            const contextPayload = {
+                crop: cropName,
+                variety: varietyName || null,
+                variety_meta: varietyMeta,
+                planning_year: document.getElementById('planningYear')?.value || new Date().getFullYear(),
+                planning_season: document.getElementById('planningSeason')?.value || null,
+                planted_on: new Date().toISOString().split('T')[0]
+            };
 
-                harvestInfo = {
-                    optimal_start: harvestStart,
-                    optimal_end: harvestEnd,
-                    days_to_harvest: daysToHarvest,
-                    yield_peak: varietySpecificData.yield_peak,
-                    notes: `Variety-specific data for ${varietyName}. ${varietySpecificData.notes || ''}`
-                };
+            // Build a strict prompt requesting JSON output to make parsing deterministic
+            const prompt = `You are an expert agronomist specializing in extended harvest techniques. Given the context JSON, return ONLY a JSON object with the exact keys: maximum_start (YYYY-MM-DD), maximum_end (YYYY-MM-DD), days_to_harvest (number), yield_peak (YYYY-MM-DD), notes (string), and extended_window (object with max_extension_days and risk_level). 
 
-                console.log('✅ Variety-specific harvest info:', harvestInfo);
-            } else {
-                // Fall back to AI or crop-specific defaults
-                console.log('🔄 No variety-specific data, using AI/crop defaults');
+For crops like beets, carrots, and other root vegetables, consider the FULL POSSIBLE harvest period:
+- Early harvesting (May-June) for baby/small sizes
+- Main harvest (June-November) for mature sizes  
+- Extended harvest (November-December) with protection techniques
+- Total possible window: May to December (up to 221 days for beets)
 
-                // For Brussels sprouts, use reliable defaults instead of complex AI parsing
-                if (cropName.toLowerCase().includes('brussels') || cropName.toLowerCase().includes('sprouts')) {
-                    console.log('🌱 Using Brussels sprouts harvest defaults');
+Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, considering all harvesting techniques, succession planting, and storage methods. Do NOT include extra text.`;
 
-                    // Brussels sprouts typically take 90-120 days from transplant
-                    // Fall harvest window: September-November
-                    const today = new Date();
-                    const currentYear = today.getFullYear();
+            // Use same-origin Laravel route that exists in this app (chat endpoint)
+            const chatUrl = window.location.origin + '/admin/farmos/succession-planning/chat';
 
-                    // Default fall harvest window for Brussels sprouts
-                    const harvestStart = new Date(currentYear, 8, 15); // September 15
-                    const harvestEnd = new Date(currentYear, 10, 15);   // November 15
+            // Debug: log payload and endpoint
+            console.log('🛰️ AI request ->', { chatUrl, prompt, context: contextPayload });
 
-                    harvestInfo = {
-                        optimal_start: harvestStart.toISOString().split('T')[0],
-                        optimal_end: harvestEnd.toISOString().split('T')[0],
-                        days_to_harvest: 110, // Average days from transplant to harvest
-                        yield_peak: new Date(currentYear, 9, 15).toISOString().split('T')[0], // October 15
-                        notes: 'Brussels sprouts prefer cool fall weather. Harvest from bottom up, picking individual sprouts as they reach 1-2" diameter.'
-                    };
+            // Use AbortController to timeout requests that hang
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
-                    console.log('✅ Brussels sprouts harvest info:', harvestInfo);
+            const response = await fetch(chatUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                },
+                body: JSON.stringify({ message: prompt, context: contextPayload }),
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+
+            console.log('🛰️ AI response status:', response.status);
+
+            if (!response.ok) {
+                // Try to read body for debugging
+                let text = '';
+                try { text = await response.text(); } catch (e) { text = `<failed to read body: ${e}>`; }
+                console.error('Failed to fetch AI response:', response.status, response.statusText, text);
+                return;
+            }
+
+            const data = await response.json();
+            console.log('🛰️ AI raw response:', data);
+
+            // data.answer may be plain text containing JSON or already parsed
+            const aiText = (typeof data.answer === 'string') ? data.answer.trim() : data.answer;
+
+            // Try to parse guaranteed JSON response first
+            let harvestInfo = null;
+            try {
+                if (typeof aiText === 'object') {
+                    harvestInfo = aiText;
                 } else {
-                    // For other crops, try AI parsing but with better fallbacks
-                    try {
-                        if (typeof aiText === 'object') {
-                            harvestInfo = aiText;
-                        } else {
-                            // Clean up the AI response - remove prefixes
-                            let cleanText = String(aiText)
-                                .replace(/^Response:\s*/i, '')
-                                .replace(/^FarmOS AI Assistant:\s*/i, '')
-                                .replace(/^AI Assistant:\s*/i, '')
-                                .trim();
-
-                            // Try to find JSON in the response
-                            const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-                            if (jsonMatch) {
-                                harvestInfo = JSON.parse(jsonMatch[0]);
-                            } else {
-                                // Fall back to text parsing
-                                harvestInfo = parseHarvestWindow(cleanText, cropName, varietyName);
-                            }
-                        }
-                    } catch (e) {
-                        console.warn('AI response parsing failed, using text parsing fallback:', e);
-                        let cleanText = String(aiText)
-                            .replace(/^Response:\s*/i, '')
-                            .replace(/^FarmOS AI Assistant:\s*/i, '')
-                            .replace(/^AI Assistant:\s*/i, '')
-                            .trim();
-                        harvestInfo = parseHarvestWindow(cleanText, cropName, varietyName);
-                    }
+                    // Sometimes AI wraps JSON in markdown fences - try to find JSON substring
+                    const jsonMatch = String(aiText).match(/\{[\s\S]*\}/);
+                    const candidate = jsonMatch ? jsonMatch[0] : String(aiText);
+                    harvestInfo = JSON.parse(candidate);
                 }
+            } catch (e) {
+                console.warn('AI did not return strict JSON or parsing failed, falling back to text parsing:', e);
+                harvestInfo = parseHarvestWindow(String(aiText), cropName, varietyName);
             }
 
-            if (!harvestInfo || !harvestInfo.optimal_start || !harvestInfo.optimal_end) {
+            if (!harvestInfo || !harvestInfo.maximum_start || !harvestInfo.maximum_end) {
                 console.warn('AI returned incomplete harvest info, falling back to parsed/fallback values');
-                let cleanText = String(aiText)
-                    .replace(/^Response:\s*/i, '')
-                    .replace(/^FarmOS AI Assistant:\s*/i, '')
-                    .trim();
-                harvestInfo = parseHarvestWindow(cleanText, cropName, varietyName);
+                harvestInfo = parseHarvestWindow(String(aiText), cropName, varietyName);
             }
 
             displayAIHarvestWindow(harvestInfo);
 
-            // Auto-set the harvest window inputs and drag bar
-            if (harvestInfo.optimal_start) document.getElementById('harvestStart').value = harvestInfo.optimal_start;
-            if (harvestInfo.optimal_end) document.getElementById('harvestEnd').value = harvestInfo.optimal_end;
-            
-            // Update timeline to match the harvest window year
-            if (harvestInfo.optimal_start) {
-                const startDate = new Date(harvestInfo.optimal_start);
-                const harvestYear = startDate.getFullYear();
-                
-                // Use the user-selected planning year, not the harvest year
-                const planningYear = document.getElementById('planningYear').value || harvestYear;
-                updateTimelineMonths(parseInt(planningYear));
+            // Auto-set the harvest window inputs and drag bar to MAXIMUM possible
+            if (harvestInfo.maximum_start) {
+                document.getElementById('harvestStart').value = harvestInfo.maximum_start;
+                console.log('📅 Set harvest start to maximum:', harvestInfo.maximum_start);
+            }
+            if (harvestInfo.maximum_end) {
+                document.getElementById('harvestEnd').value = harvestInfo.maximum_end;
+                console.log('📅 Set harvest end to maximum:', harvestInfo.maximum_end);
             }
             
-            updateDragBar();
+            // Force update the drag bar and timeline
+            setTimeout(() => {
+                updateDragBar();
+                updateTimelineMonths(document.getElementById('planningYear').value || new Date().getFullYear());
+                console.log('🔄 Drag bar and timeline updated for maximum harvest window');
+            }, 100);
 
             console.log('✅ AI response processed successfully', harvestInfo);
         } catch (error) {
             if (error.name === 'AbortError') {
                 console.error('AI request timed out');
-                // Even on timeout, provide Brussels sprouts defaults
-                if (cropName.toLowerCase().includes('brussels') || cropName.toLowerCase().includes('sprouts')) {
-                    console.log('🌱 Using Brussels sprouts defaults after timeout');
-                    const today = new Date();
-                    const currentYear = today.getFullYear();
-                    const harvestStart = new Date(currentYear, 8, 20); // September 20
-                    const harvestEnd = new Date(currentYear, 10, 20);   // November 20
-
-                    harvestInfo = {
-                        optimal_start: harvestStart.toISOString().split('T')[0],
-                        optimal_end: harvestEnd.toISOString().split('T')[0],
-                        days_to_harvest: 110,
-                        yield_peak: new Date(currentYear, 9, 20).toISOString().split('T')[0],
-                        notes: 'Brussels sprouts prefer cool fall weather. Harvest from bottom up, picking individual sprouts as they reach 1-2" diameter. (Using reliable defaults - AI was slow to respond)'
-                    };
-                    console.log('✅ Brussels sprouts harvest info (timeout fallback):', harvestInfo);
-
-                    // Display the fallback info and update UI
-                    displayAIHarvestWindow(harvestInfo);
-                    if (harvestInfo.optimal_start) document.getElementById('harvestStart').value = harvestInfo.optimal_start;
-                    if (harvestInfo.optimal_end) document.getElementById('harvestEnd').value = harvestInfo.optimal_end;
-                    updateDragBar();
-                } else {
-                    // For other crops, show a generic fallback
-                    const today = new Date();
-                    const defaultStart = new Date(today); defaultStart.setMonth(today.getMonth() + 2);
-                    const defaultEnd = new Date(defaultStart); defaultEnd.setMonth(defaultStart.getMonth() + 1);
-                    harvestInfo = {
-                        optimal_start: defaultStart.toISOString().split('T')[0],
-                        optimal_end: defaultEnd.toISOString().split('T')[0],
-                        days_to_harvest: 60,
-                        yield_peak: defaultStart.toISOString().split('T')[0],
-                        notes: `Generic harvest window for ${cropName}. AI service was temporarily slow.`
-                    };
-
-                    // Display the fallback info and update UI
-                    displayAIHarvestWindow(harvestInfo);
-                    if (harvestInfo.optimal_start) document.getElementById('harvestStart').value = harvestInfo.optimal_start;
-                    if (harvestInfo.optimal_end) document.getElementById('harvestEnd').value = harvestInfo.optimal_end;
-                    updateDragBar();
-                }
             } else {
                 console.error('Error calculating AI harvest window:', error);
-                // Provide basic fallback on any error
-                const today = new Date();
-                const defaultStart = new Date(today); defaultStart.setMonth(today.getMonth() + 2);
-                const defaultEnd = new Date(defaultStart); defaultEnd.setMonth(defaultStart.getMonth() + 1);
-                harvestInfo = {
-                    optimal_start: defaultStart.toISOString().split('T')[0],
-                    optimal_end: defaultEnd.toISOString().split('T')[0],
-                    days_to_harvest: 60,
-                    yield_peak: defaultStart.toISOString().split('T')[0],
-                    notes: `Basic harvest window fallback due to error: ${error.message}`
-                };
-
-                // Display the fallback info and update UI
-                displayAIHarvestWindow(harvestInfo);
-                if (harvestInfo.optimal_start) document.getElementById('harvestStart').value = harvestInfo.optimal_start;
-                if (harvestInfo.optimal_end) document.getElementById('harvestEnd').value = harvestInfo.optimal_end;
-                updateDragBar();
             }
         }
+    }
+
+    // Display AI harvest window information in the UI
+    function displayAIHarvestWindow(harvestInfo) {
+        console.log('🎨 Displaying AI harvest window:', harvestInfo);
+        
+        const harvestWindowInfo = document.getElementById('harvestWindowInfo');
+        const aiHarvestDetails = document.getElementById('aiHarvestDetails');
+        
+        if (!harvestWindowInfo || !aiHarvestDetails) {
+            console.warn('AI harvest window display elements not found');
+            return;
+        }
+        
+        // Show the harvest window info section
+        harvestWindowInfo.style.display = 'block';
+        
+        // Build the details HTML
+        let detailsHTML = '';
+        
+        if (harvestInfo.maximum_start && harvestInfo.maximum_end) {
+            const startDate = new Date(harvestInfo.maximum_start);
+            const endDate = new Date(harvestInfo.maximum_end);
+            const durationDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+            
+            detailsHTML += `<div class="mb-2">
+                <strong>Maximum Possible Harvest:</strong> ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}
+                <br><small class="text-muted">Duration: ${durationDays} days</small>
+            </div>`;
+        }
+        
+        if (harvestInfo.days_to_harvest) {
+            detailsHTML += `<div class="mb-2">
+                <strong>Days to Harvest:</strong> ${harvestInfo.days_to_harvest} days
+            </div>`;
+        }
+        
+        if (harvestInfo.yield_peak) {
+            const peakDate = new Date(harvestInfo.yield_peak);
+            detailsHTML += `<div class="mb-2">
+                <strong>Peak Yield:</strong> ${peakDate.toLocaleDateString()}
+            </div>`;
+        }
+        
+        if (harvestInfo.extended_window) {
+            const extensionDays = harvestInfo.extended_window.max_extension_days || Math.floor((harvestInfo.days_to_harvest || 60) * 0.2);
+            const riskLevel = harvestInfo.extended_window.risk_level || 'moderate';
+            
+            detailsHTML += `<div class="mb-2">
+                <strong>Extension Options:</strong> Up to ${extensionDays} days (${riskLevel} risk)
+            </div>`;
+        }
+        
+        if (harvestInfo.notes) {
+            detailsHTML += `<div class="mb-2">
+                <strong>Notes:</strong> ${harvestInfo.notes}
+            </div>`;
+        }
+        
+        // Add harvest window controls
+        detailsHTML += `<div class="mt-3">
+            <div class="btn-group btn-group-sm" role="group">
+                <button type="button" class="btn btn-outline-success" onclick="extendHarvestWindow()">
+                    <i class="fas fa-plus"></i> Extend 20%
+                </button>
+                <button type="button" class="btn btn-outline-warning" onclick="reduceHarvestWindow()">
+                    <i class="fas fa-minus"></i> Reduce to 1 Week
+                </button>
+                <button type="button" class="btn btn-outline-info" onclick="resetHarvestWindow()">
+                    <i class="fas fa-undo"></i> Reset to Max
+                </button>
+            </div>
+        </div>`;
+        
+        // Add a timestamp
+        detailsHTML += `<div class="text-muted small mt-2">
+            <i class="fas fa-clock"></i> Calculated ${new Date().toLocaleTimeString()}
+        </div>`;
+        
+        aiHarvestDetails.innerHTML = detailsHTML;
+        
+        console.log('✅ AI harvest window displayed successfully');
     }
 
     function parseHarvestWindow(aiResponse, cropName, varietyName) {
@@ -1361,56 +1388,34 @@
         // If aiResponse is an object already, normalize
         if (typeof aiResponse === 'object') {
             return {
-                optimal_start: aiResponse.optimal_start || aiResponse.optimalStart || aiResponse.start || null,
-                optimal_end: aiResponse.optimal_end || aiResponse.optimalEnd || aiResponse.end || null,
+                maximum_start: aiResponse.maximum_start || aiResponse.maximumStart || aiResponse.optimal_start || aiResponse.optimalStart || aiResponse.start || null,
+                maximum_end: aiResponse.maximum_end || aiResponse.maximumEnd || aiResponse.optimal_end || aiResponse.optimalEnd || aiResponse.end || null,
                 days_to_harvest: aiResponse.days_to_harvest || aiResponse.daysToHarvest || aiResponse.days || null,
                 yield_peak: aiResponse.yield_peak || aiResponse.yieldPeak || null,
-                notes: aiResponse.notes || ''
+                notes: aiResponse.notes || '',
+                extended_window: aiResponse.extended_window || {
+                    max_extension_days: Math.floor((aiResponse.days_to_harvest || 60) * 0.2), // 20% extension
+                    risk_level: 'moderate'
+                }
             };
         }
 
         const text = String(aiResponse);
-
-        // Helper function to extract days from text
-        function extractDaysFromResponse(text) {
-            // Look for patterns like "60 days", "2 months", "90-100 days", etc.
-            const dayMatch = text.match(/(\d+)(?:\s*-\s*\d+)?\s*(?:days?|weeks?|months?)/i);
-            if (dayMatch) {
-                const days = parseInt(dayMatch[1]);
-                // Convert weeks/months to days if needed
-                if (text.match(/weeks?/i)) return days * 7;
-                if (text.match(/months?/i)) return days * 30;
-                return days;
-            }
-
-            // Look for maturity periods or harvest times
-            const maturityMatch = text.match(/(?:maturity|harvest|grow).{0,20}(\d+)(?:\s*-\s*\d+)?\s*(?:days?|weeks?|months?)/i);
-            if (maturityMatch) {
-                const days = parseInt(maturityMatch[1]);
-                if (text.match(/weeks?/i)) return days * 7;
-                if (text.match(/months?/i)) return days * 30;
-                return days;
-            }
-
-            // Default fallback based on crop type
-            if (cropName.toLowerCase().includes('lettuce') || cropName.toLowerCase().includes('spinach')) return 45;
-            if (cropName.toLowerCase().includes('carrot') || cropName.toLowerCase().includes('beet')) return 75;
-            if (cropName.toLowerCase().includes('tomato') || cropName.toLowerCase().includes('pepper')) return 90;
-            if (cropName.toLowerCase().includes('brussels') || cropName.toLowerCase().includes('broccoli')) return 120;
-
-            return 60; // 60 days is a reasonable default
-        }
 
         // Try to extract ISO dates first
         const isoStartMatch = text.match(/(\d{4}-\d{2}-\d{2})/);
         const isoDates = text.match(/(\d{4}-\d{2}-\d{2})/g);
         if (isoDates && isoDates.length >= 2) {
             return {
-                optimal_start: isoDates[0],
-                optimal_end: isoDates[1],
+                maximum_start: isoDates[0],
+                maximum_end: isoDates[1],
                 days_to_harvest: extractDaysFromResponse(text),
                 yield_peak: isoDates[Math.min(2, isoDates.length-1)] || isoDates[0],
-                notes: `AI analysis for ${cropName}${varietyName ? ` (${varietyName})` : ''}`
+                notes: `AI analysis for ${cropName}${varietyName ? ` (${varietyName})` : ''}`,
+                extended_window: {
+                    max_extension_days: Math.floor(extractDaysFromResponse(text) * 0.2),
+                    risk_level: 'moderate'
+                }
             };
         }
 
@@ -1422,24 +1427,61 @@
             const defaultStart = new Date(today); defaultStart.setMonth(today.getMonth() + 2);
             const defaultEnd = new Date(defaultStart); defaultEnd.setMonth(defaultStart.getMonth() + 1);
             return {
-                optimal_start: defaultStart.toISOString().split('T')[0],
-                optimal_end: defaultEnd.toISOString().split('T')[0],
+                maximum_start: defaultStart.toISOString().split('T')[0],
+                maximum_end: defaultEnd.toISOString().split('T')[0],
                 days_to_harvest: extractDaysFromResponse(text),
                 yield_peak: defaultStart.toISOString().split('T')[0],
-                notes: `AI analysis for ${cropName}${varietyName ? ` (${varietyName})` : ''}`
+                notes: `AI analysis for ${cropName}${varietyName ? ` (${varietyName})` : ''}`,
+                extended_window: {
+                    max_extension_days: Math.floor(extractDaysFromResponse(text) * 0.2),
+                    risk_level: 'moderate'
+                }
             };
         }
 
-        // Generic fallback
+        // Generic fallback with crop-specific logic
         const today = new Date();
-        const defaultStart = new Date(today); defaultStart.setMonth(today.getMonth() + 2);
-        const defaultEnd = new Date(defaultStart); defaultEnd.setMonth(defaultStart.getMonth() + 1);
+        const cropNameLower = cropName.toLowerCase();
+        
+        let defaultStart, defaultEnd, defaultDays, notes;
+        
+        // Special handling for beets and root vegetables
+        if (cropNameLower.includes('beet')) {
+            // Beets: May to December (up to 221 days as user mentioned)
+            defaultStart = new Date(today.getFullYear(), 4, 1); // May 1st
+            defaultEnd = new Date(today.getFullYear(), 11, 31); // December 31st
+            defaultDays = 221; // May to December
+            notes = `Maximum beet harvest window: May-December (${defaultDays} days). Young beets from May, mature from June-November, can extend to January with protection.`;
+        } else if (cropNameLower.includes('carrot') || cropNameLower.includes('radish') || cropNameLower.includes('turnip')) {
+            // Other root vegetables: also have extended harvest periods
+            defaultStart = new Date(today.getFullYear(), 5, 1); // June 1st
+            defaultEnd = new Date(today.getFullYear(), 10, 30); // November 30th
+            defaultDays = 153; // June to November
+            notes = `Extended root vegetable harvest: June-November (${defaultDays} days). Can extend with row covers.`;
+        } else if (cropNameLower.includes('lettuce') || cropNameLower.includes('spinach')) {
+            // Leafy greens: shorter harvest periods
+            defaultStart = new Date(today); defaultStart.setMonth(today.getMonth() + 1);
+            defaultEnd = new Date(defaultStart); defaultEnd.setMonth(defaultStart.getMonth() + 2);
+            defaultDays = 60;
+            notes = `Leafy green harvest window: ${defaultDays} days. Multiple successions recommended.`;
+        } else {
+            // Generic fallback for other crops
+            defaultStart = new Date(today); defaultStart.setMonth(today.getMonth() + 2);
+            defaultEnd = new Date(defaultStart); defaultEnd.setMonth(defaultStart.getMonth() + 1);
+            defaultDays = 60;
+            notes = `Standard harvest window: ${defaultDays} days for ${cropName}.`;
+        }
+        
         return {
-            optimal_start: defaultStart.toISOString().split('T')[0],
-            optimal_end: defaultEnd.toISOString().split('T')[0],
-            days_to_harvest: extractDaysFromResponse(text),
-            yield_peak: defaultStart.toISOString().split('T')[0],
-            notes: `AI analysis for ${cropName}${varietyName ? ` (${varietyName})` : ''}`
+            maximum_start: defaultStart.toISOString().split('T')[0],
+            maximum_end: defaultEnd.toISOString().split('T')[0],
+            days_to_harvest: defaultDays,
+            yield_peak: new Date((defaultStart.getTime() + defaultEnd.getTime()) / 2).toISOString().split('T')[0],
+            notes: notes,
+            extended_window: {
+                max_extension_days: Math.floor(defaultDays * 0.2),
+                risk_level: cropNameLower.includes('beet') || cropNameLower.includes('carrot') ? 'low' : 'moderate'
+            }
         };
     }
 
@@ -1539,8 +1581,9 @@
     function updateVarieties() {
         const varietySelect = document.getElementById('varietySelect');
         varietySelect.innerHTML = '<option value="">Generic variety</option>';
+        
         if (!cropId) return;
-
+        
         console.log('Filtering varieties for cropId:', cropId);
         console.log('Available varieties count:', Array.isArray(cropVarieties) ? cropVarieties.length : typeof cropVarieties, cropVarieties);
         
@@ -1723,7 +1766,7 @@
                             </h6>
                             <p class="mb-1">
                                 <strong>Plant:</strong> ${plantingDate.toLocaleDateString()}
-                            </p>
+                                                       </p>
                             <p class="mb-1">
                                 <strong>Harvest:</strong> ${harvestDate.toLocaleDateString()}
                             </p>
@@ -1745,19 +1788,20 @@
             timelineChart.destroy();
         }
 
-        if (!plan.plantings || plan.plantings.length ===  0) {
+        if (!plan.plantings || plan.plantings.length === 0) {
             ctx.fillText('No succession plan data available', 10, 50);
             return;
         }
 
         const datasets = plan.plantings.map((planting, index) => {
-            const plantingDate = new Date(planting.planting_date);
+                       const plantingDate = new Date(planting.planting_date);
             const harvestDate = new Date(planting.harvest_date);
-                       const isOverdue = plantingDate < new Date();
+            const isOverdue = plantingDate < new Date();
 
             return {
                 label: `Succession ${index + 1}`,
                 data: [{
+
                     x: plantingDate.toISOString().split('T')[0],
                     y: `Succession ${index + 1}`,
                     x2: harvestDate.toISOString().split('T')[0]
@@ -1765,7 +1809,7 @@
                 backgroundColor: isOverdue ? '#dc3545' : '#28a745',
                 borderColor: isOverdue ? '#dc3545' : '#28a745',
                 borderWidth: 2,
-                barThickness:  20
+                barThickness:   20
             };
         });
 
@@ -1777,7 +1821,7 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                                       title: {
+                    title: {
                         display: true,
                         text: 'Succession Planting & Harvest Timeline'
                     },
@@ -1832,7 +1876,7 @@
         // Show loading
         const loadingDiv = document.createElement('div');
         loadingDiv.className = 'ai-response';
-        loadingDiv.innerHTML = '<i class="fas fa-brain"></i> farmOS AI is analyzing your question... <small class="text-muted">(this may take 5-8 seconds, or use smart defaults)</small>';
+        loadingDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> farmOS AI is analyzing your question...';
         responseArea.appendChild(loadingDiv);
 
         try {
@@ -1860,17 +1904,17 @@
                 responseArea.removeChild(loadingDiv);
                 
                 if (data.answer || data.response) {
-                                       const aiResponse = document.createElement('div');
+                    const aiResponse = document.createElement('div');
                     aiResponse.className = 'ai-response';
                     aiResponse.innerHTML = `
                         <div class="mb-2">
-                                                       <strong>🧠 farmOS AI (${data.model || 'Database-Integrated'}):</strong>
+                            <strong>🧠 farmOS AI (${data.model || 'Database-Integrated'}):</strong>
                         </div>
                         <div class="ai-response-content">
                             ${(data.answer || data.response).replace(/\n/g, '<br>')}
                         </div>
                         <div class="text-muted small mt-2">
-                                                       Cost: ${data.cost || 'FREE'} | Method: ${data.method || 'farmOS Integration'}
+                            Cost: ${data.cost || 'FREE'} | Method: ${data.method || 'farmOS Integration'}
                         </div>
                     `;
                     responseArea.appendChild(aiResponse);
@@ -1990,9 +2034,10 @@
         const dataBlob = new Blob([dataStr], {type: 'application/json'});
         
         const link = document.createElement('a');
-        link.href = URL.createObjectURL(dataBlob);
+               link.href = URL.createObjectURL(dataBlob);
         link.download = `succession-plan-${new Date().toISOString().split('T')[0]}.json`;
         link.click();
+        
         
         showSuccess('Succession plan exported successfully');
     }
@@ -2060,7 +2105,7 @@
         try {
             if (!varietyId) return;
 
-            const response = await fetch(`/admin/farmos/succession-planning/varieties/${varietyId}`, {
+            const response = await fetch(`${API_BASE}/varieties/${varietyId}`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -2084,7 +2129,6 @@
 
             const startDate = new Date(harvestStart);
             const endDate = new Date(harvestEnd);
-
 
             const dragBar = document.getElementById('dragHarvestBar');
             const startDisplay = document.getElementById('startDateDisplay');
@@ -2118,47 +2162,5 @@
     // Example usage
     const selectedVarietyId = document.getElementById('varietySelect').value;
     updateHarvestBarForVariety(selectedVarietyId);
-
-    // Display AI harvest window results
-    function displayAIHarvestWindow(harvestInfo) {
-        const harvestWindowInfo = document.getElementById('harvestWindowInfo');
-        const aiHarvestDetails = document.getElementById('aiHarvestDetails');
-
-        if (!harvestInfo || !harvestWindowInfo || !aiHarvestDetails) {
-            console.warn('Missing DOM elements for AI harvest window display');
-            return;
-        }
-
-        // Format the AI results for display
-        let detailsHTML = '';
-
-        if (harvestInfo.optimal_start) {
-            detailsHTML += `<div class="mb-2"><strong>Start:</strong> ${new Date(harvestInfo.optimal_start).toLocaleDateString()}</div>`;
-        }
-
-        if (harvestInfo.optimal_end) {
-            detailsHTML += `<div class="mb-2"><strong>End:</strong> ${new Date(harvestInfo.optimal_end).toLocaleDateString()}</div>`;
-        }
-
-        if (harvestInfo.days_to_harvest) {
-            detailsHTML += `<div class="mb-2"><strong>Days to Harvest:</strong> ${harvestInfo.days_to_harvest} days</div>`;
-        }
-
-        if (harvestInfo.yield_peak) {
-            detailsHTML += `<div class="mb-2"><strong>Peak Yield:</strong> ${new Date(harvestInfo.yield_peak).toLocaleDateString()}</div>`;
-        }
-
-        if (harvestInfo.notes) {
-            detailsHTML += `<div class="mb-2"><strong>AI Notes:</strong> ${harvestInfo.notes}</div>`;
-        }
-
-        // Add a timestamp
-        detailsHTML += `<div class="text-muted small mt-2"><i class="fas fa-clock"></i> Calculated ${new Date().toLocaleTimeString()}</div>`;
-
-        aiHarvestDetails.innerHTML = detailsHTML;
-        harvestWindowInfo.style.display = 'block';
-
-        console.log('✅ AI harvest window displayed:', harvestInfo);
-    }
 </script>
 @endsection

@@ -28,25 +28,19 @@ class SuccessionPlanningController extends Controller
      */
     public function index()
     {
-        // Temporarily disable AI wake-up to debug the include error
-        // try {
-        //     $this->wakeUpAIService();
-        // } catch (\Exception $e) {
-        //     // Don't let AI wake-up failures break the page load
-        //     Log::debug('AI wake-up failed during page load: ' . $e->getMessage());
-        // }
+        // Auto-wake AI service on page load to avoid cold start delays (but don't fail if it errors)
+        try {
+            $this->wakeUpAIService();
+        } catch (\Exception $e) {
+            // Don't let AI wake-up failures break the page load
+            Log::debug('AI wake-up failed during page load: ' . $e->getMessage());
+        }
         
         try {
-            // Get crop data from local database (much faster than FarmOS API)
-            $cropData = $this->getCropDataFromLocalDatabase();
+            // Get available crop types and varieties from farmOS
+            $cropData = $this->farmOSApi->getAvailableCropTypes();
             $geometryAssets = $this->farmOSApi->getGeometryAssets();
             $availableBeds = $this->extractAvailableBeds($geometryAssets);
-            
-            // Use fallback data only if local database is empty
-            if (empty($cropData['types'])) {
-                $this->command->info('Local database empty, falling back to FarmOS API');
-                $cropData = $this->farmOSApi->getAvailableCropTypes();
-            }
             
             // Crop timing presets for common market garden crops
             $cropPresets = $this->getCropTimingPresets();
@@ -63,15 +57,48 @@ class SuccessionPlanningController extends Controller
             // Fallback data for demo
             $cropData = [
                 'types' => [
-                    ['id' => 'lettuce', 'name' => 'lettuce', 'label' => 'Lettuce'],
-                    ['id' => 'carrot', 'name' => 'carrot', 'label' => 'Carrot'],
-                    ['id' => 'radish', 'name' => 'radish', 'label' => 'Radish'],
-                    ['id' => 'spinach', 'name' => 'spinach', 'label' => 'Spinach'],
-                    ['id' => 'kale', 'name' => 'kale', 'label' => 'Kale'],
-                    ['id' => 'arugula', 'name' => 'arugula', 'label' => 'Arugula'],
-                    ['id' => 'beets', 'name' => 'beets', 'label' => 'Beets']
+                    ['id' => 'lettuce', 'name' => 'Lettuce', 'label' => 'Lettuce'],
+                    ['id' => 'carrot', 'name' => 'Carrot', 'label' => 'Carrot'],
+                    ['id' => 'radish', 'name' => 'Radish', 'label' => 'Radish'],
+                    ['id' => 'spinach', 'name' => 'Spinach', 'label' => 'Spinach'],
+                    ['id' => 'kale', 'name' => 'Kale', 'label' => 'Kale'],
+                    ['id' => 'arugula', 'name' => 'Arugula', 'label' => 'Arugula'],
+                    ['id' => 'beets', 'name' => 'Beetroot', 'label' => 'Beetroot']
                 ],
-                'varieties' => []
+                'varieties' => [
+                    // Carrot varieties
+                    ['id' => 'carrot_nantes', 'name' => 'Nantes', 'parent_id' => 'carrot', 'crop_type' => 'carrot'],
+                    ['id' => 'carrot_chantenay', 'name' => 'Chantenay', 'parent_id' => 'carrot', 'crop_type' => 'carrot'],
+                    ['id' => 'carrot_imperator', 'name' => 'Imperator', 'parent_id' => 'carrot', 'crop_type' => 'carrot'],
+                    ['id' => 'carrot_danvers', 'name' => 'Danvers', 'parent_id' => 'carrot', 'crop_type' => 'carrot'],
+                    
+                    // Lettuce varieties
+                    ['id' => 'lettuce_buttercrunch', 'name' => 'Buttercrunch', 'parent_id' => 'lettuce', 'crop_type' => 'lettuce'],
+                    ['id' => 'lettuce_romaine', 'name' => 'Romaine', 'parent_id' => 'lettuce', 'crop_type' => 'lettuce'],
+                    ['id' => 'lettuce_red_leaf', 'name' => 'Red Leaf', 'parent_id' => 'lettuce', 'crop_type' => 'lettuce'],
+                    ['id' => 'lettuce_green_leaf', 'name' => 'Green Leaf', 'parent_id' => 'lettuce', 'crop_type' => 'lettuce'],
+                    
+                    // Beetroot varieties
+                    ['id' => 'beets_red', 'name' => 'Red Beet', 'parent_id' => 'beets', 'crop_type' => 'beets'],
+                    ['id' => 'beets_golden', 'name' => 'Golden Beet', 'parent_id' => 'beets', 'crop_type' => 'beets'],
+                    ['id' => 'beets_chioggia', 'name' => 'Chioggia', 'parent_id' => 'beets', 'crop_type' => 'beets'],
+                    
+                    // Spinach varieties
+                    ['id' => 'spinach_tyee', 'name' => 'Tyee', 'parent_id' => 'spinach', 'crop_type' => 'spinach'],
+                    ['id' => 'spinach_bloomsdale', 'name' => 'Bloomsdale', 'parent_id' => 'spinach', 'crop_type' => 'spinach'],
+                    
+                    // Kale varieties
+                    ['id' => 'kale_curly', 'name' => 'Curly Kale', 'parent_id' => 'kale', 'crop_type' => 'kale'],
+                    ['id' => 'kale_lacinato', 'name' => 'Lacinato', 'parent_id' => 'kale', 'crop_type' => 'kale'],
+                    
+                    // Radish varieties
+                    ['id' => 'radish_cherry_belle', 'name' => 'Cherry Belle', 'parent_id' => 'radish', 'crop_type' => 'radish'],
+                    ['id' => 'radish_icicle', 'name' => 'Icicle', 'parent_id' => 'radish', 'crop_type' => 'radish'],
+                    
+                    // Arugula varieties
+                    ['id' => 'arugula_standard', 'name' => 'Standard Arugula', 'parent_id' => 'arugula', 'crop_type' => 'arugula'],
+                    ['id' => 'arugula_wild', 'name' => 'Wild Arugula', 'parent_id' => 'arugula', 'crop_type' => 'arugula']
+                ]
             ];
             $availableBeds = $this->getFallbackBeds();
             $cropPresets = $this->getCropTimingPresets();
@@ -164,57 +191,62 @@ class SuccessionPlanningController extends Controller
                     // CRITICAL: All data goes to farmOS via API calls
                     // We store NOTHING locally - farmOS is the master database
                     
-                    // Create seeding log in farmOS
+                    // Create seeding plan in farmOS
                     if (!empty($planting['seeding_date'])) {
-                        $seedingData = [
-                            'crop_name' => $planting['crop'],
+                        $seedingType = ($planting['direct_sow'] ?? false) ? 'direct_seed' : 'seed';
+                        $seedingNote = ($planting['direct_sow'] ?? false) ? 'Direct Sow' : 'Seeding';
+                        
+                        $seedingPlan = $this->farmOSApi->createCropPlan([
+                            'type' => $seedingType,
+                            'crop' => [
+                                'name' => $planting['crop'],
+                                'variety' => $planting['variety'] ?? ''
+                            ],
+                            'location' => $planting['bed_id'],
                             'timestamp' => $planting['seeding_date'],
-                            'location_id' => $planting['bed_id'],
-                            'notes' => "Succession #{$planting['sequence']}: " . (($planting['direct_sow'] ?? false) ? 'Direct Sow' : 'Seeding') . " - " . ($planting['notes'] ?? ''),
-                            'quantity' => $planting['quantity'] ?? null,
-                            'quantity_unit' => 'count'
-                        ];
-                        
-                        $seedingLog = $this->farmOSApi->createSeedingLog($seedingData);
-                        $createdLogs[] = $seedingLog;
-                        $farmOSPlans[] = $seedingLog;
+                            'notes' => "Succession #{$planting['sequence']}: {$seedingNote} - " . ($planting['notes'] ?? ''),
+                            'status' => 'pending'
+                        ]);
+                        $createdLogs[] = $seedingPlan;
+                        $farmOSPlans[] = $seedingPlan;
                     }
 
-                    // Create transplant log in farmOS (only for non-direct-sow crops)
+                    // Create transplant plan in farmOS (only for non-direct-sow crops)
                     if (!empty($planting['transplant_date']) && !($planting['direct_sow'] ?? false)) {
-                        $transplantingData = [
-                            'crop_name' => $planting['crop'],
+                        $transplantPlan = $this->farmOSApi->createCropPlan([
+                            'type' => 'transplant',
+                            'crop' => [
+                                'name' => $planting['crop'],
+                                'variety' => $planting['variety'] ?? ''
+                            ],
+                            'location' => $planting['bed_id'],
                             'timestamp' => $planting['transplant_date'],
-                            'source_location_id' => $planting['bed_id'], // From seeding bed
-                            'destination_location_id' => $planting['bed_id'], // To final location
                             'notes' => "Succession #{$planting['sequence']}: Transplant - " . ($planting['notes'] ?? ''),
-                            'quantity' => $planting['quantity'] ?? null,
-                            'quantity_unit' => 'count'
-                        ];
-                        
-                        $transplantLog = $this->farmOSApi->createTransplantingLog($transplantingData);
-                        $createdLogs[] = $transplantLog;
-                        $farmOSPlans[] = $transplantLog;
+                            'status' => 'pending'
+                        ]);
+                        $createdLogs[] = $transplantPlan;
+                        $farmOSPlans[] = $transplantPlan;
                     }
 
-                    // Create harvest log in farmOS
+                    // Create harvest plan in farmOS
                     if (!empty($planting['harvest_date'])) {
-                        $harvestData = [
-                            'crop_name' => $planting['crop'],
+                        $harvestPlan = $this->farmOSApi->createCropPlan([
+                            'type' => 'harvest',
+                            'crop' => [
+                                'name' => $planting['crop'],
+                                'variety' => $planting['variety'] ?? ''
+                            ],
+                            'location' => $planting['bed_id'],
                             'timestamp' => $planting['harvest_date'],
-                            'location_id' => $planting['bed_id'],
                             'notes' => "Succession #{$planting['sequence']}: Harvest - " . ($planting['notes'] ?? ''),
-                            'quantity' => $planting['expected_yield'] ?? null,
-                            'quantity_unit' => 'weight'
-                        ];
-                        
-                        $harvestLog = $this->farmOSApi->createHarvestLog($harvestData);
-                        $createdLogs[] = $harvestLog;
-                        $farmOSPlans[] = $harvestLog;
+                            'status' => 'pending'
+                        ]);
+                        $createdLogs[] = $harvestPlan;
+                        $farmOSPlans[] = $harvestPlan;
                     }
 
                 } catch (\Exception $e) {
-                    $errors[] = "Failed to create farmOS logs for planting #{$planting['sequence']}: " . $e->getMessage();
+                    $errors[] = "Failed to create farmOS plans for planting #{$planting['sequence']}: " . $e->getMessage();
                     Log::error("farmOS API error during succession planning: " . $e->getMessage());
                 }
             }
@@ -230,7 +262,7 @@ class SuccessionPlanningController extends Controller
                 'success' => true,
                 'created_logs' => count($createdLogs),
                 'errors' => $errors,
-                'message' => count($createdLogs) . ' farmOS logs created successfully',
+                'message' => count($createdLogs) . ' farmOS crop plans created successfully',
                 'note' => 'Data now exists in farmOS - planting chart will show these when refreshed'
             ]);
 
@@ -276,45 +308,50 @@ class SuccessionPlanningController extends Controller
             $errors = [];
 
             // Create seeding log directly
-            $seedingData = [
-                'crop_name' => $validated['crop_name'],
-                'timestamp' => $validated['seeding']['date'],
-                'location_id' => $validated['seeding']['location'],
-                'notes' => "Succession #{$validated['succession_id']}: " . (($validated['seeding']['direct_sow'] ?? false) ? 'Direct Sow' : 'Seeding') . " - " . ($validated['seeding']['notes'] ?? 'AI-calculated succession seeding'),
-                'quantity' => $validated['seeding']['quantity'] ?? null,
-                'quantity_unit' => 'count'
-            ];
+            $seedingType = ($validated['seeding']['direct_sow'] ?? false) ? 'direct_seed' : 'seed';
+            $seedingNote = ($validated['seeding']['direct_sow'] ?? false) ? 'Direct Sow' : 'Seeding';
             
-            $seedingLog = $this->farmOSApi->createSeedingLog($seedingData);
+            $seedingLog = $this->farmOSApi->createCropPlan([
+                'type' => $seedingType,
+                'crop' => [
+                    'name' => $validated['crop_name'],
+                    'variety' => $validated['variety_name'] ?? ''
+                ],
+                'location' => $validated['seeding']['location'],
+                'timestamp' => $validated['seeding']['date'],
+                'notes' => "Succession #{$validated['succession_id']}: {$seedingNote} - " . ($validated['seeding']['notes'] ?? 'AI-calculated succession seeding'),
+                'status' => 'pending'
+            ]);
             $createdLogs[] = $seedingLog;
 
             // Create transplant log directly if scheduled
             if (!empty($validated['transplant']) && !empty($validated['transplant']['date'])) {
-                $transplantingData = [
-                    'crop_name' => $validated['crop_name'],
+                $transplantLog = $this->farmOSApi->createCropPlan([
+                    'type' => 'transplant',
+                    'crop' => [
+                        'name' => $validated['crop_name'],
+                        'variety' => $validated['variety_name'] ?? ''
+                    ],
+                    'location' => $validated['transplant']['location'],
                     'timestamp' => $validated['transplant']['date'],
-                    'source_location_id' => $validated['seeding']['location'], // From seeding location
-                    'destination_location_id' => $validated['transplant']['location'], // To transplant location
                     'notes' => "Succession #{$validated['succession_id']}: Transplant - " . ($validated['transplant']['notes'] ?? 'AI-calculated succession transplant'),
-                    'quantity' => $validated['transplant']['quantity'] ?? null,
-                    'quantity_unit' => 'count'
-                ];
-                
-                $transplantLog = $this->farmOSApi->createTransplantingLog($transplantingData);
+                    'status' => 'pending'
+                ]);
                 $createdLogs[] = $transplantLog;
             }
 
             // Create harvest log directly
-            $harvestData = [
-                'crop_name' => $validated['crop_name'],
+            $harvestLog = $this->farmOSApi->createCropPlan([
+                'type' => 'harvest',
+                'crop' => [
+                    'name' => $validated['crop_name'],
+                    'variety' => $validated['variety_name'] ?? ''
+                ],
+                'location' => $validated['transplant']['location'] ?? $validated['seeding']['location'],
                 'timestamp' => $validated['harvest']['date'],
-                'location_id' => $validated['transplant']['location'] ?? $validated['seeding']['location'],
                 'notes' => "Succession #{$validated['succession_id']}: Harvest - " . ($validated['harvest']['notes'] ?? 'AI-calculated succession harvest'),
-                'quantity' => $validated['harvest']['expected_yield'] ?? null,
-                'quantity_unit' => 'weight'
-            ];
-            
-            $harvestLog = $this->farmOSApi->createHarvestLog($harvestData);
+                'status' => 'pending'
+            ]);
             $createdLogs[] = $harvestLog;
 
             Log::info('Single succession log created in farmOS', [
@@ -356,15 +393,10 @@ class SuccessionPlanningController extends Controller
             $contextualData = [
                 'weather_forecast' => $this->getCurrentSeasonDescription(),
                 'current_season_performance' => 'Planning for ' . $firstSeedingDate->format('F Y'),
-                'succession_context' => "Planning {$successionCount} successions with {$intervalDays} day intervals",
-                'crop_family' => $this->getCropFamily($cropType),
-                'frost_tolerance' => $this->getFrostTolerance($cropType),
-                'days_to_maturity' => $this->getDaysToMaturity($cropType),
-                'seasonal_adjustments' => $this->getSeasonalAdjustments($this->getCurrentSeason()),
-                'beds' => $this->getFallbackBeds() // Available bed data
+                'succession_context' => "Planning {$successionCount} successions with {$intervalDays} day intervals"
             ];
 
-            // Use enhanced HuggingFace AI service with FarmOS form field requirements
+            // Use new HuggingFace AI service directly instead of old HolisticAICropService
             $aiHarvestWindow = $this->getHuggingFaceHarvestWindow($cropType, $variety, $contextualData);
 
             if ($aiHarvestWindow['success']) {
@@ -372,24 +404,39 @@ class SuccessionPlanningController extends Controller
                 $transplantToHarvestDays = $aiHarvestWindow['peak_harvest_days'] ?? $validated['transplant_to_harvest_days'];
                 $harvestDurationDays = $aiHarvestWindow['optimal_harvest_days'] ?? $validated['harvest_duration_days'];
                 $recommendedInterval = $aiHarvestWindow['days_between_plantings'] ?? $intervalDays;
-
+                
                 // Adjust interval if AI suggests different timing
                 if (abs($recommendedInterval - $intervalDays) <= 7) {
                     $intervalDays = $recommendedInterval;
                 }
-
+                
                 $aiUsed = true;
                 $aiSource = $aiHarvestWindow['source'];
                 $aiConfidence = $aiHarvestWindow['ai_confidence'] ?? 'medium';
-                $farmOSFormData = $aiHarvestWindow['farmOS_form_data'] ?? [];
             } else {
-                // Fallback to user input
-                $transplantToHarvestDays = $validated['transplant_to_harvest_days'];
-                $harvestDurationDays = $validated['harvest_duration_days'];
+                // Use crop-specific fallback instead of just user input
+                $fallbackWindow = $this->getFallbackHarvestWindow($cropType, $variety);
+                
+                $transplantToHarvestDays = $fallbackWindow['peak_harvest_days'] ?? $validated['transplant_to_harvest_days'];
+                $harvestDurationDays = $fallbackWindow['maximum_harvest_days'] ?? $validated['harvest_duration_days'];
+                $recommendedInterval = $fallbackWindow['days_between_plantings'] ?? $intervalDays;
+                
+                // Adjust interval if fallback suggests different timing
+                if (abs($recommendedInterval - $intervalDays) <= 7) {
+                    $intervalDays = $recommendedInterval;
+                }
+                
                 $aiUsed = false;
-                $aiSource = 'manual_input';
-                $aiConfidence = 'user_specified';
-                $farmOSFormData = [];
+                $aiSource = $fallbackWindow['source'];
+                $aiConfidence = $fallbackWindow['ai_confidence'];
+                
+                Log::info('Using crop-specific fallback for harvest window', [
+                    'crop' => $cropType,
+                    'variety' => $variety,
+                    'fallback_harvest_days' => $harvestDurationDays,
+                    'fallback_successions' => $fallbackWindow['recommended_successions'],
+                    'fallback_interval' => $recommendedInterval
+                ]);
             }
         } catch (\Exception $e) {
             Log::warning('AI harvest analysis failed, using manual input: ' . $e->getMessage());
@@ -398,7 +445,6 @@ class SuccessionPlanningController extends Controller
             $aiUsed = false;
             $aiSource = 'fallback_manual';
             $aiConfidence = 'user_specified';
-            $farmOSFormData = [];
         }
 
         // Get crop timing from user input (preferred) or presets
@@ -437,26 +483,7 @@ class SuccessionPlanningController extends Controller
                 'bed_id' => null, // To be assigned later
                 'conflicts' => [],
                 'ai_optimized' => $aiUsed,
-                'ai_confidence' => $aiConfidence,
-                // FarmOS Quick Form Data from AI
-                'farmOS_form_data' => [
-                    'seeding_method' => $farmOSFormData['seeding_method'] ?? ($isDirectSow ? 'direct_sow' : 'transplant'),
-                    'container_type' => $farmOSFormData['container_type'] ?? (!$isDirectSow ? '72-cell' : null),
-                    'soil_medium' => $farmOSFormData['soil_medium'] ?? (!$isDirectSow ? 'organic_seed_mix' : null),
-                    'germination_days' => $farmOSFormData['germination_days'] ?? (!$isDirectSow ? 7 : 0),
-                    'seeding_notes' => $farmOSFormData['seeding_notes'] ?? 'AI-optimized seeding for succession #' . ($i + 1),
-                    'transplant_lead_weeks' => $farmOSFormData['transplant_lead_weeks'] ?? (!$isDirectSow ? 4 : 0),
-                    'in_row_spacing_cm' => $farmOSFormData['in_row_spacing_cm'] ?? $this->getDefaultSpacing($cropType)['in_row'],
-                    'row_spacing_cm' => $farmOSFormData['row_spacing_cm'] ?? $this->getDefaultSpacing($cropType)['row'],
-                    'planting_depth_cm' => $farmOSFormData['planting_depth_cm'] ?? 1,
-                    'initial_watering' => $farmOSFormData['initial_watering'] ?? 'Water thoroughly after transplanting',
-                    'transplant_notes' => $farmOSFormData['transplant_notes'] ?? 'AI-optimized transplant timing',
-                    'harvest_window_days' => $farmOSFormData['harvest_window_days'] ?? $harvestDurationDays,
-                    'expected_yield_unit' => $farmOSFormData['expected_yield_unit'] ?? 'pounds',
-                    'harvest_method' => $farmOSFormData['harvest_method'] ?? 'continuous',
-                    'storage_instructions' => $farmOSFormData['storage_instructions'] ?? 'Refrigerate immediately',
-                    'harvest_notes' => $farmOSFormData['harvest_notes'] ?? 'AI-optimized harvest timing'
-                ]
+                'ai_confidence' => $aiConfidence
             ];
         }
 
@@ -472,72 +499,6 @@ class SuccessionPlanningController extends Controller
             'ai_confidence' => $aiConfidence,
             'ai_recommendations' => $aiHarvestWindow['contextual_factors'] ?? []
         ];
-    }
-
-    /**
-     * Get crop data from local database
-     */
-    private function getCropDataFromLocalDatabase()
-    {
-        try {
-            // Get all active varieties from local database
-            $varieties = PlantVariety::active()
-                                    ->select('id', 'farmos_id', 'name', 'plant_type', 'plant_type_id', 'description', 'crop_family', 'season', 'frost_tolerance', 'maturity_days')
-                                    ->get();
-
-            // Group varieties by plant type
-            $typesMap = [];
-            $varietiesByType = [];
-            $allVarieties = []; // Flat array for JavaScript
-
-            foreach ($varieties as $variety) {
-                $plantType = $variety->plant_type ?? 'Unknown';
-                $plantTypeId = $variety->plant_type_id ?? $variety->farmos_id;
-
-                if (!isset($typesMap[$plantTypeId])) {
-                    $typesMap[$plantTypeId] = [
-                        'id' => $plantTypeId,
-                        'name' => $plantType,
-                        'label' => ucfirst(strtolower($plantType))
-                    ];
-                }
-
-                $varietyData = [
-                    'id' => $variety->farmos_id, // Use farmos_id as the main ID for compatibility
-                    'name' => $variety->name,
-                    'label' => $variety->name,
-                    'description' => $variety->description,
-                    'crop_type' => $plantTypeId,
-                    'crop_id' => $plantTypeId, // Add crop_id for backward compatibility
-                    'parent_id' => $plantTypeId, // Add parent_id for JavaScript filtering
-                    'crop_family' => $variety->crop_family,
-                    'season' => $variety->season,
-                    'frost_tolerance' => $variety->frost_tolerance,
-                    'maturity_days' => $variety->maturity_days,
-                    'local_db_id' => $variety->id // Keep local DB ID for reference
-                ];
-
-                $varietiesByType[$plantTypeId][] = $varietyData;
-                $allVarieties[] = $varietyData; // Add to flat array
-            }
-
-            $types = array_values($typesMap);
-
-            // Sort types alphabetically
-            usort($types, function($a, $b) {
-                return strcmp($a['label'], $b['label']);
-            });
-
-            return [
-                'types' => $types,
-                'varieties' => $varietiesByType,
-                'all_varieties' => $allVarieties // Flat array for JavaScript
-            ];
-
-        } catch (\Exception $e) {
-            Log::error('Failed to get crop data from local database: ' . $e->getMessage());
-            return ['types' => [], 'varieties' => [], 'all_varieties' => []];
-        }
     }
 
     /**
@@ -1077,7 +1038,7 @@ class SuccessionPlanningController extends Controller
             ]);
 
             // Get comprehensive holistic recommendations
-            $holisticRec = $this->symbiosisAI->getHolisticRecommendations($cropType, [
+            $holisticRec = $this->holisticAI->getHolisticRecommendations($cropType, [
                 'season' => $season,
                 'include_sacred_geometry' => true,
                 'include_lunar_timing' => true,
@@ -1085,13 +1046,13 @@ class SuccessionPlanningController extends Controller
             ]);
 
             // Get sacred geometry spacing
-            $spacing = $this->symbiosisAI->getSacredGeometrySpacing($cropType);
+            $spacing = $this->holisticAI->getSacredGeometrySpacing($cropType);
 
             // Get companion mandala
-            $companions = $this->symbiosisAI->getCompanionMandala($cropType);
+            $companions = $this->holisticAI->getCompanionMandala($cropType);
 
             // Get current lunar timing
-            $lunarTiming = $this->symbiosisAI->getCurrentLunarTiming();
+            $lunarTiming = $this->holisticAI->getCurrentLunarTiming();
 
             $response = [
                 'success' => true,
@@ -1137,7 +1098,7 @@ class SuccessionPlanningController extends Controller
     public function getMoonPhaseGuidance(Request $request): JsonResponse
     {
         try {
-            $guidance = $this->symbiosisAI->getCurrentLunarTiming();
+            $guidance = $this->holisticAI->getCurrentLunarTiming();
             
             return response()->json([
                 'success' => true,
@@ -1177,7 +1138,7 @@ class SuccessionPlanningController extends Controller
                 return response()->json(['error' => 'Crop type is required'], 400);
             }
 
-            $spacing = $this->symbiosisAI->getSacredGeometrySpacing($cropType);
+            $spacing = $this->holisticAI->getSacredGeometrySpacing($cropType);
             
             return response()->json([
                 'success' => true,
@@ -1209,7 +1170,7 @@ class SuccessionPlanningController extends Controller
     {
         try {
             // Add holistic enhancements to the basic plan
-            $enhanced = $this->symbiosisAI->enhanceSuccessionPlan($plan, $params);
+            $enhanced = $this->holisticAI->enhanceSuccessionPlan($plan, $params);
             
             if ($enhanced['success'] ?? false) {
                 Log::info('✨ Plan enhanced with holistic wisdom', [
@@ -1323,669 +1284,660 @@ class SuccessionPlanningController extends Controller
     /**
      * Get AI-optimized harvest window for succession planning
      */
-    private function getHuggingFaceHarvestWindow(string $cropType, string $variety, array $contextualData): array
+    public function getOptimalHarvestWindow(Request $request): JsonResponse
     {
+        $validated = $request->validate([
+            'crop_type' => 'required|string',
+            'variety' => 'nullable|string',
+            'location' => 'nullable|string'
+        ]);
+
         try {
-            // Enhanced prompt with FarmOS quick form field requirements
-            $farmOSPrompt = "
-            Analyze {$cropType} ({$variety}) for succession planning and provide complete FarmOS quick form data.
+            // Gather contextual data for better AI analysis
+            $contextualData = [
+                'weather_forecast' => 'Current seasonal conditions for ' . ($validated['location'] ?? 'farm location'),
+                'current_season_performance' => 'Planning analysis for succession timing'
+            ];
 
-            CONTEXT:
-            - Season: {$contextualData['current_season_performance']}
-            - Succession planning: {$contextualData['succession_context']}
-            - Weather: {$contextualData['weather_forecast']}
+            // Use new HuggingFace AI service instead of old HolisticAICropService
+            $harvestWindow = $this->getHuggingFaceHarvestWindow(
+                $validated['crop_type'],
+                $validated['variety'],
+                $contextualData
+            );
 
-            REQUIRED FarmOS QUICK FORM FIELDS - Return ALL of these:
-
-            SEEDING DATA:
-            - seeding_method: 'direct_sow' or 'transplant'
-            - container_type: For transplants ('72-cell', '4-inch_pot', 'plug_tray', null for direct)
-            - soil_medium: ('organic_seed_mix', 'peat_pellets', 'soil_blocks', 'direct_soil')
-            - germination_days: Expected days to germination (integer)
-            - seeding_notes: Specific seeding instructions and timing
-
-            TRANSPLANT DATA (if transplant method):
-            - transplant_lead_weeks: Weeks to start seeds before transplant (integer)
-            - in_row_spacing_cm: Spacing between plants in row (integer)
-            - row_spacing_cm: Spacing between rows (integer)
-            - planting_depth_cm: How deep to plant seedlings (integer)
-            - initial_watering: Initial watering instructions (string)
-            - transplant_notes: Transplant timing and method notes
-
-            HARVEST DATA:
-            - harvest_window_days: Days harvest window remains viable (integer)
-            - expected_yield_unit: ('pounds', 'ounces', 'count', 'bunches', 'heads')
-            - harvest_method: ('single_harvest', 'cut_and_come_again', 'continuous', 'progressive')
-            - storage_instructions: Post-harvest handling and storage
-            - harvest_notes: Harvest timing optimization notes
-
-            SUCCESSION OPTIMIZATION:
-            - optimal_succession_interval_days: Recommended days between plantings (integer)
-            - max_successions_per_season: Maximum viable successions (integer)
-            - seasonal_adjustments: Any season-specific modifications needed
-
-            Provide realistic, farm-proven recommendations based on crop characteristics and seasonal context.
-            ";
-
-            $response = Http::timeout(30)->post(env('AI_SERVICE_URL', 'http://localhost:8005') . '/ask', [
-                'question' => $farmOSPrompt,
-                'context' => json_encode($contextualData)
-            ]);
-
-            if ($response->successful()) {
-                $aiData = $response->json();
-                $answer = $aiData['answer'] ?? 'No AI response available';
-
-                // Parse AI response for structured data
-                $structuredData = $this->parseAIResponseForFarmOS($answer);
-
-                return [
+            if ($harvestWindow['success']) {
+                return response()->json([
                     'success' => true,
-                    'source' => 'huggingface_ai',
-                    'ai_confidence' => 'high',
-                    'peak_harvest_days' => $structuredData['peak_harvest_days'] ?? 60,
-                    'optimal_harvest_days' => $structuredData['harvest_window_days'] ?? 21,
-                    'days_between_plantings' => $structuredData['optimal_succession_interval_days'] ?? 14,
-                    'contextual_factors' => [$answer],
-                    'farmOS_form_data' => $structuredData
-                ];
-            }
-
-            return [
-                'success' => false,
-                'source' => 'fallback',
-                'error' => 'AI service unavailable'
-            ];
-
-        } catch (\Exception $e) {
-            Log::warning('HuggingFace harvest analysis failed: ' . $e->getMessage());
-            return [
-                'success' => false,
-                'source' => 'error_fallback',
-                'error' => $e->getMessage()
-            ];
-        }
-    }
-
-    /**
-     * Parse AI response to extract FarmOS quick form field data
-     */
-    private function parseAIResponseForFarmOS(string $aiResponse): array
-    {
-        $structuredData = [];
-
-        // Extract seeding method
-        if (preg_match('/seeding_method:\s*[\'"]([^\'"]+)[\'"]/', $aiResponse, $matches)) {
-            $structuredData['seeding_method'] = $matches[1];
-        }
-
-        // Extract container type
-        if (preg_match('/container_type:\s*[\'"]([^\'"]+)[\'"]/', $aiResponse, $matches)) {
-            $structuredData['container_type'] = $matches[1];
-        }
-
-        // Extract soil medium
-        if (preg_match('/soil_medium:\s*[\'"]([^\'"]+)[\'"]/', $aiResponse, $matches)) {
-            $structuredData['soil_medium'] = $matches[1];
-        }
-
-        // Extract germination days
-        if (preg_match('/germination_days:\s*(\d+)/', $aiResponse, $matches)) {
-            $structuredData['germination_days'] = (int)$matches[1];
-        }
-
-        // Extract transplant lead weeks
-        if (preg_match('/transplant_lead_weeks:\s*(\d+)/', $aiResponse, $matches)) {
-            $structuredData['transplant_lead_weeks'] = (int)$matches[1];
-        }
-
-        // Extract spacing data
-        if (preg_match('/in_row_spacing_cm:\s*(\d+)/', $aiResponse, $matches)) {
-            $structuredData['in_row_spacing_cm'] = (int)$matches[1];
-        }
-        if (preg_match('/row_spacing_cm:\s*(\d+)/', $aiResponse, $matches)) {
-            $structuredData['row_spacing_cm'] = (int)$matches[1];
-        }
-
-        // Extract harvest window
-        if (preg_match('/harvest_window_days:\s*(\d+)/', $aiResponse, $matches)) {
-            $structuredData['harvest_window_days'] = (int)$matches[1];
-        }
-
-        // Extract yield unit
-        if (preg_match('/expected_yield_unit:\s*[\'"]([^\'"]+)[\'"]/', $aiResponse, $matches)) {
-            $structuredData['expected_yield_unit'] = $matches[1];
-        }
-
-        // Extract harvest method
-        if (preg_match('/harvest_method:\s*[\'"]([^\'"]+)[\'"]/', $aiResponse, $matches)) {
-            $structuredData['harvest_method'] = $matches[1];
-        }
-
-        // Extract succession interval
-        if (preg_match('/optimal_succession_interval_days:\s*(\d+)/', $aiResponse, $matches)) {
-            $structuredData['optimal_succession_interval_days'] = (int)$matches[1];
-        }
-
-        // Extract notes (multi-line capture)
-        if (preg_match('/seeding_notes:\s*(.+?)(?=\n\n|\n[A-Z]|$)/s', $aiResponse, $matches)) {
-            $structuredData['seeding_notes'] = trim($matches[1]);
-        }
-        if (preg_match('/transplant_notes:\s*(.+?)(?=\n\n|\n[A-Z]|$)/s', $aiResponse, $matches)) {
-            $structuredData['transplant_notes'] = trim($matches[1]);
-        }
-        if (preg_match('/harvest_notes:\s*(.+?)(?=\n\n|\n[A-Z]|$)/s', $aiResponse, $matches)) {
-            $structuredData['harvest_notes'] = trim($matches[1]);
-        }
-
-        return $structuredData;
-    }
-
-    /**
-     * Get crop family information for AI context
-     */
-    private function getCropFamily(string $cropType): string
-    {
-        $families = [
-            'lettuce' => 'asteraceae',
-            'carrot' => 'apiaceae',
-            'radish' => 'brassicaceae',
-            'spinach' => 'amaranthaceae',
-            'kale' => 'brassicaceae',
-            'arugula' => 'brassicaceae',
-            'chard' => 'amaranthaceae',
-            'beets' => 'amaranthaceae',
-            'cilantro' => 'apiaceae',
-            'dill' => 'apiaceae',
-            'scallion' => 'amaryllidaceae',
-            'mesclun' => 'mixed_greens',
-            'fennel' => 'apiaceae',
-            'tomato' => 'solanaceae',
-            'pepper' => 'solanaceae',
-            'cucumber' => 'cucurbitaceae',
-            'basil' => 'lamiaceae'
-        ];
-
-        return $families[$cropType] ?? 'unknown';
-    }
-
-    /**
-     * Get frost tolerance for AI context
-     */
-    private function getFrostTolerance(string $cropType): string
-    {
-        $tolerances = [
-            'lettuce' => 'half-hardy',
-            'carrot' => 'hardy',
-            'radish' => 'half-hardy',
-            'spinach' => 'hardy',
-            'kale' => 'very-hardy',
-            'arugula' => 'half-hardy',
-            'chard' => 'hardy',
-            'beets' => 'hardy',
-            'cilantro' => 'tender',
-            'dill' => 'half-hardy',
-            'scallion' => 'hardy',
-            'mesclun' => 'half-hardy',
-            'fennel' => 'half-hardy',
-            'tomato' => 'tender',
-            'pepper' => 'tender',
-            'cucumber' => 'tender',
-            'basil' => 'tender'
-        ];
-
-        return $tolerances[$cropType] ?? 'half-hardy';
-    }
-
-    /**
-     * Get days to maturity for AI context
-     */
-    private function getDaysToMaturity(string $cropType): int
-    {
-        $maturities = [
-            'lettuce' => 65,
-            'carrot' => 75,
-            'radish' => 30,
-            'spinach' => 50,
-            'kale' => 70,
-            'arugula' => 40,
-            'chard' => 60,
-            'beets' => 70,
-            'cilantro' => 45,
-            'dill' => 50,
-            'scallion' => 60,
-            'mesclun' => 30,
-            'fennel' => 85,
-            'tomato' => 80,
-            'pepper' => 75,
-            'cucumber' => 55,
-            'basil' => 60
-        ];
-
-        return $maturities[$cropType] ?? 60;
-    }
-
-    /**
-     * Get default spacing for crops
-     */
-    private function getDefaultSpacing(string $cropType): array
-    {
-        $spacing = [
-            'lettuce' => ['in_row' => 25, 'row' => 30],
-            'carrot' => ['in_row' => 3, 'row' => 30],
-            'radish' => ['in_row' => 3, 'row' => 15],
-            'spinach' => ['in_row' => 15, 'row' => 25],
-            'kale' => ['in_row' => 45, 'row' => 60],
-            'arugula' => ['in_row' => 10, 'row' => 20],
-            'chard' => ['in_row' => 25, 'row' => 30],
-            'beets' => ['in_row' => 8, 'row' => 30],
-            'cilantro' => ['in_row' => 15, 'row' => 25],
-            'dill' => ['in_row' => 20, 'row' => 30],
-            'scallion' => ['in_row' => 5, 'row' => 20],
-            'mesclun' => ['in_row' => 3, 'row' => 15],
-            'fennel' => ['in_row' => 30, 'row' => 45],
-            'tomato' => ['in_row' => 60, 'row' => 90],
-            'pepper' => ['in_row' => 45, 'row' => 60],
-            'cucumber' => ['in_row' => 45, 'row' => 60],
-            'basil' => ['in_row' => 20, 'row' => 30]
-        ];
-
-        return $spacing[$cropType] ?? ['in_row' => 20, 'row' => 30];
-    }
-
-    /**
-     * Get variety details for AI processing (now from local database)
-     */
-    public function getVariety(Request $request, $varietyId)
-    {
-        try {
-            // First try to find by FarmOS ID (exact match)
-            $variety = PlantVariety::where('farmos_id', $varietyId)->first();
-
-            // If not found by FarmOS ID, try by local ID (only if it's numeric)
-            if (!$variety && is_numeric($varietyId)) {
-                $variety = PlantVariety::find($varietyId);
-            }
-
-            if (!$variety) {
-                // Fallback to FarmOS API if not found locally
-                $farmOSApi = app(FarmOSApi::class);
-                $varietyData = $farmOSApi->getVarietyById($varietyId);
-
-                if ($varietyData) {
-                    // Store in local database for future use
-                    PlantVariety::updateOrCreate(
-                        ['farmos_id' => $varietyData['id']],
-                        [
-                            'name' => $varietyData['name'] ?? 'Unknown',
-                            'description' => $varietyData['description'] ?? '',
-                            'farmos_data' => $varietyData,
-                            'is_active' => true,
-                            'last_synced_at' => now(),
-                            'sync_status' => 'synced'
-                        ]
-                    );
-                    return response()->json($varietyData);
-                }
-
-                return response()->json(['error' => 'Variety not found'], 404);
-            }
-
-            // Enhance variety data with harvest window calculations
-            $varietyData = $variety->toArray();
-
-            // Calculate harvest windows based on variety-specific data
-            if ($variety->maturity_days || $variety->harvest_days) {
-                $daysToHarvest = $variety->maturity_days ?? $variety->harvest_days;
-                $season = $variety->season ?? 'Spring';
-
-                // Calculate appropriate planting date based on season and crop type
-                $currentYear = date('Y');
-                $plantingDate = $this->calculatePlantingDate($season, $variety->name, $currentYear);
-
-                // For transplanted crops, add transplant time
-                if ($variety->transplant_days && $variety->transplant_days > 0) {
-                    $transplantDate = clone $plantingDate;
-                    $transplantDate->modify("+{$variety->transplant_days} days");
-                    $varietyData['transplant_date'] = $transplantDate->format('Y-m-d');
-                    $harvestStart = clone $transplantDate; // Start harvest calculation from transplant date
-                } else {
-                    $harvestStart = clone $plantingDate; // Start harvest calculation from planting date
-                }
-
-                $harvestStart->modify("+{$daysToHarvest} days");
-
-                $harvestEnd = clone $harvestStart;
-                $harvestEnd->modify('+60 days'); // Extended harvest window for Brussels sprouts
-
-                $varietyData['harvest_start'] = $harvestStart->format('Y-m-d');
-                $varietyData['harvest_end'] = $harvestEnd->format('Y-m-d');
-                $varietyData['days_to_harvest'] = $daysToHarvest;
+                    'data' => $harvestWindow,
+                    'ai_confidence' => $harvestWindow['ai_confidence'],
+                    'data_quality' => 'huggingface_ai',
+                    'recommendations_basis' => 'llama_3_1_analysis',
+                    'contextual_factors' => [$harvestWindow['raw_answer'] ?? 'AI analysis complete'],
+                    'timestamp' => now()->toISOString()
+                ]);
+            } else {
+                // Use crop-specific fallback instead of throwing exception
+                $fallbackWindow = $this->getFallbackHarvestWindow($validated['crop_type'], $validated['variety']);
                 
-                // Calculate yield peak (don't modify harvestStart)
-                $yieldPeak = clone $harvestStart;
-                $yieldPeak->modify('+30 days');
-                $varietyData['yield_peak'] = $yieldPeak->format('Y-m-d');
-
-                // Add transplant information
-                if ($variety->transplant_days && $variety->transplant_days > 0) {
-                    $transplantDate = clone $plantingDate;
-                    $transplantDate->modify("+{$variety->transplant_days} days");
-                    $varietyData['notes'] = 'Transplanted crop. Seed ' . $plantingDate->format('M j') . ', transplant ' . $transplantDate->format('M j') . ', harvest ' . $harvestStart->format('M j') . ' to ' . $harvestEnd->format('M j');
-                }
-            }
-
-            return response()->json($varietyData);
-
-        } catch (\Exception $e) {
-            Log::error('Failed to get variety details: ' . $e->getMessage());
-            return response()->json(['error' => 'Failed to load variety data'], 500);
-        }
-    }
-
-    /**
-     * Get AI service status for frontend
-     */
-    public function getAIStatus(Request $request)
-    {
-        try {
-            // Check if Ollama is running and responding
-            $ollamaResponse = Http::timeout(5)->get('http://localhost:11434/api/tags');
-
-            if ($ollamaResponse->successful()) {
-                $ollamaData = $ollamaResponse->json();
-                $models = $ollamaData['models'] ?? [];
-
-                // Check if tinyllama model is available
-                $hasTinyLlama = false;
-                foreach ($models as $model) {
-                    if (strpos($model['name'] ?? '', 'tinyllama') !== false) {
-                        $hasTinyLlama = true;
-                        break;
-                    }
-                }
-
-                if ($hasTinyLlama) {
-                    return response()->json([
-                        'status' => 'online',
-                        'message' => 'AI Service Online - TinyLlama ready',
-                        'models_available' => count($models),
-                        'tinyllama_available' => true
-                    ]);
-                } else {
-                    return response()->json([
-                        'status' => 'model_missing',
-                        'message' => 'Ollama running but TinyLlama model not found',
-                        'models_available' => count($models),
-                        'tinyllama_available' => false
-                    ]);
-                }
-            } else {
-                return response()->json([
-                    'status' => 'offline',
-                    'message' => 'Ollama service not responding',
-                    'error_code' => $ollamaResponse->status()
+                Log::info('Using crop-specific fallback for harvest window API', [
+                    'crop' => $validated['crop_type'],
+                    'variety' => $validated['variety'],
+                    'fallback_harvest_days' => $fallbackWindow['maximum_harvest_days']
                 ]);
-            }
-
-        } catch (\Exception $e) {
-            Log::warning('AI status check failed: ' . $e->getMessage());
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'AI service check failed: ' . $e->getMessage(),
-                'error' => true
-            ]);
-        }
-    }
-
-    /**
-     * Handle AI chat requests for succession planning
-     */
-    public function chat(Request $request)
-    {
-        try {
-            $message = $request->input('message');
-            $context = $request->input('context', []);
-
-            if (!$message) {
-                return response()->json(['error' => 'Message is required'], 400);
-            }
-
-            // Build context-aware prompt for succession planning
-            $systemPrompt = "You are a farmOS AI assistant specializing in succession planning and crop management. ";
-            $systemPrompt .= "You have access to farmOS data including 3600+ plant varieties and bed specifications. ";
-            $systemPrompt .= "Provide practical, farm-proven advice for succession planning, crop timing, and growing wisdom. ";
-            $systemPrompt .= "Consider seasonal factors, bed spacing, and optimal harvest windows in your recommendations.";
-
-            // Check if this is a harvest window calculation request
-            $isHarvestQuery = stripos($message, 'harvest') !== false ||
-                             stripos($message, 'timing') !== false ||
-                             stripos($message, 'window') !== false ||
-                             stripos($message, 'days to') !== false ||
-                             ($context['request_type'] ?? '') === 'harvest_window_research';
-
-            if ($isHarvestQuery && (!empty($context['variety']) || !empty($context['variety_name']))) {
-                // Enhanced prompt for variety-specific harvest research
-                $varietyName = $context['variety'] ?? $context['variety_name'] ?? '';
-                $cropName = $context['crop'] ?? $context['crop_name'] ?? '';
-                $planningYear = $context['planning_year'] ?? date('Y');
-
-                $systemPrompt = "You are an expert agricultural researcher specializing in crop variety characteristics. ";
-                $systemPrompt .= "Research and provide accurate harvest timing data for specific crop varieties. ";
-                $systemPrompt .= "Use your knowledge of seed catalogs, university extension data, and grower experience. ";
-                $systemPrompt .= "Consider regional variations, climate factors, and optimal growing conditions. ";
-                $systemPrompt .= "\n\nIMPORTANT: For harvest window queries, provide specific data including:\n";
-                $systemPrompt .= "- Days from planting/transplanting to harvest\n";
-                $systemPrompt .= "- Optimal planting season and timing\n";
-                $systemPrompt .= "- Expected harvest window (start and end dates)\n";
-                $systemPrompt .= "- Any variety-specific considerations\n";
-                $systemPrompt .= "- Temperature requirements and frost tolerance\n";
-                $systemPrompt .= "\nFormat responses clearly with specific dates and timeframes.";
-
-                // Add specific research request
-                if (!empty($varietyName)) {
-                    $systemPrompt .= "\n\nVARIETY RESEARCH REQUEST:\n";
-                    $systemPrompt .= "Please research the specific harvest characteristics for '{$varietyName}'";
-                    if (!empty($cropName)) {
-                        $systemPrompt .= " ({$cropName})";
-                    }
-                    $systemPrompt .= ". ";
-                    $systemPrompt .= "This is not a generic crop - provide variety-specific data including:\n";
-                    $systemPrompt .= "- Exact days to maturity from planting for this specific variety\n";
-                    $systemPrompt .= "- Best planting time for optimal harvest timing in {$planningYear}\n";
-                    $systemPrompt .= "- Expected harvest window in {$planningYear}\n";
-                    $systemPrompt .= "- Any unique characteristics of this specific variety\n";
-
-                    if (stripos($varietyName, 'F1') !== false || stripos($varietyName, 'hybrid') !== false || $context['specific_variety'] ?? false) {
-                        $systemPrompt .= "- Special considerations for F1 hybrids or specific cultivars\n";
-                    }
-                }
-            }
-
-            if (!empty($context)) {
-                $systemPrompt .= "\n\nCurrent Context:\n";
-                $systemPrompt .= "- Crop: " . ($context['crop'] ?? $context['crop_type'] ?? 'Not specified') . "\n";
-                $systemPrompt .= "- Variety: " . ($context['variety'] ?? 'Not specified') . "\n";
-                $systemPrompt .= "- Season: " . ($context['season'] ?? $context['planning_season'] ?? 'Current season') . "\n";
-                $systemPrompt .= "- Planning Year: " . ($context['planning_year'] ?? date('Y')) . "\n";
-
-                // Add variety-specific research request if we don't have local data
-                if ($isHarvestQuery && !empty($context['variety'])) {
-                    $varietyName = $context['variety'];
-                    $systemPrompt .= "\nVARIETY RESEARCH REQUEST:\n";
-                    $systemPrompt .= "Please research the specific harvest characteristics for '{$varietyName}'. ";
-                    $systemPrompt .= "This is not a generic crop - provide variety-specific data including:\n";
-                    $systemPrompt .= "- Exact days to maturity from planting\n";
-                    $systemPrompt .= "- Best planting time for optimal harvest timing\n";
-                    $systemPrompt .= "- Expected harvest window (start and end dates)\n";
-                    $systemPrompt .= "- Any unique characteristics of this specific variety\n";
-                    $systemPrompt .= "- Temperature requirements and frost tolerance\n";
-                    $systemPrompt .= "\nFormat responses clearly with specific dates and timeframes.";
-                }
-            }
-
-            $messages = [
-                ['role' => 'system', 'content' => $systemPrompt],
-                ['role' => 'user', 'content' => $message]
-            ];
-
-            $aiResponse = $this->symbiosisAI->chat($messages);
-
-            if (isset($aiResponse['choices'][0]['message']['content'])) {
-                $answer = $aiResponse['choices'][0]['message']['content'];
-
+                
                 return response()->json([
                     'success' => true,
-                    'answer' => $answer,
-                    'timestamp' => now()->toISOString(),
-                    'context_used' => !empty($context)
+                    'data' => $fallbackWindow,
+                    'ai_confidence' => $fallbackWindow['ai_confidence'],
+                    'data_quality' => 'fallback_system',
+                    'recommendations_basis' => 'crop_specific_fallback',
+                    'contextual_factors' => [$fallbackWindow['notes'] ?? 'Fallback analysis complete'],
+                    'timestamp' => now()->toISOString()
                 ]);
-            } else {
-                return response()->json([
-                    'success' => false,
-                    'error' => 'No response generated from AI service'
-                ], 500);
             }
 
         } catch (\Exception $e) {
-            Log::error('AI chat failed: ' . $e->getMessage());
-
+            Log::error('Harvest window optimization failed: ' . $e->getMessage());
+            
             return response()->json([
                 'success' => false,
-                'error' => 'AI chat service temporarily unavailable',
+                'error' => 'Failed to get harvest window optimization',
                 'message' => $e->getMessage()
             ], 500);
         }
     }
 
     /**
-     * Wake up AI service (initialize/preload models)
+     * Handle chat messages to Mistral AI
      */
-    public function wakeUpAI(Request $request)
+    public function chat(Request $request): JsonResponse
     {
+        // Fast execution settings for HuggingFace AI
+        set_time_limit(30); // 30 seconds max - fast AI service
+        ini_set('max_execution_time', 30);
+        ini_set('default_socket_timeout', 10); // 10-second socket timeout for fast response
+        
         try {
-            // Test Ollama connection and warm up the model
-            $ollamaResponse = Http::timeout(10)->post('http://localhost:11434/api/generate', [
-                'model' => 'tinyllama:latest',
-                'prompt' => 'Hello, I am testing the AI service for farmOS succession planning.',
-                'stream' => false,
-                'options' => [
-                    'num_predict' => 10, // Short response for warm-up
-                    'temperature' => 0.1
-                ]
+            $validated = $request->validate([
+                'question' => 'required|string|max:1000',  // Fixed: expect 'question' not 'message'
+                'crop_type' => 'nullable|string',
+                'season' => 'nullable|string',
+                'context' => 'nullable|string'
             ]);
 
-            if ($ollamaResponse->successful()) {
-                $data = $ollamaResponse->json();
-                $response = $data['response'] ?? '';
+            // Build contextual question for AI
+            $question = $validated['question'];
+            
+            // Add context if provided
+            if (!empty($validated['crop_type'])) {
+                $question .= " (Context: working with {$validated['crop_type']} crop)";
+            }
+            
+            if (!empty($validated['season'])) {
+                $question .= " (Season: {$validated['season']})";
+            }
+
+            // Call AI service with fast timeout
+            $response = Http::timeout(3) // 3 seconds - fast AI timeout
+                ->connectTimeout(5) // 5 second connection timeout
+                ->retry(1, 1000) // Retry once after 1 second if it fails
+                ->withOptions([
+                    'stream_context' => stream_context_create([
+                        'http' => [
+                            'timeout' => 3.0,
+                        ]
+                    ])
+                ])
+                ->post(env('AI_SERVICE_URL', 'http://localhost:8005') . '/ask', [
+                    'question' => $question,
+                    'context' => $validated['context'] ?? 'succession_planning_chat'
+                ]);
+
+            if ($response->successful()) {
+                $aiData = $response->json();
+                
+                Log::info('Chat AI response received', [
+                    'user_message' => $validated['question'],
+                    'ai_wisdom' => $aiData['wisdom'] ?? 'basic',
+                    'moon_phase' => $aiData['moon_phase'] ?? 'unknown'
+                ]);
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'AI service warmed up successfully',
-                    'response_preview' => substr($response, 0, 50) . '...',
-                    'model' => 'tinyllama:latest'
+                    'answer' => $aiData['answer'] ?? 'AI response unavailable',
+                    'wisdom' => $aiData['wisdom'] ?? 'Basic agricultural guidance',
+                    'moon_phase' => $aiData['moon_phase'] ?? 'unknown',
+                    'context' => $aiData['context'] ?? null,
+                    'source' => 'Mistral 7B Holistic AI',
+                    'timestamp' => now()->toISOString()
                 ]);
             } else {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to warm up AI service',
-                    'error' => 'Ollama returned status ' . $ollamaResponse->status()
-                ], 500);
+                throw new \Exception('AI service returned: ' . $response->status());
             }
 
         } catch (\Exception $e) {
-            Log::error('AI wake-up failed: ' . $e->getMessage());
+            Log::error('Chat AI service error: ' . $e->getMessage());
+            
+            // Return fallback wisdom instead of error
+            $fallbackWisdom = $this->getFallbackChatWisdom($validated['question'] ?? 'farming question');
+            
+            return response()->json([
+                'success' => true,
+                'answer' => $fallbackWisdom,
+                'wisdom' => 'Fallback wisdom - AI service temporarily unavailable',
+                'moon_phase' => 'unknown',
+                'source' => 'Fallback System',
+                'timestamp' => now()->toISOString()
+            ]);
+        }
+    }
 
+    /**
+     * Generate fallback wisdom when AI is unavailable
+     */
+    private function getFallbackChatWisdom(string $message): string
+    {
+        $fallbackResponses = [
+            'planting' => 'For optimal planting, consider soil temperature, moisture levels, and local frost dates. Each crop has specific requirements for successful germination.',
+            'harvest' => 'Harvest timing depends on crop maturity indicators. Look for size, color, and texture changes that signal peak readiness.',
+            'spacing' => 'Proper plant spacing prevents competition and disease. Follow seed packet recommendations and adjust for your growing conditions.',
+            'companion' => 'Companion planting can improve soil health, deter pests, and maximize garden space efficiency.',
+            'soil' => 'Healthy soil is the foundation of successful farming. Test pH, add organic matter, and ensure proper drainage.',
+            'season' => 'Work with your local growing season. Know your frost dates and choose varieties suited to your climate zone.',
+            'water' => 'Consistent moisture is key. Water deeply but less frequently to encourage strong root systems.',
+            'default' => 'Successful farming combines traditional wisdom with observation of your specific growing conditions.'
+        ];
+
+        // Match keywords to appropriate responses
+        $message = strtolower($message);
+        
+        foreach ($fallbackResponses as $keyword => $response) {
+            if (strpos($message, $keyword) !== false) {
+                return $response;
+            }
+        }
+        
+        return $fallbackResponses['default'];
+    }
+
+    /**
+     * Wake up AI service to avoid cold start delays
+     */
+    private function wakeUpAIService()
+    {
+        try {
+            // Send a quick wake-up ping to the AI service with minimal timeout
+            // Make it completely non-blocking to prevent any 502 issues
+            Http::timeout(1)->connectTimeout(1)->post(env('AI_SERVICE_URL', 'http://localhost:8005') . '/ask', [
+                'question' => 'wake up',
+                'context' => 'system_wake'
+            ]);
+            
+            Log::debug('AI service wake-up ping sent successfully');
+            
+        } catch (\Exception $e) {
+            // Completely silent fail - don't even log unless in debug mode
+            // This prevents any possibility of causing 502 errors
+            if (config('app.debug')) {
+                Log::debug('AI wake-up ping failed (non-critical): ' . $e->getMessage());
+            }
+        }
+    }
+
+    /**
+     * Get AI service status
+     */
+    public function getAIStatus(): JsonResponse
+    {
+        try {
+            $response = Http::timeout(3)->get(env('AI_SERVICE_URL', 'http://localhost:8005') . '/health');
+            
+            if ($response->successful()) {
+                $data = $response->json();
+                return response()->json([
+                    'status' => 'online',
+                    'health' => $data['status'] ?? 'healthy',
+                    'model' => $data['model'] ?? 'llama31-8b',
+                    'response_time' => '< 3s',
+                    'last_check' => now()->format('H:i:s')
+                ]);
+            } else {
+                throw new \Exception('Health check failed: ' . $response->status());
+            }
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'offline',
+                'health' => 'unavailable',
+                'model' => 'unknown',
+                'error' => $e->getMessage(),
+                'last_check' => now()->format('H:i:s')
+            ]);
+        }
+    }
+
+    /**
+     * Manual wake-up AI endpoint
+     */
+    public function wakeUpAI(): JsonResponse
+    {
+        try {
+            $this->wakeUpAIService();
+            
+            // Test if AI is responding after wake-up
+            $response = Http::timeout(5)->post(env('AI_SERVICE_URL', 'http://localhost:8005') . '/ask', [
+                'question' => 'test response',
+                'context' => 'wake_up_test'
+            ]);
+            
+            if ($response->successful()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'AI service is now awake and responding',
+                    'status' => 'online',
+                    'model' => 'llama31-8b'
+                ]);
+            } else {
+                throw new \Exception('AI test failed: ' . $response->status());
+            }
+            
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'AI wake-up failed',
-                'error' => $e->getMessage()
+                'message' => 'AI service wake-up failed: ' . $e->getMessage(),
+                'status' => 'offline'
             ], 500);
         }
     }
 
     /**
-     * Calculate appropriate planting date based on season and crop type using 8-season year
+     * Get harvest window analysis from HuggingFace AI service
      */
-    private function calculatePlantingDate(string $season, string $cropName, int $year): \DateTime
+    private function getHuggingFaceHarvestWindow(string $cropType, string $variety = null, array $contextualData = []): array
     {
-        $plantingDate = new \DateTime();
-
-        // Use 8-season year for more precise farming timing
-        switch (strtolower($season)) {
-            case 'winter':
-            case 'early winter':
-            case 'the darkness':
-                // Winter crops like Brussels sprouts: sow in Springtime (March 20 - May 1)
-                if (stripos($cropName, 'brussels') !== false || stripos($cropName, 'sprouts') !== false) {
-                    $plantingDate->setDate($year, 5, 19); // May 19 for December-February harvest (30 days to transplant, 180 days to harvest)
-                } elseif (stripos($cropName, 'kale') !== false || stripos($cropName, 'spinach') !== false) {
-                    $plantingDate->setDate($year, 3, 20); // March 20 (start of Springtime)
-                } else {
-                    $plantingDate->setDate($year, 3, 25); // March 25 default for winter crops
+        try {
+            // Build detailed question for AI about harvest window
+            $varietyText = $variety && $variety !== 'Standard' ? " variety $variety" : '';
+            $question = "For $cropType$varietyText succession planting, what is the ABSOLUTE MAXIMUM POSSIBLE harvest window duration in days considering all harvesting techniques and succession methods? For root vegetables like beets, carrots, and potatoes, consider: early harvesting (May-June) for baby sizes, main harvest (June-November) for mature sizes, and extended harvest (November-December) with protection. What is the total possible harvest period from first early harvest to last extended harvest? Please provide specific numbers for extended harvesting techniques.";
+            
+            // Add context
+            if (!empty($contextualData)) {
+                $contextText = '';
+                if (isset($contextualData['succession_context'])) {
+                    $contextText .= ' ' . $contextualData['succession_context'];
                 }
-                break;
-
-            case 'fall':
-            case 'autumn':
-            case 'late autumn':
-            case 'frost':
-                // Fall crops: sow in The Drying (June 22 - August 5)
-                if (stripos($cropName, 'brussels') !== false || stripos($cropName, 'sprouts') !== false) {
-                    $plantingDate->setDate($year, 7, 1); // July 1 (The Drying season)
-                } elseif (stripos($cropName, 'kale') !== false || stripos($cropName, 'broccoli') !== false) {
-                    $plantingDate->setDate($year, 6, 22); // June 22 (start of The Drying)
-                } else {
-                    $plantingDate->setDate($year, 7, 1); // July 1 default for fall crops
+                if (isset($contextualData['current_season_performance'])) {
+                    $contextText .= ' ' . $contextualData['current_season_performance'];
                 }
-                break;
+                $question .= $contextText;
+            }
 
-            case 'spring':
-            case 'early spring':
-            case 'springtime':
-                // Spring crops: sow in Budswell (February 1 - March 22)
-                if (stripos($cropName, 'lettuce') !== false || stripos($cropName, 'radish') !== false) {
-                    $plantingDate->setDate($year, 2, 15); // February 15 (Budswell season)
-                } else {
-                    $plantingDate->setDate($year, 3, 1); // March 1 default for spring crops
+            // Call HuggingFace AI service
+            $response = Http::timeout(10)
+                ->connectTimeout(10)
+                ->retry(2, 2000)
+                ->post(env('AI_SERVICE_URL', 'http://localhost:8005') . '/ask', [
+                    'question' => $question,
+                    'context' => 'harvest_window_analysis'
+                ]);
+
+            if ($response->successful()) {
+                $aiData = $response->json();
+                
+                if (isset($aiData['answer'])) {
+                    // Parse AI response for specific values
+                    $answer = $aiData['answer'];
+                    
+                    // Extract numbers from AI response
+                    $harvestDays = $this->extractNumberFromText($answer, ['harvest window', 'harvest period', 'harvesting period'], 60); // default 60 days for Brussels Sprouts
+                    $successions = $this->extractNumberFromText($answer, ['succession', 'planting'], 3); // default 3 successions
+                    $daysBetween = $this->extractNumberFromText($answer, ['between', 'interval', 'apart'], 21); // default 21 days
+                    
+                    Log::info('HuggingFace harvest window AI response', [
+                        'crop' => $cropType,
+                        'variety' => $variety,
+                        'ai_answer' => $answer,
+                        'extracted_harvest_days' => $harvestDays,
+                        'extracted_successions' => $successions,
+                        'extracted_interval' => $daysBetween
+                    ]);
+
+                    return [
+                        'success' => true,
+                        'maximum_harvest_days' => $harvestDays,
+                        'recommended_successions' => $successions,
+                        'days_between_plantings' => $daysBetween,
+                        'peak_harvest_days' => $harvestDays,
+                        'extended_window' => [
+                            'max_extension_days' => (int)($harvestDays * 0.2), // 20% extension
+                            'risk_level' => $this->calculateRiskLevel($cropType, $harvestDays)
+                        ],
+                        'ai_confidence' => 'huggingface_llama',
+                        'source' => 'HuggingFace Llama 3.1 8B',
+                        'raw_answer' => $answer
+                    ];
                 }
-                break;
+            }
 
-            case 'summer':
-            case 'early summer':
-            case 'the drying':
-                // Summer crops: sow in Bloom (May 1 - June 22)
-                $plantingDate->setDate($year, 5, 15); // May 15 (Bloom season)
-                break;
+            // If we get here, the AI call failed
+            Log::warning('HuggingFace harvest window analysis failed', [
+                'crop' => $cropType,
+                'status' => $response->status(),
+                'response' => $response->body()
+            ]);
 
-            case 'late summer':
-            case 'harvest':
-                // Late summer crops: sow in Springtime (March 20 - May 1)
-                $plantingDate->setDate($year, 4, 15); // April 15 (Springtime season)
-                break;
+            return ['success' => false, 'error' => 'AI service unavailable'];
 
-            case 'year-round':
-            case 'all season':
-                // Use current 8-season as reference
-                $currentMonth = date('n');
-                if ($currentMonth >= 12 || $currentMonth <= 2) { // The Darkness
-                    $plantingDate->setDate($year, 3, 20); // Springtime
-                } elseif ($currentMonth >= 9) { // Frost/Leaf Fall
-                    $plantingDate->setDate($year, 6, 22); // The Drying
-                } elseif ($currentMonth >= 6) { // The Drying/Harvest
-                    $plantingDate->setDate($year, 2, 1); // Budswell
-                } else { // Budswell/Springtime
-                    $plantingDate->setDate($year, 5, 1); // Bloom
+        } catch (\Exception $e) {
+            Log::error('HuggingFace harvest window error: ' . $e->getMessage());
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Extract numeric values from AI text response
+     */
+    private function extractNumberFromText(string $text, array $keywords, int $defaultValue): int
+    {
+        $text = strtolower($text);
+        
+        foreach ($keywords as $keyword) {
+            // Look for patterns like "harvest window: 45 days" or "45 day harvest window"
+            $pattern = '/(?:' . preg_quote($keyword, '/') . '.*?(\d+)|(\d+).*?' . preg_quote($keyword, '/') . ')/i';
+            if (preg_match($pattern, $text, $matches)) {
+                $number = !empty($matches[1]) ? intval($matches[1]) : intval($matches[2]);
+                if ($number > 0 && $number < 500) { // Sanity check
+                    return $number;
                 }
-                break;
+            }
+        }
+        
+        return $defaultValue;
+    }
 
-            default:
-                // Default to Springtime season
-                $plantingDate->setDate($year, 4, 1);
+    /**
+     * Get variety details for AI processing (hybrid approach: FarmOS + local DB)
+     */
+    public function getVariety(Request $request, $varietyId)
+    {
+        try {
+            // Use FarmOS API directly (source of truth for variety names)
+            $varietyData = $this->farmOSApi->getVarietyById($varietyId);
+
+            if ($varietyData) {
+                // Enhance with local database data if available (for harvest/seeding info)
+                $localVariety = PlantVariety::where('farmos_id', $varietyId)->first();
+
+                if ($localVariety) {
+                    // Merge FarmOS data with local database data
+                    $varietyData['harvest_start'] = $localVariety->harvest_start?->format('m-d');
+                    $varietyData['harvest_end'] = $localVariety->harvest_end?->format('m-d');
+                    $varietyData['yield_peak'] = $localVariety->yield_peak?->format('m-d');
+                    $varietyData['harvest_window_days'] = $localVariety->harvest_window_days;
+                    $varietyData['harvest_notes'] = $localVariety->harvest_notes;
+                    $varietyData['harvest_method'] = $localVariety->harvest_method;
+
+                    // Add seeding and transplant data
+                    $varietyData['indoor_seed_start'] = $localVariety->indoor_seed_start?->format('m-d');
+                    $varietyData['indoor_seed_end'] = $localVariety->indoor_seed_end?->format('m-d');
+                    $varietyData['outdoor_seed_start'] = $localVariety->outdoor_seed_start?->format('m-d');
+                    $varietyData['outdoor_seed_end'] = $localVariety->outdoor_seed_end?->format('m-d');
+                    $varietyData['transplant_start'] = $localVariety->transplant_start?->format('m-d');
+                    $varietyData['transplant_end'] = $localVariety->transplant_end?->format('m-d');
+                    $varietyData['transplant_window_days'] = $localVariety->transplant_window_days;
+
+                    $varietyData['germination_days_min'] = $localVariety->germination_days_min;
+                    $varietyData['germination_days_max'] = $localVariety->germination_days_max;
+                    $varietyData['germination_temp_min'] = $localVariety->germination_temp_min;
+                    $varietyData['germination_temp_max'] = $localVariety->germination_temp_max;
+                    $varietyData['germination_temp_optimal'] = $localVariety->germination_temp_optimal;
+                    $varietyData['planting_depth_inches'] = $localVariety->planting_depth_inches;
+                    $varietyData['seed_spacing_inches'] = $localVariety->seed_spacing_inches;
+                    $varietyData['row_spacing_inches'] = $localVariety->row_spacing_inches;
+                    $varietyData['seeds_per_hole'] = $localVariety->seeds_per_hole;
+                    $varietyData['requires_light_for_germination'] = $localVariety->requires_light_for_germination;
+                    $varietyData['seed_starting_notes'] = $localVariety->seed_starting_notes;
+                    $varietyData['seed_type'] = $localVariety->seed_type;
+                    $varietyData['transplant_soil_temp_min'] = $localVariety->transplant_soil_temp_min;
+                    $varietyData['transplant_soil_temp_max'] = $localVariety->transplant_soil_temp_max;
+                    $varietyData['transplant_notes'] = $localVariety->transplant_notes;
+                    $varietyData['hardening_off_days'] = $localVariety->hardening_off_days;
+                    $varietyData['hardening_off_notes'] = $localVariety->hardening_off_notes;
+                }
+
+                // Validate and correct obviously wrong harvest dates
+                $varietyData = $this->validateAndCorrectHarvestDates($varietyData, $varietyId);
+
+                return response()->json($varietyData);
+            }
+
+            return response()->json(['error' => 'Variety not found'], 404);
+        } catch (\Exception $e) {
+            Log::error('Failed to get variety: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to get variety data'], 500);
+        }
+    }
+
+    /**
+     * Validate and correct obviously wrong harvest dates from FarmOS API
+     */
+    private function validateAndCorrectHarvestDates(array $varietyData, string $varietyId): array
+    {
+        // Get crop name from variety data
+        $cropName = strtolower($varietyData['name'] ?? '');
+        $plantType = strtolower($varietyData['plant_type'] ?? '');
+
+        // Check for warm-season crops that shouldn't have spring harvest dates
+        $warmSeasonCrops = [
+            'cucumber', 'cucumbers', 'cucurbit', 'cucurbits',
+            'tomato', 'tomatoes', 'solanaceae',
+            'pepper', 'peppers', 'capsicum',
+            'eggplant', 'eggplants',
+            'basil', 'ocimum',
+            'corn', 'zea mays', 'maize',
+            'bean', 'beans', 'phaseolus',
+            'squash', 'squashes', 'cucurbita',
+            'melon', 'melons', 'cucumis melo',
+            'okra', 'abelmoschus',
+            'sunflower', 'helianthus'
+        ];
+
+        $isWarmSeasonCrop = false;
+        foreach ($warmSeasonCrops as $crop) {
+            if (strpos($cropName, $crop) !== false || strpos($plantType, $crop) !== false) {
+                $isWarmSeasonCrop = true;
                 break;
+            }
         }
 
-        return $plantingDate;
+        // Check for obviously wrong harvest dates (spring dates for warm-season crops)
+        if ($isWarmSeasonCrop && isset($varietyData['harvest_start'])) {
+            $harvestStart = $varietyData['harvest_start'];
+
+            // If harvest_start is in format "MM-DD" and indicates spring (March-May)
+            if (preg_match('/^(0[3-5])-\d{2}$/', $harvestStart)) {
+                Log::warning("Detected incorrect harvest dates for warm-season crop: {$cropName} (ID: {$varietyId})", [
+                    'original_harvest_start' => $harvestStart,
+                    'original_harvest_end' => $varietyData['harvest_end'] ?? 'unknown',
+                    'correction_reason' => 'Warm-season crop with spring harvest dates'
+                ]);
+
+                // Correct to summer harvest dates
+                $varietyData['harvest_start'] = '06-15'; // June 15
+                $varietyData['harvest_end'] = '08-15';   // August 15
+                $varietyData['yield_peak'] = '07-15';    // July 15
+                $varietyData['harvest_window_days'] = 30;
+                $varietyData['harvest_notes'] = ($varietyData['harvest_notes'] ?? '') .
+                    ' [CORRECTED: Adjusted from incorrect spring dates to proper summer harvest window for warm-season crop]';
+                $varietyData['data_corrected'] = true;
+                $varietyData['correction_type'] = 'warm_season_harvest_dates';
+
+                // Also correct transplant dates if they're wrong
+                if (isset($varietyData['transplant_start']) && preg_match('/^(0[1-2])-\d{2}$/', $varietyData['transplant_start'])) {
+                    $varietyData['transplant_start'] = '05-15'; // May 15
+                    $varietyData['transplant_end'] = '06-15';   // June 15
+                    $varietyData['transplant_notes'] = ($varietyData['transplant_notes'] ?? '') .
+                        ' [CORRECTED: Adjusted transplant dates for warm-season crop]';
+                }
+            }
+        }
+
+        // Check for cool-season crops that might have wrong dates too
+        $coolSeasonCrops = [
+            'lettuce', 'spinach', 'kale', 'chard', 'arugula',
+            'radish', 'turnip', 'carrot', 'beet', 'cilantro',
+            'dill', 'scallion', 'mesclun', 'fennel'
+        ];
+
+        $isCoolSeasonCrop = false;
+        foreach ($coolSeasonCrops as $crop) {
+            if (strpos($cropName, $crop) !== false || strpos($plantType, $crop) !== false) {
+                $isCoolSeasonCrop = true;
+                break;
+            }
+        }
+
+        // Cool season crops should typically harvest in spring/fall, not summer
+        if ($isCoolSeasonCrop && isset($varietyData['harvest_start'])) {
+            $harvestStart = $varietyData['harvest_start'];
+
+            // If harvest_start indicates summer (June-August) for cool-season crop
+            if (preg_match('/^(0[6-8])-\d{2}$/', $harvestStart)) {
+                Log::warning("Detected potentially incorrect harvest dates for cool-season crop: {$cropName} (ID: {$varietyId})", [
+                    'original_harvest_start' => $harvestStart,
+                    'correction_reason' => 'Cool-season crop with summer harvest dates'
+                ]);
+
+                // For cool season crops, we might want spring/fall dates depending on the specific crop
+                // For now, let's adjust to spring harvest for most cool-season crops
+                $varietyData['harvest_start'] = '04-15'; // April 15
+                $varietyData['harvest_end'] = '06-15';   // June 15
+                $varietyData['yield_peak'] = '05-15';    // May 15
+                $varietyData['harvest_window_days'] = 30;
+                $varietyData['harvest_notes'] = ($varietyData['harvest_notes'] ?? '') .
+                    ' [CORRECTED: Adjusted from summer to spring harvest window for cool-season crop]';
+                $varietyData['data_corrected'] = true;
+                $varietyData['correction_type'] = 'cool_season_harvest_dates';
+            }
+        }
+
+        // Log corrections for debugging
+        if (isset($varietyData['data_corrected']) && $varietyData['data_corrected']) {
+            Log::info("Harvest dates corrected for variety: {$cropName} (ID: {$varietyId})", [
+                'corrected_harvest_start' => $varietyData['harvest_start'],
+                'corrected_harvest_end' => $varietyData['harvest_end'],
+                'correction_type' => $varietyData['correction_type']
+            ]);
+        }
+
+        return $varietyData;
+    }
+
+    /**
+     * Calculate risk level for harvest extension based on crop type and duration
+     */
+    private function calculateRiskLevel(string $cropType, int $harvestDays): string
+    {
+        $cropType = strtolower($cropType);
+        
+        // High-risk crops that don't store well
+        $highRiskCrops = ['lettuce', 'spinach', 'arugula', 'radish', 'cucumber'];
+        if (in_array($cropType, $highRiskCrops)) {
+            return 'high';
+        }
+        
+        // Medium-risk crops
+        $mediumRiskCrops = ['tomato', 'pepper', 'eggplant', 'beans', 'peas'];
+        if (in_array($cropType, $mediumRiskCrops)) {
+            return 'moderate';
+        }
+        
+        // Low-risk crops that store well
+        $lowRiskCrops = ['beet', 'carrot', 'potato', 'onion', 'garlic', 'winter squash'];
+        if (in_array($cropType, $lowRiskCrops)) {
+            return 'low';
+        }
+        
+        // Default based on harvest duration
+        if ($harvestDays > 90) {
+            return 'moderate';
+        } elseif ($harvestDays > 60) {
+            return 'low';
+        } else {
+            return 'high';
+        }
+    }
+
+    /**
+     * Get fallback harvest window data when AI service is unavailable
+     * Provides crop-specific harvest window calculations
+     */
+    private function getFallbackHarvestWindow(string $cropType, string $variety = null): array
+    {
+        $cropNameLower = strtolower($cropType);
+        $varietyLower = $variety ? strtolower($variety) : '';
+
+        // Default values
+        $harvestDays = 60;
+        $successions = 3;
+        $daysBetween = 21;
+        $notes = "Standard harvest window for $cropType";
+
+        // Crop-specific logic for extended harvest periods
+        if (strpos($cropNameLower, 'beet') !== false || strpos($varietyLower, 'beet') !== false) {
+            // Beets: May to December (up to 221 days)
+            $harvestDays = 221;
+            $successions = 4;
+            $daysBetween = 28;
+            $notes = "Maximum beet harvest window: May-December (221 days). Young beets from May, mature beets from June-November, can extend to January with protection.";
+        } elseif (strpos($cropNameLower, 'carrot') !== false || strpos($varietyLower, 'carrot') !== false) {
+            // Carrots: extended root vegetable harvest
+            $harvestDays = 153;
+            $successions = 3;
+            $daysBetween = 21;
+            $notes = "Extended carrot harvest: June-November (153 days). Can extend with row covers.";
+        } elseif (strpos($cropNameLower, 'radish') !== false || strpos($varietyLower, 'radish') !== false ||
+                  strpos($cropNameLower, 'turnip') !== false || strpos($varietyLower, 'turnip') !== false) {
+            // Other root vegetables
+            $harvestDays = 120;
+            $successions = 3;
+            $daysBetween = 14;
+            $notes = "Extended root vegetable harvest: June-October (120 days). Quick succession cycles.";
+        } elseif (strpos($cropNameLower, 'lettuce') !== false || strpos($varietyLower, 'lettuce') !== false ||
+                  strpos($cropNameLower, 'spinach') !== false || strpos($varietyLower, 'spinach') !== false) {
+            // Leafy greens: shorter harvest periods
+            $harvestDays = 60;
+            $successions = 5;
+            $daysBetween = 14;
+            $notes = "Leafy green harvest window: 60 days. Multiple successions recommended for continuous harvest.";
+        } elseif (strpos($cropNameLower, 'tomato') !== false || strpos($varietyLower, 'tomato') !== false) {
+            // Tomatoes: longer season
+            $harvestDays = 90;
+            $successions = 2;
+            $daysBetween = 14;
+            $notes = "Tomato harvest window: 90 days. Staggered plantings for continuous production.";
+        } elseif (strpos($cropNameLower, 'pepper') !== false || strpos($varietyLower, 'pepper') !== false) {
+            // Peppers: similar to tomatoes
+            $harvestDays = 100;
+            $successions = 2;
+            $daysBetween = 21;
+            $notes = "Pepper harvest window: 100 days. Extended harvest with proper care.";
+        }
+
+        return [
+            'success' => true,
+            'maximum_harvest_days' => $harvestDays,
+            'recommended_successions' => $successions,
+            'days_between_plantings' => $daysBetween,
+            'peak_harvest_days' => $harvestDays,
+            'extended_window' => [
+                'max_extension_days' => (int)($harvestDays * 0.2), // 20% extension
+                'risk_level' => $this->calculateRiskLevel($cropType, $harvestDays)
+            ],
+            'ai_confidence' => 'fallback_system',
+            'source' => 'Crop-Specific Fallback System',
+            'notes' => $notes
+        ];
     }
 }

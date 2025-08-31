@@ -220,6 +220,7 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         Route::post('/succession-planning/create-logs', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'createLogs'])->name('succession-planning.create-logs');
         Route::post('/succession-planning/create-single-log', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'createSingleLog'])->name('succession-planning.create-single-log');
         Route::post('/succession-planning/harvest-window', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'getOptimalHarvestWindow'])->name('succession-planning.harvest-window');
+        Route::post('/succession-planning/seeding-transplant', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'getSeedingTransplantData'])->name('succession-planning.seeding-transplant');
         Route::post('/succession-planning/chat', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'chat'])->name('succession-planning.chat');
         
         // Variety details endpoint for AI processing

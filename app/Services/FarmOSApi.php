@@ -826,37 +826,62 @@ class FarmOSApi
     {
         try {
             $this->authenticate();
-            
             $headers = $this->getAuthHeaders();
+
             $response = $this->client->get("/api/taxonomy_term/plant_variety/{$varietyId}", [
-                'headers' => $headers
+                'headers' => $headers,
+                'http_errors' => false
             ]);
 
-            $data = json_decode($response->getBody(), true);
-            
-            if (isset($data['data'])) {
-                $attributes = $data['data']['attributes'] ?? [];
-                $relationships = $data['data']['relationships'] ?? [];
-                
-                return [
-                    'id' => $data['data']['id'],
-                    'name' => $attributes['name'] ?? 'Unknown',
-                    'description' => $attributes['description']['value'] ?? '',
-                    'harvest_start' => $attributes['harvest_start'] ?? null,
-                    'harvest_end' => $attributes['harvest_end'] ?? null,
-                    'days_to_maturity' => $attributes['maturity_days'] ?? null,
-                    'parent_id' => $relationships['parent']['data'][0]['id'] ?? null,
-                    'crop_family' => $relationships['crop_family']['data']['attributes']['name'] ?? null,
-                    'frost_tolerance' => $attributes['frost_tolerance'] ?? null,
-                    'spacing_in_row' => $attributes['spacing_in_row'] ?? null,
-                    'spacing_between_rows' => $attributes['spacing_between_rows'] ?? null
-                ];
-            }
-            
-            return null;
+            if ($response->getStatusCode() === 200) {
+                $data = json_decode($response->getBody(), true);
+                if (isset($data['data'])) {
+                    $variety = $data['data'];
+                    $attributes = $variety['attributes'] ?? [];
+                    $relationships = $variety['relationships'] ?? [];
 
+                    return [
+                        'id' => $variety['id'],
+                        'name' => $attributes['name'] ?? 'Unknown',
+                        'description' => $attributes['description']['value'] ?? '',
+                        'plant_type' => $relationships['parent']['data'][0]['id'] ?? null,
+                        'attributes' => $attributes,
+                        'relationships' => $relationships
+                    ];
+                }
+            }
+
+            return null;
         } catch (\Exception $e) {
-            Log::error('Failed to get variety by ID from farmOS: ' . $e->getMessage());
+            Log::error('Failed to get variety from FarmOS: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Get a specific plant type by ID from FarmOS
+     */
+    public function getPlantTypeById($plantTypeId)
+    {
+        try {
+            $this->authenticate();
+            $headers = $this->getAuthHeaders();
+
+            $response = $this->client->get("/api/taxonomy_term/plant_type/{$plantTypeId}", [
+                'headers' => $headers,
+                'http_errors' => false
+            ]);
+
+            if ($response->getStatusCode() === 200) {
+                $data = json_decode($response->getBody(), true);
+                if (isset($data['data'])) {
+                    return $data['data'];
+                }
+            }
+
+            return null;
+        } catch (\Exception $e) {
+            Log::error('Failed to get plant type from FarmOS: ' . $e->getMessage());
             return null;
         }
     }
