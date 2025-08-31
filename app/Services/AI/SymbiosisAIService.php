@@ -31,7 +31,7 @@ class SymbiosisAIService
                 'stream' => false,
                 'options' => [
                     'temperature' => $options['temperature'] ?? 0.7,
-                    'num_predict' => $options['max_tokens'] ?? 1000,
+                    'num_predict' => min($options['max_tokens'] ?? 1000, 500), // Limit to 500 tokens max
                 ]
             ]);
 

@@ -30,6 +30,14 @@ class Kernel extends ConsoleKernel
                  ->hourly()
                  ->withoutOverlapping()
                  ->runInBackground();
+
+        // Sync plant varieties from FarmOS weekly
+        $schedule->command('farmos:sync-varieties')
+                 ->weekly()
+                 ->sundays()
+                 ->at('02:00')
+                 ->withoutOverlapping()
+                 ->runInBackground();
     }
 
     /**
