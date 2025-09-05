@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Symbiosis')</title>
+    <link rel="icon" type="image/x-icon" href="/middle_world_icon.ico">
+    <link rel="shortcut icon" type="image/x-icon" href="/middle_world_icon.ico">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
@@ -333,6 +335,11 @@
                 <span>farmOS Dashboard</span>
             </a>
             
+            <a href="/admin/weather" class="nav-link {{ request()->is('admin/weather*') ? 'active' : '' }}">
+                <i class="fas fa-cloud-sun"></i>
+                <span>Weather Dashboard</span>
+            </a>
+            
             <a href="/admin/farmos/planting-chart" class="nav-link {{ request()->is('admin/farmos/planting-chart*') ? 'active' : '' }}">
                 <i class="fas fa-calendar-alt"></i>
                 <span>Planting Chart</span>
@@ -474,7 +481,7 @@
                         </small>
                     </div>
                 @else
-                    <h2 class="header-brand-name">Symbiosis</h2>
+                    <h2 class="header-brand-name">@yield('page-title', 'Farm Management')</h2>
                 @endif
             </div>
             <div class="header-content">

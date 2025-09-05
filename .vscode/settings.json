@@ -50,6 +50,8 @@
   "workbench.enableExperiments": false,
   "telemetry.telemetryLevel": "off",
   "update.mode": "none",
+  "telemetry.enableTelemetry": false,
+  "telemetry.enableCrashReporter": false,
   
   // Laravel and PHP specific settings for better IntelliSense
   "php.suggest.basic": true,
@@ -159,5 +161,7 @@
     "./_ide_helper.php",
     "./_ide_helper_models.php",
     "./_ide_helper_global_functions.php"
-  ]
+  ],
+  "files.maxMemoryForLargeFilesMB": 6194,
+  "search.maxFileSizeMB": 50
 }

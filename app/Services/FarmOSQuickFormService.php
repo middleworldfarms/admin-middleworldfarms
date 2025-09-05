@@ -14,7 +14,8 @@ class FarmOSQuickFormService
 
     public function __construct()
     {
-        $this->farmOSBaseUrl = config('services.farmos.url', 'https://farmos.middleworldfarms.org');
+        // Use reverse proxy URL for Quick Forms to avoid CORS issues
+        $this->farmOSBaseUrl = config('app.url', 'https://admin.middleworldfarms.org:8444') . '/farmos';
         $this->authToken = session('farmos_token'); // Get from session
     }
 
@@ -35,12 +36,13 @@ class FarmOSQuickFormService
      */
     protected function getQuickFormBaseUrl(string $logType): string
     {
-        $formUrls = [
+        // Allow overrides from config to match your farmOS quick form module paths
+        $formUrls = config('services.farmos.quick_form_paths', [
             'seeding' => '/quick/seeding',
             'transplant' => '/quick/transplant',
             'harvest' => '/quick/harvest',
             'observation' => '/quick/observation',
-        ];
+        ]);
 
         return $this->farmOSBaseUrl . ($formUrls[$logType] ?? '/quick/seeding');
     }
@@ -75,21 +77,21 @@ class FarmOSQuickFormService
                 if (isset($successionData['seeding_date'])) {
                     $parameters['date'] = $successionData['seeding_date'];
                 }
-                $parameters['notes'] = "AI-calculated seeding for succession #{$successionData['succession_number']}";
+                $parameters['notes'] = "AI-calculated seeding for succession #" . ($successionData['succession_number'] ?? '1');
                 break;
 
             case 'transplant':
                 if (isset($successionData['transplant_date'])) {
                     $parameters['date'] = $successionData['transplant_date'];
                 }
-                $parameters['notes'] = "AI-calculated transplant for succession #{$successionData['succession_number']}";
+                $parameters['notes'] = "AI-calculated transplant for succession #" . ($successionData['succession_number'] ?? '1');
                 break;
 
             case 'harvest':
                 if (isset($successionData['harvest_date'])) {
                     $parameters['date'] = $successionData['harvest_date'];
                 }
-                $parameters['notes'] = "AI-calculated harvest for succession #{$successionData['succession_number']}";
+                $parameters['notes'] = "AI-calculated harvest for succession #" . ($successionData['succession_number'] ?? '1');
                 break;
         }
 

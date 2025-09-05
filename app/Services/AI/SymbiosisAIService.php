@@ -13,7 +13,7 @@ class SymbiosisAIService
     public function __construct()
     {
         $this->apiKey = null; // Not needed for local Ollama
-        $this->baseUrl = 'http://localhost:11434/api'; // Using default Ollama port
+        $this->baseUrl = 'http://localhost:8005/api'; // Using Ollama on port 8005
     }
 
     /**
@@ -26,13 +26,19 @@ class SymbiosisAIService
             $prompt = $this->convertMessagesToPrompt($messages);
             
             $response = Http::timeout(60)->post($this->baseUrl . '/generate', [
-                'model' => 'tinyllama:latest',
+                'model' => 'phi3:mini',
                 'prompt' => $prompt,
                 'stream' => false,
                 'options' => [
                     'temperature' => $options['temperature'] ?? 0.7,
                     'num_predict' => min($options['max_tokens'] ?? 1000, 500), // Limit to 500 tokens max
                 ]
+            ]);
+
+            Log::info('Ollama API request', [
+                'url' => $this->baseUrl . '/generate',
+                'model' => 'phi3:mini',
+                'prompt_length' => strlen($prompt)
             ]);
 
             if ($response->successful()) {
@@ -48,7 +54,13 @@ class SymbiosisAIService
                 ];
             }
 
-            throw new \Exception('Mistral/Ollama API request failed: ' . $response->body());
+            Log::error('Ollama API request failed', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'url' => $this->baseUrl . '/generate'
+            ]);
+
+            throw new \Exception('Ollama API request failed: ' . $response->body());
         } catch (\Exception $e) {
             Log::error('SymbiosisAI Mistral chat error: ' . $e->getMessage());
             throw $e;
@@ -135,5 +147,19 @@ class SymbiosisAIService
 
         $response = $this->chat($messages);
         return $response['choices'][0]['message']['content'] ?? 'Unable to identify the issue.';
+    }
+
+    /**
+     * Check if the AI service is available
+     */
+    public function isAvailable(): bool
+    {
+        try {
+            $response = Http::timeout(5)->get($this->baseUrl . '/tags');
+            return $response->successful();
+        } catch (\Exception $e) {
+            Log::warning('AI service availability check failed: ' . $e->getMessage());
+            return false;
+        }
     }
 }

@@ -9,6 +9,7 @@ $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 use App\Models\PlantVariety;
 use App\Services\FarmOSApi;
 use App\Services\AI\SymbiosisAIService;
+use App\Services\FarmOSQuickFormService;
 use App\Http\Controllers\Admin\SuccessionPlanningController;
 use Illuminate\Http\Request;
 
@@ -18,7 +19,8 @@ $request = new Request();
 // Create controller with dependencies
 $farmOSApi = app(FarmOSApi::class);
 $symbiosisAI = app(SymbiosisAIService::class);
-$controller = new SuccessionPlanningController($farmOSApi, $symbiosisAI);
+$quickFormService = app(FarmOSQuickFormService::class);
+$controller = new SuccessionPlanningController($farmOSApi, $symbiosisAI, $quickFormService);
 
 // Test the getVariety method
 try {

@@ -2017,45 +2017,52 @@ class DeliveryController extends Controller
      */
     private function determineCustomerType($shippingTotal, $subscription = null)
     {
-        // Method 1: Check shipping lines for collection class/method
+        // PRIORITY 1: Check shipping method for explicit collection indicators
+        // This takes precedence over everything else including addresses
         if ($subscription && isset($subscription['shipping_lines']) && is_array($subscription['shipping_lines'])) {
             foreach ($subscription['shipping_lines'] as $shippingLine) {
                 if (isset($shippingLine['method_title']) && is_string($shippingLine['method_title'])) {
                     $methodTitle = strtolower($shippingLine['method_title']);
-                    if (strpos($methodTitle, 'collection') !== false) {
+                    if (strpos($methodTitle, 'collection') !== false || strpos($methodTitle, 'pickup') !== false) {
                         return 'collections';
                     }
                 }
             }
         }
         
-        // Method 2: Check shipping classes in line_items
+        // PRIORITY 2: Check shipping classes in line_items for collection indicators
         if ($subscription && isset($subscription['line_items']) && is_array($subscription['line_items'])) {
             foreach ($subscription['line_items'] as $item) {
                 if (isset($item['shipping_class']) && is_string($item['shipping_class'])) {
                     $shippingClass = strtolower($item['shipping_class']);
-                    if (strpos($shippingClass, 'collection') !== false) {
+                    if (strpos($shippingClass, 'collection') !== false || strpos($shippingClass, 'pickup') !== false) {
                         return 'collections';
                     }
                 }
             }
         }
         
-        // Method 3: Check meta_data for shipping class
+        // PRIORITY 3: Check meta_data for shipping class collection indicators
         if ($subscription && isset($subscription['meta_data']) && is_array($subscription['meta_data'])) {
             foreach ($subscription['meta_data'] as $meta) {
                 if (isset($meta['key']) && isset($meta['value']) && is_string($meta['key']) && is_string($meta['value'])) {
                     $key = strtolower($meta['key']);
                     $value = strtolower($meta['value']);
                     
-                    if (strpos($key, 'shipping') !== false && strpos($value, 'collection') !== false) {
+                    if (strpos($key, 'shipping') !== false && (strpos($value, 'collection') !== false || strpos($value, 'pickup') !== false)) {
                         return 'collections';
                     }
                 }
             }
         }
         
-        // Method 4: Check if customer has a delivery address
+        // PRIORITY 4: Check shipping total - if greater than 0, it's delivery
+        $normalizedShippingTotal = $this->normalizeShippingTotal($shippingTotal);
+        if ($normalizedShippingTotal > 0) {
+            return 'deliveries';
+        }
+        
+        // PRIORITY 5: Check if customer has a delivery address (only matters if no collection method found above)
         $hasDeliveryAddress = false;
         if ($subscription) {
             // Check shipping address first
@@ -2068,15 +2075,7 @@ class DeliveryController extends Controller
             }
         }
         
-        // Method 5: Check shipping total
-        $normalizedShippingTotal = $this->normalizeShippingTotal($shippingTotal);
-        
-        // If shipping total is greater than 0, it's likely a delivery
-        if ($normalizedShippingTotal > 0) {
-            return 'deliveries';
-        }
-        
-        // If customer has a delivery address but no shipping cost, 
+        // If customer has a delivery address but no shipping cost and no collection method, 
         // it might be a delivery with free shipping or promotional delivery
         if ($hasDeliveryAddress) {
             return 'deliveries';

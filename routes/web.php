@@ -237,6 +237,19 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         return view('test-ai-timing');
     });
 
+    // Weather Integration routes
+    Route::prefix('weather')->name('admin.weather.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Admin\WeatherController::class, 'index'])->name('dashboard');
+        Route::get('/current', [App\Http\Controllers\Admin\WeatherController::class, 'getCurrentWeather'])->name('current');
+        Route::get('/forecast', [App\Http\Controllers\Admin\WeatherController::class, 'getForecast'])->name('forecast');
+        Route::get('/frost-risk', [App\Http\Controllers\Admin\WeatherController::class, 'getFrostRisk'])->name('frost-risk');
+        Route::post('/planting-analysis', [App\Http\Controllers\Admin\WeatherController::class, 'analyzePlantingWindow'])->name('planting-analysis');
+        Route::get('/growing-degree-days', [App\Http\Controllers\Admin\WeatherController::class, 'getGrowingDegreeDays'])->name('growing-degree-days');
+        Route::get('/historical', [App\Http\Controllers\Admin\WeatherController::class, 'getHistoricalWeather'])->name('historical');
+        Route::get('/alerts', [App\Http\Controllers\Admin\WeatherController::class, 'getWeatherAlerts'])->name('alerts');
+        Route::get('/field-work', [App\Http\Controllers\Admin\WeatherController::class, 'getFieldWorkRecommendations'])->name('field-work');
+    });
+
     // AI API routes (outside farmOS group since they might be called differently)
     Route::prefix('api')->group(function () {
         Route::post('/ai/crop-timing', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'getAICropTiming'])->name('api.ai.crop-timing');
