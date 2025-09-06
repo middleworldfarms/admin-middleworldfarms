@@ -36,15 +36,30 @@ class FarmOSQuickFormService
      */
     protected function getQuickFormBaseUrl(string $logType): string
     {
-        // Allow overrides from config to match your farmOS quick form module paths
-        $formUrls = config('services.farmos.quick_form_paths', [
-            'seeding' => '/quick/seeding',
-            'transplant' => '/quick/transplant',
-            'harvest' => '/quick/harvest',
-            'observation' => '/quick/observation',
-        ]);
+        // Check if Quick Forms are available, otherwise use standard log forms
+        $quickFormAvailable = $this->testQuickFormAccess();
 
-        return $this->farmOSBaseUrl . ($formUrls[$logType] ?? '/quick/seeding');
+        if ($quickFormAvailable) {
+            // Allow overrides from config to match your farmOS quick form module paths
+            $formUrls = config('services.farmos.quick_form_paths', [
+                'seeding' => '/quick/seeding',
+                'transplant' => '/quick/transplant',
+                'harvest' => '/quick/harvest',
+                'observation' => '/quick/observation',
+            ]);
+
+            return $this->farmOSBaseUrl . ($formUrls[$logType] ?? '/quick/seeding');
+        } else {
+            // Fallback to standard farmOS log forms
+            $standardUrls = [
+                'seeding' => '/log/add/seeding',
+                'transplant' => '/log/add/transplanting',
+                'harvest' => '/log/add/harvest',
+                'observation' => '/log/add/observation',
+            ];
+
+            return $this->farmOSBaseUrl . ($standardUrls[$logType] ?? '/log/add/seeding');
+        }
     }
 
     /**
@@ -121,6 +136,17 @@ class FarmOSQuickFormService
     public function testQuickFormAccess(): bool
     {
         try {
+            // First check if Quick Forms API returns any data
+            $response = Http::withToken($this->authToken)
+                ->get($this->farmOSBaseUrl . '/api/quick_form/quick_form');
+
+            if ($response->successful()) {
+                $data = $response->json();
+                // If data array is not empty, Quick Forms are configured
+                return !empty($data['data'] ?? []);
+            }
+
+            // Fallback: test if quick form URLs are accessible
             $response = Http::withToken($this->authToken)
                 ->get($this->farmOSBaseUrl . '/quick/seeding');
 

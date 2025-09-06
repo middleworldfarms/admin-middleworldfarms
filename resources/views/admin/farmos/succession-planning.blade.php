@@ -981,10 +981,17 @@
         if (!selectedCropId) {
             options.push('<option value="">Select crop first...</option>');
         } else {
-            // cropVarieties comes from server JSON; match by crop_id or parent_id / crop_type
-            const filtered = (cropVarieties || []).filter(v =>
-                v.crop_id === selectedCropId || v.parent_id === selectedCropId || v.crop_type === selectedCropId
+            // Find the actual crop object to get its farmOS ID
+            const selectedCrop = cropTypes.find(c => c.id === selectedCropId);
+            const farmOSCropId = selectedCrop?.id || selectedCropId;
+            
+            // Filter varieties by matching crop_type with the farmOS crop ID
+            const filtered = (cropVarieties || []).filter(v => 
+                v.crop_type === farmOSCropId || 
+                v.parent_id === farmOSCropId ||
+                v.crop_id === farmOSCropId
             );
+            
             if (filtered.length === 0) {
                 options.push('<option value="">No varieties found for this crop</option>');
             } else {
@@ -1451,6 +1458,39 @@
         console.log('🔄 Reset harvest window to AI maximum');
     }
 
+    // Helper function to adjust harvest dates to the selected planning year
+    function adjustHarvestDatesToSelectedYear(harvestInfo) {
+        if (!harvestInfo) return harvestInfo;
+        
+        const selectedYear = document.getElementById('planningYear')?.value || new Date().getFullYear();
+        
+        if (harvestInfo.maximum_start) {
+            const parts = harvestInfo.maximum_start.split('-');
+            if (parts.length === 3) {
+                harvestInfo.maximum_start = `${selectedYear}-${parts[1]}-${parts[2]}`;
+                console.log(`📅 Adjusted JSON start date to selected year: ${harvestInfo.maximum_start}`);
+            }
+        }
+        
+        if (harvestInfo.maximum_end) {
+            const parts = harvestInfo.maximum_end.split('-');
+            if (parts.length === 3) {
+                harvestInfo.maximum_end = `${selectedYear}-${parts[1]}-${parts[2]}`;
+                console.log(`📅 Adjusted JSON end date to selected year: ${harvestInfo.maximum_end}`);
+            }
+        }
+        
+        if (harvestInfo.yield_peak) {
+            const parts = harvestInfo.yield_peak.split('-');
+            if (parts.length === 3) {
+                harvestInfo.yield_peak = `${selectedYear}-${parts[1]}-${parts[2]}`;
+                console.log(`📅 Adjusted JSON yield peak date to selected year: ${harvestInfo.yield_peak}`);
+            }
+        }
+        
+        return harvestInfo;
+    }
+
     // Calculate AI harvest window - main function for getting maximum possible harvest
     async function calculateAIHarvestWindow() {
         try {
@@ -1491,25 +1531,95 @@
                 variety_meta: varietyMeta,
                 planning_year: document.getElementById('planningYear')?.value || new Date().getFullYear(),
                 planning_season: document.getElementById('planningSeason')?.value || null,
-                planted_on: new Date().toISOString().split('T')[0]
+                request_type: 'maximum_harvest_window'
             };
 
-            // Build a strict prompt requesting JSON output to make parsing deterministic
-            const prompt = `You are an expert agronomist specializing in extended harvest techniques. Given the context JSON, return ONLY a JSON object with the exact keys: maximum_start (YYYY-MM-DD), maximum_end (YYYY-MM-DD), days_to_harvest (number), yield_peak (YYYY-MM-DD), notes (string), and extended_window (object with max_extension_days and risk_level). 
+            // Build a comprehensive prompt for MAXIMUM harvest windows based on real farming knowledge
+            const prompt = `You are an expert UK market gardener calculating MAXIMUM POSSIBLE harvest windows for succession planning.
 
-For crops like beets, carrots, and other root vegetables, consider the FULL POSSIBLE harvest period:
-- Early harvesting (May-June) for baby/small sizes
-- Main harvest (June-November) for mature sizes  
-- Extended harvest (November-December) with protection techniques
-- Total possible window: May to December (up to 221 days for beets)
+CRITICAL: Use the provided farmOS variety_meta data if available. This is REAL farm data and takes priority over generic information.
 
-Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, considering all harvesting techniques, succession planting, and storage methods. Do NOT include extra text.`;
+TASK: Return ONLY a JSON object with the ABSOLUTE MAXIMUM harvest period for ${cropName} ${varietyName || ''} in year ${contextPayload.planning_year}.
+
+VARIETY DATA PROVIDED: ${varietyMeta ? JSON.stringify(varietyMeta) : 'None - use crop defaults'}
+
+IGNORE today's date (${new Date().toDateString()}). Calculate based on SEASONAL POTENTIAL for the planning year.
+
+If variety_meta contains timing data, USE IT. Otherwise use these maximums:
+
+CARROT VARIETIES (Early Nantes, Amsterdam, Paris Market, etc.):
+- Maximum harvest window: MAY 1st through DECEMBER 31st
+- Peak quality: June-October
+- Extended storage harvest: November-December
+- Peak quality: June-October
+- Extended harvest: November-December with protection
+
+BEETROOT VARIETIES:
+- Sowing: April-July
+- Maximum harvest window: JUNE 1st through DECEMBER 31st
+- Can harvest baby beets from June, main crop July-November, storage crop December
+
+LETTUCE VARIETIES:
+- Year-round with protection
+- Maximum harvest window: MARCH 1st through NOVEMBER 30th (outdoor)
+- Winter varieties: JANUARY 1st through DECEMBER 31st (with protection)
+
+RADISH VARIETIES:
+- Quick crop, succession plantings
+- Maximum harvest window: APRIL 1st through OCTOBER 31st
+
+ONION VARIETIES:
+- Spring sets planted March-April
+- Maximum harvest window: JULY 1st through SEPTEMBER 30th
+
+Return JSON format:
+{
+  "maximum_start": "YYYY-MM-DD",
+  "maximum_end": "YYYY-MM-DD", 
+  "days_to_harvest": 60,
+  "yield_peak": "YYYY-MM-DD",
+  "notes": "Maximum harvest window explanation",
+  "extended_window": {
+    "max_extension_days": 30,
+    "risk_level": "low"
+  }
+}
+- Early varieties like "Early Nantes 2": May 1st - November 30th (214 days maximum)
+
+ROOT VEGETABLES GENERAL:
+- Baby harvest: 50-70 days after sowing
+- Main harvest: 90-120 days after sowing  
+- Extended harvest: Can stay in ground 180-250+ days with protection
+- Winter storage: Many can be harvested through winter months
+
+MAXIMUM HARVEST CALCULATION:
+- Start: Earliest possible harvest date (baby stage)
+- End: Latest possible harvest before quality deteriorates
+- Consider storage, succession planting, winter protection
+
+Return ONLY a JSON object with these exact keys:
+{
+  "maximum_start": "YYYY-MM-DD",
+  "maximum_end": "YYYY-MM-DD", 
+  "days_to_harvest": 60,
+  "yield_peak": "YYYY-MM-DD",
+  "notes": "Maximum possible harvest window for succession planning",
+  "extended_window": {"max_extension_days": 45, "risk_level": "low"}
+}
+
+NO extra text. Calculate for ${contextPayload.planning_year}.`;
 
             // Use same-origin Laravel route that exists in this app (chat endpoint)
             const chatUrl = window.location.origin + '/admin/farmos/succession-planning/chat';
 
             // Debug: log payload and endpoint
             console.log('🛰️ AI request ->', { chatUrl, prompt, context: contextPayload });
+            console.log('🔍 Question text check:', {
+                'contains_harvest_window': prompt.toLowerCase().includes('harvest window'),
+                'contains_maximum_start': prompt.toLowerCase().includes('maximum_start'),
+                'contains_json_object': prompt.toLowerCase().includes('json object'),
+                'prompt_preview': prompt.substring(0, 200) + '...'
+            });
 
             // Timeout to abort long-running requests
             const timeoutId = setTimeout(() => { try { __aiCalcController.abort(); } catch(_){} }, 10000); // 10s timeout
@@ -1521,7 +1631,11 @@ Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, co
                     'X-Requested-With': 'XMLHttpRequest',
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
                 },
-                body: JSON.stringify({ question: prompt, context: contextPayload }),
+                body: JSON.stringify({ 
+                    question: prompt, 
+                    crop_type: contextPayload.crop,
+                    context: contextPayload 
+                }),
                 signal: __aiCalcController.signal
             });
 
@@ -1544,10 +1658,28 @@ Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, co
             let harvestInfo = null;
             if (data && (data.maximum_start || data.optimal_window_days || data.peak_harvest_days)) {
                 // Build a normalized harvestInfo object from structured backend response
-                const maxStart = data.maximum_start || null;
+                let maxStart = data.maximum_start || null;
                 const duration = data.optimal_window_days || data.maximum_harvest_days || null;
                 const peakDays = data.peak_harvest_days || null;
                 let maxEnd = data.maximum_end || null;
+                
+                // Adjust dates to use the selected planning year
+                const selectedYear = document.getElementById('planningYear')?.value || new Date().getFullYear();
+                if (maxStart) {
+                    const parts = maxStart.split('-');
+                    if (parts.length === 3) {
+                        maxStart = `${selectedYear}-${parts[1]}-${parts[2]}`;
+                        console.log(`📅 Adjusted AI start date to selected year: ${maxStart}`);
+                    }
+                }
+                if (maxEnd) {
+                    const parts = maxEnd.split('-');
+                    if (parts.length === 3) {
+                        maxEnd = `${selectedYear}-${parts[1]}-${parts[2]}`;
+                        console.log(`📅 Adjusted AI end date to selected year: ${maxEnd}`);
+                    }
+                }
+                
                 if (!maxEnd && maxStart && duration) {
                     const d = new Date(maxStart);
                     d.setDate(d.getDate() + Number(duration));
@@ -1573,6 +1705,11 @@ Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, co
                         harvestInfo = data.answer;
                     } else {
                         throw new Error('Unexpected answer format');
+                    }
+                    
+                    // Adjust parsed JSON dates to selected year
+                    if (harvestInfo) {
+                        harvestInfo = adjustHarvestDatesToSelectedYear(harvestInfo);
                     }
                 } catch (e) {
                     console.warn('Failed to parse JSON from backend, falling back to text parsing:', e);
@@ -1658,7 +1795,7 @@ Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, co
         }
         
         if (harvestInfo.extended_window) {
-            const extensionDays = harvestInfo.extended_window.max_extension_days || Math.floor((harvestInfo.days_to_harvest || 60) * 0.2);
+            const extensionDays = harvestInfo.extended_window.max_extension_days || Math.round((harvestInfo.days_to_harvest || 60) * 0.2);
             const riskLevel = harvestInfo.extended_window.risk_level || 'moderate';
             
             detailsHTML += `<div class="mb-2">
@@ -1724,15 +1861,22 @@ Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, co
             if (!answerText || typeof answerText !== 'string') return null;
 
             const text = answerText.replace(/\s+/g, ' ').trim();
+            const selectedYear = parseInt(document.getElementById('planningYear')?.value || new Date().getFullYear(), 10);
+            
             const dateRegex = /(20\d{2})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])/g; // YYYY-MM-DD
             const dates = [...text.matchAll(dateRegex)].map(m => m[0]);
 
-            // Heuristics: pick first as start, last as end when at least 2 dates present
+            // Convert dates to use the selected planning year
             let maximum_start = null;
             let maximum_end = null;
             if (dates.length >= 2) {
-                maximum_start = dates[0];
-                maximum_end = dates[dates.length - 1];
+                // Parse the month and day from the AI dates but use the selected year
+                const startParts = dates[0].split('-');
+                const endParts = dates[dates.length - 1].split('-');
+                maximum_start = `${selectedYear}-${startParts[1]}-${startParts[2]}`;
+                maximum_end = `${selectedYear}-${endParts[1]}-${endParts[2]}`;
+                
+                console.log(`📅 Adjusted AI dates to selected year ${selectedYear}: ${maximum_start} - ${maximum_end}`);
             }
 
             // Month name range detection (e.g., "June–November", "May to December")
@@ -2291,7 +2435,7 @@ Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, co
                             <div class=\"alert alert-info\">This form opens in a new tab due to farmOS security settings (X-Frame-Options).</div>
                             <div class=\"d-flex gap-2\">
                                 <a class=\"btn btn-primary btn-sm\" href=\"${url}\" target=\"_blank\" rel=\"noopener\"><i class=\"fas fa-external-link-alt\"></i> Open ${f.label}</a>
-                                <button class=\"btn btn-outline-secondary btn-sm\" onclick=\"copyLink('${encodeURIComponent(url)}')\"><i class=\"fas fa-link\"></i> Copy link</button>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="copyLink('${encodeURIComponent(url)}')"><i class="fas fa-link"></i> Copy link</button>
                             </div>
                         `;
                     } else {
@@ -2314,12 +2458,13 @@ Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, co
                                     wrap.innerHTML = `
                                         <div class=\"d-flex align-items-center justify-content-between mb-2\">
                                             <strong>${f.label} Quick Form</strong>
-                                            <span class=\"badge bg-secondary\">opens in farmOS</span>
+                                            <span class=\"badge bg-warning\">API Available</span>
                                         </div>
-                                        <div class=\"alert alert-info\">This form couldn\'t be embedded. Open it in farmOS instead.</div>
+                                        <div class=\"alert alert-success\">Submit directly to farmOS via API.</div>
                                         <div class=\"d-flex gap-2\">
-                                            <a class=\"btn btn-primary btn-sm\" href=\"${url}\" target=\"_blank\" rel=\"noopener\"><i class=\"fas fa-external-link-alt\"></i> Open ${f.label}</a>
-                                            <button class=\"btn btn-outline-secondary btn-sm\" onclick=\"copyLink('${encodeURIComponent(url)}')\"><i class=\"fas fa-link\"></i> Copy link</button>
+                                            <button class=\"btn btn-success btn-sm\" onclick=\"submitViaAPI('${f.key}', ${JSON.stringify(p).replace(/"/g, '&quot;')})\"><i class=\"fas fa-cloud-upload-alt\"></i> Submit via API</button>
+                                            <a class=\"btn btn-outline-primary btn-sm\" href=\"${url}\" target=\"_blank\" rel=\"noopener\"><i class=\"fas fa-external-link-alt\"></i> Open Form</a>
+                                            <button class="btn btn-outline-secondary btn-sm" onclick="copyLink('${encodeURIComponent(url)}')"><i class="fas fa-link"></i> Copy link</button>
                                         </div>
                                     `;
                                 }
@@ -2327,12 +2472,12 @@ Calculate the ABSOLUTE MAXIMUM possible harvest window for this crop variety, co
                                 wrap.innerHTML = `
                                     <div class=\"d-flex align-items-center justify-content-between mb-2\">
                                         <strong>${f.label} Quick Form</strong>
-                                        <span class=\"badge bg-secondary\">opens in farmOS</span>
+                                        <span class=\"badge bg-info\">Manual Entry</span>
                                     </div>
-                                    <div class=\"alert alert-info\">This form couldn\'t be embedded. Open it in farmOS instead.</div>
+                                    <div class=\"alert alert-info\">farmOS API integration available. Copy the link to manually create the log.</div>
                                     <div class=\"d-flex gap-2\">
-                                        <a class=\"btn btn-primary btn-sm\" href=\"${url}\" target=\"_blank\" rel=\"noopener\"><i class=\"fas fa-external-link-alt\"></i> Open ${f.label}</a>
-                                        <button class=\"btn btn-outline-secondary btn-sm\" onclick=\"copyLink('${encodeURIComponent(url)}')\"><i class=\"fas fa-link\"></i> Copy link</button>
+                                        <a class=\"btn btn-primary btn-sm\" href=\"${url}\" target=\"_blank\" rel=\"noopener\"><i class=\"fas fa-external-link-alt\"></i> Open Form</a>
+                                        <button class="btn btn-outline-secondary btn-sm" onclick="copyLink('${encodeURIComponent(url)}')"><i class="fas fa-link"></i> Copy link</button>
                                     </div>
                                 `;
                             }
@@ -2445,6 +2590,91 @@ Plantings:`;
         }
 
         return context;
+    }
+
+    function submitViaAPI(logType, plantingData) {
+        console.log(`🚀 Submitting ${logType} via API for planting:`, plantingData);
+
+        // Show loading state
+        const button = event.target;
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+        button.disabled = true;
+
+        // Prepare data for API submission
+        const apiData = {
+            crop_name: plantingData.crop_name,
+            variety_name: plantingData.variety_name,
+            bed_name: plantingData.bed_name,
+            quantity: plantingData.quantity,
+            succession_number: plantingData.succession_number
+        };
+
+        // Add date based on log type
+        switch(logType) {
+            case 'seeding':
+                apiData.seeding_date = plantingData.seeding_date;
+                break;
+            case 'transplant':
+                apiData.transplant_date = plantingData.transplant_date;
+                break;
+            case 'harvest':
+                apiData.harvest_date = plantingData.harvest_date;
+                break;
+        }
+
+        // Make API call
+        fetch('/admin/farmos/succession-planning/submit-log', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify({
+                log_type: logType,
+                data: apiData
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                button.innerHTML = '<i class="fas fa-check"></i> Submitted!';
+                button.className = 'btn btn-success btn-sm';
+                console.log(`✅ ${logType} log created successfully:`, data);
+
+                // Reset button after 3 seconds
+                setTimeout(() => {
+                    button.innerHTML = originalText;
+                    button.className = 'btn btn-success btn-sm';
+                    button.disabled = false;
+                }, 3000);
+            } else {
+                // Show API submission failed, suggest manual entry
+                button.innerHTML = '<i class="fas fa-exclamation-triangle"></i> API Failed';
+                button.className = 'btn btn-warning btn-sm';
+                console.warn(`⚠️ ${logType} API submission failed:`, data.message);
+
+                // Reset button after 3 seconds
+                setTimeout(() => {
+                    button.innerHTML = originalText;
+                    button.className = 'btn btn-warning btn-sm';
+                    button.disabled = false;
+                }, 3000);
+            }
+        })
+        .catch(error => {
+            console.error(`❌ ${logType} API submission failed:`, error);
+            button.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Failed';
+            button.className = 'btn btn-danger btn-sm';
+
+            // Reset button after 3 seconds
+            setTimeout(() => {
+                button.innerHTML = originalText;
+                button.className = 'btn btn-success btn-sm';
+                button.disabled = false;
+            }, 3000);
+        });
     }
 </script>
 @endsection

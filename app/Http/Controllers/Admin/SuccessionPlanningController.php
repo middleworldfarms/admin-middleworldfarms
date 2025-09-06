@@ -71,6 +71,7 @@ class SuccessionPlanningController extends Controller
                 'varieties' => [
                     // Carrot varieties
                     ['id' => 'carrot_nantes', 'name' => 'Nantes', 'parent_id' => 'carrot', 'crop_type' => 'carrot'],
+                    ['id' => 'carrot_early_nantes_2', 'name' => 'Early Nantes 2', 'parent_id' => 'carrot', 'crop_type' => 'carrot'],
                     ['id' => 'carrot_chantenay', 'name' => 'Chantenay', 'parent_id' => 'carrot', 'crop_type' => 'carrot'],
                     ['id' => 'carrot_imperator', 'name' => 'Imperator', 'parent_id' => 'carrot', 'crop_type' => 'carrot'],
                     ['id' => 'carrot_danvers', 'name' => 'Danvers', 'parent_id' => 'carrot', 'crop_type' => 'carrot'],
@@ -298,7 +299,7 @@ class SuccessionPlanningController extends Controller
             $cropData = $this->farmOSApi->getAvailableCropTypes();
             $cropInfo = collect($cropData['types'])->firstWhere('id', $validated['crop_id']);
             $varietyInfo = null;
-            if ($validated['variety_id']) {
+            if (isset($validated['variety_id']) && $validated['variety_id']) {
                 $varietyInfo = collect($cropData['varieties'])->firstWhere('id', $validated['variety_id']);
             }
 
@@ -704,8 +705,10 @@ class SuccessionPlanningController extends Controller
             ],
             'carrot' => [
                 'transplant_days' => 0,   // Direct seed
-                'harvest_days' => 75,
-                'yield_period' => 21
+                'harvest_days' => 75,     // First harvest (baby carrots)
+                'yield_period' => 120,    // Maximum harvest window (baby to mature)
+                'maximum_harvest_days' => 180, // Absolute maximum with storage
+                'harvest_notes' => 'Can harvest from 50 days (baby) to 180+ days (mature with storage)'
             ],
             'radish' => [
                 'transplant_days' => 0,
@@ -1366,16 +1369,31 @@ class SuccessionPlanningController extends Controller
     public function chat(Request $request): JsonResponse
     {
         try {
+            Log::info("🔥 CHAT METHOD CALLED - Start of processing");
+            
             $validated = $request->validate([
-                'question' => 'required|string|max:1000',
+                'question' => 'required|string|max:5000', // Increased limit for detailed harvest window prompts
                 'crop_type' => 'nullable|string',
                 'season' => 'nullable|string',
                 'context' => 'nullable' // Allow any type for context
             ]);
 
+            Log::info("🔥 CHAT METHOD - Validation passed", ['data' => $validated]);
+
             // Check if this is a harvest window calculation request
-            if (str_contains(strtolower($validated['question']), 'harvest window') || 
-                str_contains(strtolower($validated['question']), 'maximum_start') && str_contains(strtolower($validated['question']), 'json object')) {
+            $lowerQuestion = strtolower($validated['question']);
+            $hasHarvestWindow = str_contains($lowerQuestion, 'harvest window');
+            $hasMaxStart = str_contains($lowerQuestion, 'maximum_start');
+            $hasJsonObject = str_contains($lowerQuestion, 'json object');
+            
+            Log::info("🔍 Chat detection check", [
+                'question_preview' => substr($validated['question'], 0, 100) . '...',
+                'has_harvest_window' => $hasHarvestWindow,
+                'has_maximum_start' => $hasMaxStart, 
+                'has_json_object' => $hasJsonObject
+            ]);
+            
+            if ($hasHarvestWindow || ($hasMaxStart && $hasJsonObject)) {
                 // Extract crop_type and variety from context if not provided
                 $context = $validated['context'];
                 if (is_array($context) || is_object($context)) {
@@ -1475,15 +1493,44 @@ class SuccessionPlanningController extends Controller
     }
 
     /**
-     * Calculate optimal harvest window using AI
+     * Get fallback wisdom when AI is unavailable
+     */
+    private function getFallbackChatWisdom(string $question): string
+    {
+        $fallbackResponses = [
+            'farming' => 'Focus on soil health, proper spacing, and regular observation. Consider companion planting and seasonal timing for optimal results.',
+            'harvest' => 'Monitor crops daily during harvest season. Harvest in cool morning hours when possible, and handle produce gently to maintain quality.',
+            'planting' => 'Ensure soil temperature and conditions are appropriate for your crop. Follow proper spacing guidelines and consider succession planting for continuous harvest.',
+            'weather' => 'Keep track of local weather patterns and plan accordingly. Protect sensitive crops from frost and extreme conditions.',
+            'pest' => 'Regular inspection and integrated pest management work best. Encourage beneficial insects and maintain healthy soil to naturally resist pests.',
+            'default' => 'Successful farming combines careful planning, regular observation, and adapting to local conditions. Keep detailed records to improve over time.'
+        ];
+
+        $question = strtolower($question);
+        
+        foreach ($fallbackResponses as $keyword => $response) {
+            if (strpos($question, $keyword) !== false) {
+                return $response;
+            }
+        }
+        
+        return $fallbackResponses['default'];
+    }
+
+    /**
+     * Calculate optimal harvest window using AI and admin database
      */
     public function calculateHarvestWindow(Request $request): JsonResponse
     {
+        Log::info("🔍 calculateHarvestWindow called with data: " . json_encode($request->all()));
+        
         try {
             $validated = $request->validate([
                 'crop_type' => 'nullable|string',
                 'variety' => 'nullable|string',
+                'variety_meta' => 'nullable|array',
                 'season' => 'nullable|string',
+                'planning_year' => 'nullable|integer',
                 'current_date' => 'nullable|date',
                 'context' => 'nullable|array'
             ]);
@@ -1491,8 +1538,145 @@ class SuccessionPlanningController extends Controller
             $cropType = $validated['crop_type'] ?? $request->input('crop_type') ?? 'lettuce';
             $variety = $validated['variety'] ?? $request->input('variety') ?? '';
             $season = $validated['season'] ?? $request->input('season') ?? 'current';
-            $currentDate = $validated['current_date'] ?? $request->input('current_date') ?? now()->format('Y-m-d');
+            $planningYear = $validated['planning_year'] ?? $request->input('planning_year') ?? date('Y');
+            
+            Log::info("🗓️ Planning year determination", [
+                'validated_planning_year' => $validated['planning_year'] ?? null,
+                'request_planning_year' => $request->input('planning_year'),
+                'fallback_current_year' => date('Y'),
+                'final_planning_year' => $planningYear
+            ]);
 
+            // First check admin database for variety-specific harvest window data
+            $adminVarietyData = null;
+            if ($variety) {
+                Log::info("🔍 Looking for variety in admin database", [
+                    'variety_name' => $variety,
+                    'crop_type' => $cropType,
+                    'total_varieties_in_db' => PlantVariety::count()
+                ]);
+                
+                // Try exact match first
+                $plantVariety = PlantVariety::where('name', $variety)->first();
+                Log::info("🔍 Exact match result", [
+                    'variety_searched' => $variety,
+                    'found' => $plantVariety ? 'YES' : 'NO',
+                    'found_name' => $plantVariety ? $plantVariety->name : null
+                ]);
+                
+                // If no exact match, try partial match but only on variety name
+                if (!$plantVariety) {
+                    $plantVariety = PlantVariety::where('name', 'LIKE', "%{$variety}%")->first();
+                    Log::info("🔍 Partial match result", [
+                        'variety_searched' => $variety,
+                        'pattern' => "%{$variety}%",
+                        'found' => $plantVariety ? 'YES' : 'NO',
+                        'found_name' => $plantVariety ? $plantVariety->name : null
+                    ]);
+                }
+                
+                // Try a few more search strategies
+                if (!$plantVariety) {
+                    // Try case-insensitive search
+                    $plantVariety = PlantVariety::whereRaw('LOWER(name) = LOWER(?)', [$variety])->first();
+                    Log::info("🔍 Case-insensitive match result", [
+                        'variety_searched' => $variety,
+                        'found' => $plantVariety ? 'YES' : 'NO',
+                        'found_name' => $plantVariety ? $plantVariety->name : null
+                    ]);
+                }
+                
+                if (!$plantVariety) {
+                    // Show some sample varieties for debugging
+                    $sampleVarieties = PlantVariety::select('name', 'plant_type')
+                        ->where('plant_type', 'LIKE', "%carrot%")
+                        ->orWhere('name', 'LIKE', "%carrot%")
+                        ->limit(10)
+                        ->get()
+                        ->pluck('name');
+                    
+                    Log::info("🔍 Sample carrot varieties in database", [
+                        'sample_varieties' => $sampleVarieties->toArray()
+                    ]);
+                }
+                
+                if ($plantVariety) {
+                    $adminVarietyData = [
+                        'harvest_start' => $plantVariety->harvest_start ? $plantVariety->harvest_start->format('Y-m-d') : null,
+                        'harvest_end' => $plantVariety->harvest_end ? $plantVariety->harvest_end->format('Y-m-d') : null,
+                        'harvest_window_days' => $plantVariety->harvest_window_days,
+                        'yield_peak' => $plantVariety->yield_peak ? $plantVariety->yield_peak->format('Y-m-d') : $plantVariety->harvest_start,
+                        'maturity_days' => $plantVariety->maturity_days,
+                        'harvest_days' => $plantVariety->harvest_days,
+                        'harvest_notes' => $plantVariety->harvest_notes,
+                        'harvest_method' => $plantVariety->harvest_method,
+                        'expected_yield_per_plant' => $plantVariety->expected_yield_per_plant,
+                        'source' => 'Admin Database'
+                    ];
+
+                    Log::info("✅ Found variety data in admin database for '{$variety}': " . $plantVariety->name . " - Window: " . $plantVariety->harvest_window_days . " days", [
+                        'harvest_start_value' => $adminVarietyData['harvest_start'],
+                        'harvest_end_value' => $adminVarietyData['harvest_end'],
+                        'has_harvest_start' => !empty($adminVarietyData['harvest_start']),
+                        'has_harvest_end' => !empty($adminVarietyData['harvest_end'])
+                    ]);
+                } else {
+                    Log::info("❌ No variety data found in admin database for '{$variety}'");
+                }
+            }
+
+            // If we have admin database data, use it directly
+            if ($adminVarietyData && $adminVarietyData['harvest_start'] && $adminVarietyData['harvest_end']) {
+                Log::info("🎯 Using admin database calculation path", [
+                    'variety' => $variety,
+                    'planning_year' => $planningYear
+                ]);
+                
+                // Convert day numbers to actual dates for the planning year
+                Log::info("🔍 Converting admin database dates", [
+                    'original_harvest_start' => $adminVarietyData['harvest_start'],
+                    'original_harvest_end' => $adminVarietyData['harvest_end'],
+                    'planning_year' => $planningYear
+                ]);
+                
+                $harvestStart = $this->dayNumberToDate($adminVarietyData['harvest_start'], $planningYear);
+                $harvestEnd = $this->dayNumberToDate($adminVarietyData['harvest_end'], $planningYear);
+                $yieldPeak = $adminVarietyData['yield_peak'] ? 
+                    $this->dayNumberToDate($adminVarietyData['yield_peak'], $planningYear) : $harvestStart;
+
+                Log::info("🔍 Converted admin database dates", [
+                    'converted_harvest_start' => $harvestStart,
+                    'converted_harvest_end' => $harvestEnd,
+                    'converted_yield_peak' => $yieldPeak
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'maximum_start' => $harvestStart,
+                    'maximum_end' => $harvestEnd,
+                    'yield_peak' => $yieldPeak,
+                    'optimal_window_days' => $adminVarietyData['harvest_window_days'] ?? 90,
+                    'peak_harvest_days' => $adminVarietyData['maturity_days'] ?? $adminVarietyData['harvest_days'] ?? 75,
+                    'confidence' => 'high',
+                    'source' => 'Admin Database - Comprehensive Variety Data',
+                    'recommendations' => [
+                        "Based on comprehensive variety database for {$variety}",
+                        $adminVarietyData['harvest_notes'] ?? "Maximum harvest window for optimal yield"
+                    ],
+                    'timestamp' => now()->toISOString()
+                ]);
+            } else {
+                Log::info("❌ Admin database calculation skipped", [
+                    'has_admin_data' => !empty($adminVarietyData),
+                    'has_harvest_start' => !empty($adminVarietyData['harvest_start'] ?? null),
+                    'has_harvest_end' => !empty($adminVarietyData['harvest_end'] ?? null),
+                    'admin_data_keys' => array_keys($adminVarietyData ?? [])
+                ]);
+            }
+
+            // Fallback to AI calculation if no admin database data
+            $currentDate = $validated['current_date'] ?? $request->input('current_date') ?? now()->format('Y-m-d');
+            
             // Get crop timing presets
             $cropPresets = $this->getCropTimingPresets();
             $baseTiming = $cropPresets[$cropType] ?? $cropPresets['default'];
@@ -1502,12 +1686,13 @@ class SuccessionPlanningController extends Controller
                 'crop_type' => $cropType,
                 'variety' => $variety,
                 'season' => $season,
+                'planning_year' => $planningYear,
                 'current_date' => $currentDate,
                 'base_timing' => $baseTiming,
                 'location_factors' => $validated['context'] ?? []
             ];
 
-            // Try AI-powered harvest window calculation first
+            // Try AI-powered harvest window calculation
             $aiHarvestWindow = $this->getAIHarvestWindow($cropType, $variety, $contextualData);
 
             if ($aiHarvestWindow['success']) {
@@ -1549,6 +1734,71 @@ class SuccessionPlanningController extends Controller
                 'source' => 'Error Fallback',
                 'timestamp' => now()->toISOString()
             ], 500);
+        }
+    }
+
+    /**
+     * Convert day number (1-365) or date string to actual date for given year
+     */
+    private function dayNumberToDate($dayOrDate, int $year): string
+    {
+        try {
+            Log::info("🔧 dayNumberToDate debug", [
+                'input' => $dayOrDate,
+                'input_type' => gettype($dayOrDate),
+                'target_year' => $year
+            ]);
+            
+            // Handle Carbon objects
+            if ($dayOrDate instanceof \Carbon\Carbon) {
+                $planningDate = Carbon::create($year, $dayOrDate->month, $dayOrDate->day);
+                Log::info("🔧 Converted Carbon object", [
+                    'original_carbon' => $dayOrDate->format('Y-m-d'),
+                    'planning_date' => $planningDate->format('Y-m-d')
+                ]);
+                return $planningDate->format('Y-m-d');
+            }
+            
+            // If it's already a date string, extract month and day and use the planning year
+            if (is_string($dayOrDate) && (strpos($dayOrDate, '-') !== false || strpos($dayOrDate, '/') !== false)) {
+                $date = Carbon::parse($dayOrDate);
+                Log::info("🔧 Parsed original date", [
+                    'original' => $dayOrDate,
+                    'parsed_month' => $date->month,
+                    'parsed_day' => $date->day,
+                    'parsed_year' => $date->year
+                ]);
+                
+                $planningDate = Carbon::create($year, $date->month, $date->day);
+                Log::info("🔧 Created planning date", [
+                    'planning_date' => $planningDate->format('Y-m-d'),
+                    'used_year' => $year,
+                    'used_month' => $date->month,
+                    'used_day' => $date->day
+                ]);
+                
+                return $planningDate->format('Y-m-d');
+            }
+            
+            // If it's a day number (1-365)
+            if (is_numeric($dayOrDate)) {
+                $dayNumber = (int)$dayOrDate;
+                $date = Carbon::create($year, 1, 1)->addDays($dayNumber - 1);
+                Log::info("🔧 Converted day number", [
+                    'day_number' => $dayNumber,
+                    'result_date' => $date->format('Y-m-d')
+                ]);
+                return $date->format('Y-m-d');
+            }
+            
+            // Fallback
+            Log::warning("🔧 Using fallback date", ['input' => $dayOrDate]);
+            return Carbon::create($year, 6, 1)->format('Y-m-d');
+            
+        } catch (\Exception $e) {
+            Log::warning("Failed to convert day/date {$dayOrDate} to date for year {$year}: " . $e->getMessage());
+            // Fallback to June 1st
+            return Carbon::create($year, 6, 1)->format('Y-m-d');
         }
     }
 
@@ -1899,10 +2149,67 @@ class SuccessionPlanningController extends Controller
     public function getVariety(Request $request, string $varietyId): JsonResponse
     {
         try {
-            // Try to get variety from FarmOS API
+            // CRITICAL FIX: Frontend variety selection has mismatched IDs between FarmOS and admin DB
+            // The problem: Frontend passes numeric ID like "86" but admin DB has different record with ID 86
+            
+            Log::info('⚡ getVariety called', ['searched_id' => $varietyId]);
+            
+            // Strategy 1: Try farmos_id (UUID format) - most reliable
+            $plantVariety = PlantVariety::where('farmos_id', $varietyId)->first();
+            
+            if (!$plantVariety) {
+                // Strategy 2: Try name match (in case someone passes a variety name)
+                $plantVariety = PlantVariety::where('name', $varietyId)->first();
+            }
+            
+            // Strategy 3: SKIP admin database ID lookup to avoid wrong matches!
+            // The numeric IDs from frontend don't reliably match admin database IDs
+            
+            if ($plantVariety) {
+                $varietyData = [
+                    'id' => $plantVariety->id,
+                    'farmos_id' => $plantVariety->farmos_id,
+                    'name' => $plantVariety->name,
+                    'crop_family' => $plantVariety->crop_family,
+                    'plant_type' => $plantVariety->plant_type,
+                    'maturity_days' => $plantVariety->maturity_days,
+                    'harvest_days' => $plantVariety->harvest_days,
+                    'harvest_start' => $plantVariety->harvest_start,
+                    'harvest_end' => $plantVariety->harvest_end,
+                    'yield_peak' => $plantVariety->yield_peak,
+                    'harvest_window_days' => $plantVariety->harvest_window_days,
+                    'harvest_notes' => $plantVariety->harvest_notes,
+                    'harvest_method' => $plantVariety->harvest_method,
+                    'expected_yield_per_plant' => $plantVariety->expected_yield_per_plant,
+                    'source' => 'Admin Database'
+                ];
+
+                Log::info('✅ getVariety found in admin database', [
+                    'searched_id' => $varietyId,
+                    'found_variety' => $plantVariety->name,
+                    'strategy_used' => $plantVariety->farmos_id === $varietyId ? 'farmos_id' : 'name',
+                    'admin_db_id' => $plantVariety->id,
+                    'farmos_id' => $plantVariety->farmos_id
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'variety' => $varietyData,
+                    'source' => 'Admin Database (Comprehensive)'
+                ]);
+            }
+
+            // Fallback: Try to get variety from FarmOS API
+            Log::info('⚠️ Admin database lookup failed, trying FarmOS API', ['searched_id' => $varietyId]);
+            
             $variety = $this->farmOSApi->getVarietyById($varietyId);
 
             if ($variety) {
+                Log::info('⚠️ getVariety fell back to FarmOS API', [
+                    'searched_id' => $varietyId,
+                    'found_variety' => $variety['name'] ?? 'Unknown'
+                ]);
+                
                 return response()->json([
                     'success' => true,
                     'variety' => $variety,
@@ -1910,7 +2217,7 @@ class SuccessionPlanningController extends Controller
                 ]);
             }
 
-            // Fallback: search in local crop data
+            // Last resort: search in local crop data
             $cropData = $this->farmOSApi->getAvailableCropTypes();
             $foundVariety = null;
 
@@ -2048,110 +2355,70 @@ class SuccessionPlanningController extends Controller
     }
 
     /**
-     * Create a single farmOS log
+     * Submit a log entry via API
      */
-    public function createSingleLog(Request $request): JsonResponse
+    public function submitLog(Request $request)
     {
         try {
             $validated = $request->validate([
-                'log_type' => 'required|string',
+                'log_type' => 'required|in:seeding,transplant,harvest',
                 'data' => 'required|array',
-                'confirm' => 'required|boolean'
+                'data.crop_name' => 'required|string',
+                'data.variety_name' => 'required|string',
+                'data.bed_name' => 'required|string',
+                'data.quantity' => 'required|integer',
+                'data.succession_number' => 'required|integer',
             ]);
 
-            if (!$validated['confirm']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Log creation not confirmed'
-                ], 400);
+            $logType = $validated['log_type'];
+            $data = $validated['data'];
+
+            // Prepare log data based on type
+            $logData = [
+                'crop_name' => $data['crop_name'],
+                'variety_name' => $data['variety_name'],
+                'quantity' => $data['quantity'],
+                'notes' => "AI-calculated {$logType} for succession #" . $data['succession_number'] . " at " . $data['bed_name'],
+            ];
+
+            // Add date based on log type
+            switch ($logType) {
+                case 'seeding':
+                    $logData['timestamp'] = $data['seeding_date'] ?? now()->toDateString();
+                    $result = $this->farmOSApi->createSeedingLog($logData);
+                    break;
+                case 'transplant':
+                    $logData['timestamp'] = $data['transplant_date'] ?? now()->toDateString();
+                    $result = $this->farmOSApi->createCropPlan($logData);
+                    break;
+                case 'harvest':
+                    $logData['timestamp'] = $data['harvest_date'] ?? now()->toDateString();
+                    $result = $this->farmOSApi->createHarvestLog($logData);
+                    break;
             }
 
-            // Create single log via FarmOS API
-            $result = $this->farmOSApi->createLog($validated['log_type'], $validated['data']);
+            Log::info("{$logType} log submitted via API", [
+                'succession' => $data['succession_number'],
+                'result' => $result
+            ]);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Single log created successfully',
-                'log_id' => $result['id'] ?? null,
-                'timestamp' => now()->toISOString()
+                'message' => ucfirst($logType) . ' log created successfully',
+                'data' => $result
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Failed to create single log: ' . $e->getMessage());
+            Log::error('Log submission failed: ' . $e->getMessage(), [
+                'log_type' => $request->input('log_type'),
+                'data' => $request->input('data')
+            ]);
+
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to create log: ' . $e->getMessage()
+                'message' => 'Failed to create log: ' . $e->getMessage()
             ], 500);
         }
-    }
-
-    /**
-     * Get recommended spacing for crops
-     */
-    private function getRecommendedSpacing(string $cropType): array
-    {
-        $spacingData = [
-            'lettuce' => ['rows' => '12-18 inches', 'plants' => '6-8 inches'],
-            'carrot' => ['rows' => '12-18 inches', 'plants' => '2-3 inches'],
-            'radish' => ['rows' => '6-12 inches', 'plants' => '1-2 inches'],
-            'spinach' => ['rows' => '12-18 inches', 'plants' => '4-6 inches'],
-            'kale' => ['rows' => '18-24 inches', 'plants' => '12-18 inches'],
-            'arugula' => ['rows' => '6-12 inches', 'plants' => '4-6 inches'],
-            'beets' => ['rows' => '12-18 inches', 'plants' => '3-4 inches'],
-            'cilantro' => ['rows' => '8-12 inches', 'plants' => '4-6 inches'],
-            'dill' => ['rows' => '12-18 inches', 'plants' => '8-12 inches'],
-            'scallion' => ['rows' => '8-12 inches', 'plants' => '1-2 inches'],
-            'mesclun' => ['rows' => '6-12 inches', 'plants' => '2-4 inches'],
-            'fennel' => ['rows' => '18-24 inches', 'plants' => '12-18 inches']
-        ];
-
-        return $spacingData[$cropType] ?? ['rows' => '12-18 inches', 'plants' => '6-8 inches'];
-    }
-
-    /**
-     * Get soil temperature requirements
-     */
-    private function getSoilTemperatureRequirements(string $cropType): array
-    {
-        $tempData = [
-            'lettuce' => ['min' => 35, 'optimal' => 60, 'max' => 80],
-            'carrot' => ['min' => 40, 'optimal' => 65, 'max' => 85],
-            'radish' => ['min' => 40, 'optimal' => 65, 'max' => 85],
-            'spinach' => ['min' => 35, 'optimal' => 55, 'max' => 75],
-            'kale' => ['min' => 45, 'optimal' => 65, 'max' => 85],
-            'arugula' => ['min' => 40, 'optimal' => 60, 'max' => 75],
-            'beets' => ['min' => 40, 'optimal' => 65, 'max' => 85],
-            'cilantro' => ['min' => 50, 'optimal' => 70, 'max' => 85],
-            'dill' => ['min' => 50, 'optimal' => 70, 'max' => 85],
-            'scallion' => ['min' => 45, 'optimal' => 65, 'max' => 80],
-            'mesclun' => ['min' => 35, 'optimal' => 60, 'max' => 75],
-            'fennel' => ['min' => 50, 'optimal' => 70, 'max' => 85]
-        ];
-
-        return $tempData[$cropType] ?? ['min' => 40, 'optimal' => 65, 'max' => 80];
-    }
-
-    /**
-     * Get light requirements
-     */
-    private function getLightRequirements(string $cropType): string
-    {
-        $lightData = [
-            'lettuce' => 'Full sun to partial shade',
-            'carrot' => 'Full sun',
-            'radish' => 'Full sun to partial shade',
-            'spinach' => 'Full sun to partial shade',
-            'kale' => 'Full sun',
-            'arugula' => 'Full sun to partial shade',
-            'beets' => 'Full sun',
-            'cilantro' => 'Full sun to partial shade',
-            'dill' => 'Full sun',
-            'scallion' => 'Full sun',
-            'mesclun' => 'Full sun to partial shade',
-            'fennel' => 'Full sun'
-        ];
-
-        return $lightData[$cropType] ?? 'Full sun';
     }
 
     /**
