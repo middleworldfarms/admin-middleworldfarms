@@ -558,7 +558,9 @@ let currentBackup = '';
 
 // Download backup function
 function downloadBackup(siteName, backupName) {
-    const url = `/admin/safe-backup/download/${siteName}/${backupName}`;
+    const url = `{{ route('admin.safe-backup.download', ['siteName' => '__SITE__', 'backupName' => '__BACKUP__']) }}`
+        .replace('__SITE__', siteName)
+        .replace('__BACKUP__', backupName);
     window.open(url, '_blank');
 }
 
