@@ -148,6 +148,16 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         Route::delete('/{id}', [App\Http\Controllers\Admin\ConversationAdminController::class, 'destroy'])->name('destroy');
     });
 
+    // Safe Backup management routes (NEW SAFE SYSTEM)
+    Route::prefix('safe-backup')->name('admin.safe-backup.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Admin\SafeBackupController::class, 'index'])->name('index');
+        Route::post('/run', [App\Http\Controllers\Admin\SafeBackupController::class, 'runBackup'])->name('run');
+        Route::get('/status', [App\Http\Controllers\Admin\SafeBackupController::class, 'getStatus'])->name('status');
+        Route::get('/list', [App\Http\Controllers\Admin\SafeBackupController::class, 'listBackups'])->name('list');
+        Route::post('/clean', [App\Http\Controllers\Admin\SafeBackupController::class, 'cleanBackups'])->name('clean');
+        Route::get('/logs', [App\Http\Controllers\Admin\SafeBackupController::class, 'getLogs'])->name('logs');
+    });
+
     // Route planning and optimization routes
     Route::prefix('routes')->name('admin.routes.')->group(function () {
         Route::get('/', [App\Http\Controllers\Admin\RouteController::class, 'index'])->name('index');
