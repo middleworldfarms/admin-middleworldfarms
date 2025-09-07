@@ -386,11 +386,6 @@
             </a>
             </a>
             
-            <a href="/admin/unified-backup" class="nav-link {{ request()->is('admin/unified-backup*') ? 'active' : '' }}">
-                <i class="fas fa-server"></i>
-                <span>Unified Backup</span>
-            </a>
-            
             <div class="nav-section">External</div>
             <a href="https://middleworldfarms.org" target="_blank" class="nav-link">
                 <i class="fas fa-external-link-alt"></i>

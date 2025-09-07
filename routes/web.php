@@ -163,31 +163,6 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
     // New route planner page
     Route::get('/deliveries/route-planner', [\App\Http\Controllers\Admin\RouteController::class, 'index'])->name('admin.route-planner');
     
-
-
-    // Plesk Backup management routes
-    Route::prefix('plesk-backup')->name('admin.plesk-backup.')->group(function () {
-        Route::get('/', [App\Http\Controllers\Admin\PleskBackupController::class, 'index'])->name('index');
-        Route::post('/create-plesk', [App\Http\Controllers\Admin\PleskBackupController::class, 'createPlesk'])->name('create-plesk');
-        Route::post('/create-local', [App\Http\Controllers\Admin\PleskBackupController::class, 'createLocal'])->name('create-local');
-        Route::get('/status', [App\Http\Controllers\Admin\PleskBackupController::class, 'status'])->name('status');
-        Route::get('/test-plesk', [App\Http\Controllers\Admin\PleskBackupController::class, 'testPlesk'])->name('test-plesk');
-        Route::get('/download/{filename}', [App\Http\Controllers\Admin\PleskBackupController::class, 'download'])->name('download');
-        Route::get('/details/{filename}', [App\Http\Controllers\Admin\PleskBackupController::class, 'details'])->name('details');
-    });
-
-    // Unified Backup management routes
-    Route::prefix('unified-backup')->name('admin.unified-backup.')->group(function () {
-        Route::get('/', [App\Http\Controllers\Admin\UnifiedBackupController::class, 'index'])->name('index');
-        Route::post('/create', [App\Http\Controllers\Admin\UnifiedBackupController::class, 'create'])->name('create');
-        Route::post('/restore', [App\Http\Controllers\Admin\UnifiedBackupController::class, 'restore'])->name('restore');
-        Route::post('/rename', [App\Http\Controllers\Admin\UnifiedBackupController::class, 'rename'])->name('rename');
-        Route::post('/delete', [App\Http\Controllers\Admin\UnifiedBackupController::class, 'delete'])->name('delete');
-        Route::post('/toggle-auto-backup', [App\Http\Controllers\Admin\UnifiedBackupController::class, 'toggleAutoBackup'])->name('toggle-auto-backup');
-        Route::post('/update-backup-time', [App\Http\Controllers\Admin\UnifiedBackupController::class, 'updateBackupTime'])->name('update-backup-time');
-        Route::get('/status', [App\Http\Controllers\Admin\UnifiedBackupController::class, 'status'])->name('status');
-        Route::get('/download/{siteName}/{filename}', [App\Http\Controllers\Admin\UnifiedBackupController::class, 'download'])->name('download');
-    });
     
     // Print packing slips
     Route::get('/deliveries/print', [App\Http\Controllers\Admin\DeliveryController::class, 'print'])->name('admin.deliveries.print');
@@ -307,33 +282,6 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         return redirect()->route('admin.routes.index', ['delivery_ids' => $correctIds]);
     })->name('test.route-planner');
 
-    // Debug backup list
-    Route::get('/debug-backup-list', function() {
-        $controller = new \App\Http\Controllers\Admin\BackupController();
-        
-        try {
-            $reflection = new ReflectionClass($controller);
-            $method = $reflection->getMethod('getBackupList');
-            $method->setAccessible(true);
-            
-            $backups = $method->invoke($controller);
-            
-            return response()->json([
-                'success' => true,
-                'backup_count' => count($backups),
-                'backups' => $backups,
-                'storage_path' => storage_path('app/backups'),
-                'files_in_directory' => \Illuminate\Support\Facades\Storage::disk('local')->files('backups')
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-        }
-    })->name('debug.backup-list');
-
     // Subscription management endpoint
     Route::get('/manage-subscription/{email}', [DeliveryController::class, 'manageSubscription'])->name('manage.subscription');
 
@@ -396,13 +344,4 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
             'land_assets' => $land,
         ]);
     })->name('admin.farmos.uuid-helper');
-});
-
-// Quick Plesk test without authentication
-Route::get('/test-plesk-quick', function () {
-    $service = new \App\Services\PleskBackupService();
-    return response()->json([
-        'plesk_access' => $service->testPleskAccess(),
-        'timestamp' => now()->toDateTimeString()
-    ]);
 });

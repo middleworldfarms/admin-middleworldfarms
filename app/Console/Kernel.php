@@ -14,7 +14,6 @@ class Kernel extends ConsoleKernel
      */
     protected $commands = [
         Commands\ManageSubscription::class,
-        Commands\RunScheduledBackups::class,
         Commands\SyncFarmOSVarieties::class,
     ];
 
@@ -26,12 +25,6 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        // Run scheduled backups hourly
-        $schedule->command('backup:scheduled')
-                 ->hourly()
-                 ->withoutOverlapping()
-                 ->runInBackground();
-
         // Sync plant varieties from FarmOS daily
         $schedule->command('farmos:sync-varieties')
                  ->daily()
