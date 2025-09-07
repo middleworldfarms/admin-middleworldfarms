@@ -137,8 +137,7 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         return response()->json(['message' => 'Admin system is working', 'timestamp' => now()]);
     });
 
-    // Test Plesk service route
-    require __DIR__ . '/test-plesk.php';    // Conversation management routes (ADMIN ONLY)
+    // Conversation management routes (ADMIN ONLY)
     Route::prefix('conversations')->name('admin.conversations.')->group(function () {
         Route::get('/', [App\Http\Controllers\Admin\ConversationAdminController::class, 'index'])->name('index');
         Route::get('/statistics', [App\Http\Controllers\Admin\ConversationAdminController::class, 'statistics'])->name('statistics');
