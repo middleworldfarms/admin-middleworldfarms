@@ -9,6 +9,7 @@
         border-radius: 0.35rem;
         background: white;
         transition: all 0.3s;
+        padding: 5px;
     }
     
     .backup-card:hover {
@@ -35,13 +36,15 @@
         overflow-y: auto;
         font-family: 'Courier New', monospace;
         font-size: 0.8rem;
-        padding: 1rem;
+        padding: 1.25rem;
+        margin: 5px;
     }
     
     .backup-file {
-        padding: 0.5rem;
+        padding: 0.75rem;
         border-bottom: 1px solid #eee;
         transition: background-color 0.2s;
+        margin: 5px 0;
     }
     
     .backup-file:hover {
@@ -54,6 +57,15 @@
     
     .action-btn {
         margin: 0.25rem;
+        padding: 0.5rem 1rem;
+    }
+    
+    .card-body {
+        padding: 1.25rem !important;
+    }
+    
+    .card-header {
+        padding: 0.75rem 1.25rem !important;
     }
 </style>
 
