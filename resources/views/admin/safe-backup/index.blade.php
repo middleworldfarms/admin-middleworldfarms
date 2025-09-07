@@ -218,9 +218,27 @@
                 <div class="card-body">
                     @if($siteData['count'] > 0)
                         <div class="mb-3">
-                            <small class="text-muted">Latest backup:</small><br>
-                            <strong>{{ $siteData['latest']['name'] ?? 'Unknown' }}</strong><br>
-                            <small class="text-info">{{ $siteData['latest']['size'] ?? '0B' }} • {{ $siteData['latest']['age'] ?? 'Unknown age' }}</small>
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <small class="text-muted">Latest backup:</small><br>
+                                    <strong>{{ $siteData['latest']['name'] ?? 'Unknown' }}</strong><br>
+                                    <small class="text-info">{{ $siteData['latest']['size'] ?? '0B' }} • {{ $siteData['latest']['age'] ?? 'Unknown age' }}</small>
+                                </div>
+                                <div class="btn-group-vertical" role="group">
+                                    <button class="btn btn-sm btn-success" 
+                                            onclick="downloadBackup('{{ $siteName }}', '{{ $siteData['latest']['name'] ?? '' }}')"
+                                            title="Download Latest">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                    @if($siteName !== 'databases')
+                                    <button class="btn btn-sm btn-warning" 
+                                            onclick="restoreBackup('{{ $siteName }}', '{{ $siteData['latest']['name'] ?? '' }}')"
+                                            title="Restore Latest">
+                                        <i class="fas fa-undo"></i>
+                                    </button>
+                                    @endif
+                                </div>
+                            </div>
                         </div>
                         
                         <div class="mb-3">
@@ -236,11 +254,37 @@
                                 @foreach($siteData['backups'] as $backup)
                                 <div class="backup-file">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <div>
+                                        <div class="flex-grow-1">
                                             <strong>{{ $backup['name'] }}</strong><br>
                                             <small class="text-muted">{{ $backup['date'] }} • {{ $backup['size'] }}</small>
                                         </div>
-                                        <span class="badge badge-light">{{ $backup['age'] }}</span>
+                                        <div class="d-flex align-items-center">
+                                            <span class="badge badge-light me-3">{{ $backup['age'] }}</span>
+                                            <div class="btn-group" role="group">
+                                                <button class="btn btn-sm btn-outline-success" 
+                                                        onclick="downloadBackup('{{ $siteName }}', '{{ $backup['name'] }}')"
+                                                        title="Download Backup">
+                                                    <i class="fas fa-download"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-primary" 
+                                                        onclick="renameBackup('{{ $siteName }}', '{{ $backup['name'] }}')"
+                                                        title="Rename Backup">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                @if($siteName !== 'databases')
+                                                <button class="btn btn-sm btn-outline-warning" 
+                                                        onclick="restoreBackup('{{ $siteName }}', '{{ $backup['name'] }}')"
+                                                        title="Restore Backup">
+                                                    <i class="fas fa-undo"></i>
+                                                </button>
+                                                @endif
+                                                <button class="btn btn-sm btn-outline-danger" 
+                                                        onclick="deleteBackup('{{ $siteName }}', '{{ $backup['name'] }}')"
+                                                        title="Delete Backup">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                                 @endforeach
@@ -278,6 +322,98 @@
                         @endif
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Rename Modal -->
+<div class="modal fade" id="renameModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Rename Backup</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Rename backup: <strong id="renameBackupName"></strong></p>
+                <div class="mb-3">
+                    <label for="newBackupName" class="form-label">New Name:</label>
+                    <input type="text" class="form-control" id="newBackupName" placeholder="Enter new backup name">
+                    <small class="form-text text-muted">Include .tar.gz or .sql.gz extension</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmRename">Rename</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Restore Confirmation Modal -->
+<div class="modal fade" id="restoreModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title text-warning">
+                    <i class="fas fa-exclamation-triangle"></i> Restore Backup
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <strong>⚠️ WARNING:</strong> This will overwrite the current site files!
+                </div>
+                <p>You are about to restore:</p>
+                <ul>
+                    <li><strong>Site:</strong> <span id="restoreSiteName"></span></li>
+                    <li><strong>Backup:</strong> <span id="restoreBackupName"></span></li>
+                </ul>
+                <p>This action cannot be undone. Make sure you have a recent backup of the current state.</p>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="confirmRestore">
+                    <label class="form-check-label" for="confirmRestore">
+                        I understand this will overwrite existing files
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning" id="confirmRestoreBtn" disabled>
+                    <i class="fas fa-undo"></i> Restore Site
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title text-danger">
+                    <i class="fas fa-trash"></i> Delete Backup
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger">
+                    <strong>🗑️ PERMANENT DELETION:</strong> This backup will be permanently deleted!
+                </div>
+                <p>You are about to delete:</p>
+                <ul>
+                    <li><strong>Site:</strong> <span id="deleteSiteName"></span></li>
+                    <li><strong>Backup:</strong> <span id="deleteBackupName"></span></li>
+                </ul>
+                <p>This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+                    <i class="fas fa-trash"></i> Delete Permanently
+                </button>
             </div>
         </div>
     </div>
@@ -397,6 +533,11 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // Restore confirmation checkbox handler
+    document.getElementById('confirmRestore').addEventListener('change', function() {
+        document.getElementById('confirmRestoreBtn').disabled = !this.checked;
+    });
+
     function showToast(toastId, message) {
         const toast = document.getElementById(toastId);
         const messageElement = toastId === 'successToast' ? 
@@ -410,5 +551,124 @@ document.addEventListener('DOMContentLoaded', function() {
         bsToast.show();
     }
 });
+
+// Global variables for modal data
+let currentSite = '';
+let currentBackup = '';
+
+// Download backup function
+function downloadBackup(siteName, backupName) {
+    const url = `/admin/safe-backup/download/${siteName}/${backupName}`;
+    window.open(url, '_blank');
+}
+
+// Rename backup function
+function renameBackup(siteName, backupName) {
+    currentSite = siteName;
+    currentBackup = backupName;
+    
+    document.getElementById('renameBackupName').textContent = backupName;
+    document.getElementById('newBackupName').value = backupName;
+    
+    const modal = new bootstrap.Modal(document.getElementById('renameModal'));
+    modal.show();
+}
+
+// Restore backup function
+function restoreBackup(siteName, backupName) {
+    currentSite = siteName;
+    currentBackup = backupName;
+    
+    document.getElementById('restoreSiteName').textContent = siteName;
+    document.getElementById('restoreBackupName').textContent = backupName;
+    document.getElementById('confirmRestore').checked = false;
+    document.getElementById('confirmRestoreBtn').disabled = true;
+    
+    const modal = new bootstrap.Modal(document.getElementById('restoreModal'));
+    modal.show();
+}
+
+// Delete backup function
+function deleteBackup(siteName, backupName) {
+    currentSite = siteName;
+    currentBackup = backupName;
+    
+    document.getElementById('deleteSiteName').textContent = siteName;
+    document.getElementById('deleteBackupName').textContent = backupName;
+    
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    modal.show();
+}
+
+// Modal action handlers
+document.addEventListener('DOMContentLoaded', function() {
+    // Rename confirmation
+    document.getElementById('confirmRename').addEventListener('click', function() {
+        const newName = document.getElementById('newBackupName').value.trim();
+        if (!newName) {
+            showToast('errorToast', 'Please enter a new name');
+            return;
+        }
+        
+        performBackupAction('rename', {
+            site: currentSite,
+            oldName: currentBackup,
+            newName: newName
+        });
+    });
+    
+    // Restore confirmation
+    document.getElementById('confirmRestoreBtn').addEventListener('click', function() {
+        performBackupAction('restore', {
+            site: currentSite,
+            backup: currentBackup
+        });
+    });
+    
+    // Delete confirmation
+    document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+        performBackupAction('delete', {
+            site: currentSite,
+            backup: currentBackup
+        });
+    });
+});
+
+// Perform backup actions
+function performBackupAction(action, data) {
+    const routes = {
+        rename: '{{ route("admin.safe-backup.rename") }}',
+        restore: '{{ route("admin.safe-backup.restore") }}',
+        delete: '{{ route("admin.safe-backup.delete") }}'
+    };
+    
+    fetch(routes[action], {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showToast('successToast', result.message);
+            // Close modal
+            const modalElement = document.querySelector('.modal.show');
+            if (modalElement) {
+                const modal = bootstrap.Modal.getInstance(modalElement);
+                modal.hide();
+            }
+            // Refresh page after short delay
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            showToast('errorToast', result.message || `Failed to ${action} backup`);
+        }
+    })
+    .catch(error => {
+        showToast('errorToast', `Network error: ${error.message}`);
+    });
+}
 </script>
 @endsection

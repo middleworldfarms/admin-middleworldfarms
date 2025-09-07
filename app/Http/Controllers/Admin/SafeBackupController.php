@@ -77,6 +77,164 @@ class SafeBackupController extends Controller
         return response()->json(['logs' => $logs]);
     }
 
+    public function downloadBackup($siteName, $backupName)
+    {
+        $backupPath = $this->backupBaseDir . '/' . $siteName . '/' . $backupName;
+        
+        if (!file_exists($backupPath)) {
+            abort(404, 'Backup file not found');
+        }
+        
+        return response()->download($backupPath);
+    }
+
+    public function renameBackup(Request $request)
+    {
+        $siteName = $request->input('site');
+        $oldName = $request->input('oldName');
+        $newName = $request->input('newName');
+        
+        // Validate inputs
+        if (!$siteName || !$oldName || !$newName) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Missing required parameters'
+            ], 400);
+        }
+        
+        $oldPath = $this->backupBaseDir . '/' . $siteName . '/' . $oldName;
+        $newPath = $this->backupBaseDir . '/' . $siteName . '/' . $newName;
+        
+        if (!file_exists($oldPath)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Original backup file not found'
+            ], 404);
+        }
+        
+        if (file_exists($newPath)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'A backup with that name already exists'
+            ], 409);
+        }
+        
+        try {
+            if (rename($oldPath, $newPath)) {
+                return response()->json([
+                    'success' => true,
+                    'message' => "Backup renamed from '{$oldName}' to '{$newName}'"
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to rename backup file'
+                ], 500);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error renaming backup: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function restoreBackup(Request $request)
+    {
+        $siteName = $request->input('site');
+        $backupName = $request->input('backup');
+        
+        // Validate inputs
+        if (!$siteName || !$backupName) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Missing required parameters'
+            ], 400);
+        }
+        
+        // Prevent database restore through this method (use manual process)
+        if ($siteName === 'databases') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Database restoration must be done manually for safety'
+            ], 400);
+        }
+        
+        $backupPath = $this->backupBaseDir . '/' . $siteName . '/' . $backupName;
+        
+        if (!file_exists($backupPath)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Backup file not found'
+            ], 404);
+        }
+        
+        try {
+            // Use the restore script for safety
+            $command = "/opt/restore-backup.sh {$siteName} {$backupName}";
+            $output = shell_exec("echo 'YES' | " . $command . " 2>&1");
+            
+            if (strpos($output, 'Restoration completed successfully') !== false) {
+                return response()->json([
+                    'success' => true,
+                    'message' => "Site '{$siteName}' restored from '{$backupName}' successfully"
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Restoration failed: ' . $output
+                ], 500);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error during restoration: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function deleteBackup(Request $request)
+    {
+        $siteName = $request->input('site');
+        $backupName = $request->input('backup');
+        
+        // Validate inputs
+        if (!$siteName || !$backupName) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Missing required parameters'
+            ], 400);
+        }
+        
+        $backupPath = $this->backupBaseDir . '/' . $siteName . '/' . $backupName;
+        
+        if (!file_exists($backupPath)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Backup file not found'
+            ], 404);
+        }
+        
+        try {
+            if (unlink($backupPath)) {
+                return response()->json([
+                    'success' => true,
+                    'message' => "Backup '{$backupName}' deleted successfully"
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to delete backup file'
+                ], 500);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error deleting backup: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     private function getBackupStatus()
     {
         $status = [

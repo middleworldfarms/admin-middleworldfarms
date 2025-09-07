@@ -157,6 +157,10 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         Route::get('/list', [SafeBackupController::class, 'listBackups'])->name('list');
         Route::post('/clean', [SafeBackupController::class, 'cleanBackups'])->name('clean');
         Route::get('/logs', [SafeBackupController::class, 'getLogs'])->name('logs');
+        Route::get('/download/{siteName}/{backupName}', [SafeBackupController::class, 'downloadBackup'])->name('download');
+        Route::post('/rename', [SafeBackupController::class, 'renameBackup'])->name('rename');
+        Route::post('/restore', [SafeBackupController::class, 'restoreBackup'])->name('restore');
+        Route::post('/delete', [SafeBackupController::class, 'deleteBackup'])->name('delete');
     });
 
     // Route planning and optimization routes
