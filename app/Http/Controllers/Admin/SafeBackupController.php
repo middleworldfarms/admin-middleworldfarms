@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Process;
 
 class SafeBackupController extends Controller
 {
@@ -25,12 +24,12 @@ class SafeBackupController extends Controller
     {
         try {
             // Run the safe backup script in the background
-            $result = Process::run('/opt/safe-backup.sh');
+            $output = shell_exec('/opt/safe-backup.sh 2>&1');
             
             return response()->json([
                 'success' => true,
                 'message' => 'Backup process started successfully',
-                'output' => $result->output()
+                'output' => $output ?: 'Backup started'
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -56,12 +55,12 @@ class SafeBackupController extends Controller
     public function cleanBackups(Request $request)
     {
         try {
-            $result = Process::run('/opt/backup-manager.sh clean');
+            $output = shell_exec('/opt/backup-manager.sh clean 2>&1');
             
             return response()->json([
                 'success' => true,
                 'message' => 'Backup cleanup completed',
-                'output' => $result->output()
+                'output' => $output ?: 'Cleanup completed'
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -176,8 +175,8 @@ class SafeBackupController extends Controller
     private function isCronScheduled()
     {
         try {
-            $result = Process::run('crontab -l');
-            return str_contains($result->output(), 'safe-backup.sh');
+            $output = shell_exec('crontab -l 2>&1');
+            return $output && str_contains($output, 'safe-backup.sh');
         } catch (\Exception $e) {
             return false;
         }
