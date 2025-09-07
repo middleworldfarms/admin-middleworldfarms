@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DeliveryController;
+use App\Http\Controllers\Admin\SafeBackupController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Services\DeliveryScheduleService;
 use Illuminate\Support\Facades\Route;
@@ -150,12 +151,12 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
 
     // Safe Backup management routes (NEW SAFE SYSTEM)
     Route::prefix('safe-backup')->name('admin.safe-backup.')->group(function () {
-        Route::get('/', [App\Http\Controllers\Admin\SafeBackupController::class, 'index'])->name('index');
-        Route::post('/run', [App\Http\Controllers\Admin\SafeBackupController::class, 'runBackup'])->name('run');
-        Route::get('/status', [App\Http\Controllers\Admin\SafeBackupController::class, 'getStatus'])->name('status');
-        Route::get('/list', [App\Http\Controllers\Admin\SafeBackupController::class, 'listBackups'])->name('list');
-        Route::post('/clean', [App\Http\Controllers\Admin\SafeBackupController::class, 'cleanBackups'])->name('clean');
-        Route::get('/logs', [App\Http\Controllers\Admin\SafeBackupController::class, 'getLogs'])->name('logs');
+        Route::get('/', [SafeBackupController::class, 'index'])->name('index');
+        Route::post('/run', [SafeBackupController::class, 'runBackup'])->name('run');
+        Route::get('/status', [SafeBackupController::class, 'getStatus'])->name('status');
+        Route::get('/list', [SafeBackupController::class, 'listBackups'])->name('list');
+        Route::post('/clean', [SafeBackupController::class, 'cleanBackups'])->name('clean');
+        Route::get('/logs', [SafeBackupController::class, 'getLogs'])->name('logs');
     });
 
     // Route planning and optimization routes
