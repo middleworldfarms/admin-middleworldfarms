@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DeliveryController;
-use App\Http\Controllers\Admin\SafeBackupController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Services\DeliveryScheduleService;
 use Illuminate\Support\Facades\Route;
@@ -149,19 +148,6 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         Route::delete('/{id}', [App\Http\Controllers\Admin\ConversationAdminController::class, 'destroy'])->name('destroy');
     });
 
-    // Safe Backup management routes (NEW SAFE SYSTEM)
-    Route::prefix('safe-backup')->name('admin.safe-backup.')->group(function () {
-        Route::get('/', [SafeBackupController::class, 'index'])->name('index');
-        Route::post('/run', [SafeBackupController::class, 'runBackup'])->name('run');
-        Route::get('/status', [SafeBackupController::class, 'getStatus'])->name('status');
-        Route::get('/list', [SafeBackupController::class, 'listBackups'])->name('list');
-        Route::post('/clean', [SafeBackupController::class, 'cleanBackups'])->name('clean');
-        Route::get('/logs', [SafeBackupController::class, 'getLogs'])->name('logs');
-        Route::get('/download/{siteName}/{backupName}', [SafeBackupController::class, 'downloadBackup'])->name('download');
-        Route::post('/rename', [SafeBackupController::class, 'renameBackup'])->name('rename');
-        Route::post('/restore', [SafeBackupController::class, 'restoreBackup'])->name('restore');
-        Route::post('/delete', [SafeBackupController::class, 'deleteBackup'])->name('delete');
-    });
 
     // Route planning and optimization routes
     Route::prefix('routes')->name('admin.routes.')->group(function () {

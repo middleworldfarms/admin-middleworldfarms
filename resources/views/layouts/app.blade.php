@@ -381,9 +381,6 @@
                 <span>System Logs</span>
             </a>
 
-            <a href="/admin/safe-backup" class="nav-link {{ request()->is('admin/safe-backup*') ? 'active' : '' }}">
-                <i class="fas fa-shield-alt"></i>
-                <span>Safe Backup</span>
             </a>
 
             <a href="/admin/chatbot-settings" class="nav-link {{ request()->is('admin/chatbot-settings*') ? 'active' : '' }}">
