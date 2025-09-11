@@ -34,6 +34,20 @@ class SettingsController extends Controller
             'delivery_time_slots' => 'required|boolean',
             'collection_reminder_hours' => 'required|integer|min:1|max:168',
             'email_notifications' => 'required|boolean',
+            // API Key validations
+            'farmos_username' => 'nullable|string|max:255',
+            'farmos_password' => 'nullable|string|max:255',
+            'farmos_oauth_client_id' => 'nullable|string|max:255',
+            'farmos_oauth_client_secret' => 'nullable|string|max:255',
+            'woocommerce_consumer_key' => 'nullable|string|max:255',
+            'woocommerce_consumer_secret' => 'nullable|string|max:255',
+            'mwf_api_key' => 'nullable|string|max:255',
+            'google_maps_api_key' => 'nullable|string|max:255',
+            'met_office_api_key' => 'nullable|string|max:1000',
+            'openweather_api_key' => 'nullable|string|max:255',
+            'huggingface_api_key' => 'nullable|string|max:255',
+            'stripe_key' => 'nullable|string|max:255',
+            'stripe_secret' => 'nullable|string|max:255',
         ]);
         
         // Store settings in database
@@ -80,9 +94,36 @@ class SettingsController extends Controller
             ],
         ];
         
+        // Add API keys to settings data (encrypted)
+        $apiKeys = [
+            'farmos_username' => $request->farmos_username,
+            'farmos_password' => $request->farmos_password,
+            'farmos_oauth_client_id' => $request->farmos_oauth_client_id,
+            'farmos_oauth_client_secret' => $request->farmos_oauth_client_secret,
+            'woocommerce_consumer_key' => $request->woocommerce_consumer_key,
+            'woocommerce_consumer_secret' => $request->woocommerce_consumer_secret,
+            'mwf_api_key' => $request->mwf_api_key,
+            'google_maps_api_key' => $request->google_maps_api_key,
+            'met_office_api_key' => $request->met_office_api_key,
+            'openweather_api_key' => $request->openweather_api_key,
+            'huggingface_api_key' => $request->huggingface_api_key,
+            'stripe_key' => $request->stripe_key,
+            'stripe_secret' => $request->stripe_secret,
+        ];
+        
+        foreach ($apiKeys as $key => $value) {
+            if ($value !== null) {
+                $settingsData[$key] = [
+                    'value' => $this->encryptApiKey($value),
+                    'type' => 'string',
+                    'description' => $this->getApiKeyDescription($key)
+                ];
+            }
+        }
+        
         Setting::setMultiple($settingsData);
         
-        return redirect()->route('admin.settings')->with('success', 'Settings updated successfully and saved to database!');
+        return redirect()->route('admin.settings')->with('success', 'Settings and API keys updated successfully!');
     }
     
     /**
@@ -138,6 +179,10 @@ class SettingsController extends Controller
         
         // Merge defaults with database settings, preferring database values
         $settings = array_merge($defaults, $dbSettings);
+        
+        // Add decrypted API keys to settings
+        $apiKeys = self::getAllApiKeys();
+        $settings = array_merge($settings, $apiKeys);
         
         // Ensure updated_at is set
         if (!isset($settings['updated_at'])) {
@@ -512,4 +557,96 @@ class SettingsController extends Controller
         
         return $value;
     }
+    
+    /**
+     * Encrypt API key for secure storage
+     */
+    private function encryptApiKey(string $key): string
+    {
+        return encrypt($key);
+    }
+    
+    /**
+     * Decrypt API key for use
+     */
+    private function decryptApiKey(string $encryptedKey): string
+    {
+        try {
+            return decrypt($encryptedKey);
+        } catch (\Exception $e) {
+            // If decryption fails, return empty string
+            return '';
+        }
+    }
+    
+    /**
+     * Get API key description
+     */
+    private function getApiKeyDescription(string $key): string
+    {
+        $descriptions = [
+            'farmos_username' => 'FarmOS admin username for API authentication',
+            'farmos_password' => 'FarmOS admin password for API authentication',
+            'farmos_oauth_client_id' => 'FarmOS OAuth2 client ID for API access',
+            'farmos_oauth_client_secret' => 'FarmOS OAuth2 client secret for API access',
+            'woocommerce_consumer_key' => 'WooCommerce REST API consumer key',
+            'woocommerce_consumer_secret' => 'WooCommerce REST API consumer secret',
+            'mwf_api_key' => 'Middle World Farms integration API key',
+            'google_maps_api_key' => 'Google Maps JavaScript API key',
+            'met_office_api_key' => 'UK Met Office Weather API key',
+            'openweather_api_key' => 'OpenWeatherMap API key',
+            'huggingface_api_key' => 'Hugging Face Inference API key',
+            'stripe_key' => 'Stripe publishable key (pk_...)',
+            'stripe_secret' => 'Stripe secret key (sk_...)',
+        ];
+        
+        return $descriptions[$key] ?? 'API key for external service integration';
+    }
+    
+    /**
+     * Get decrypted API key from database
+     */
+    public static function getApiKey(string $key): string
+    {
+        $encryptedKey = Setting::get($key, '');
+        if (empty($encryptedKey)) {
+            return '';
+        }
+        
+        try {
+            return decrypt($encryptedKey);
+        } catch (\Exception $e) {
+            return '';
+        }
+    }
+    
+    /**
+     * Get all API keys as decrypted values
+     */
+    public static function getAllApiKeys(): array
+    {
+        $apiKeyFields = [
+            'farmos_username',
+            'farmos_password', 
+            'farmos_oauth_client_id',
+            'farmos_oauth_client_secret',
+            'woocommerce_consumer_key',
+            'woocommerce_consumer_secret',
+            'mwf_api_key',
+            'google_maps_api_key',
+            'met_office_api_key',
+            'openweather_api_key',
+            'huggingface_api_key',
+            'stripe_key',
+            'stripe_secret',
+        ];
+        
+        $apiKeys = [];
+        foreach ($apiKeyFields as $field) {
+            $apiKeys[$field] = self::getApiKey($field);
+        }
+        
+        return $apiKeys;
+    }
 }
+

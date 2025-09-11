@@ -188,9 +188,9 @@
                     <div class="card-body">
                         <div class="mb-3">
                             <strong>Settings Storage:</strong>
-                            <span class="badge bg-secondary">Session (Temporary)</span>
+                            <span class="badge bg-success">Database (Permanent)</span>
                             <div class="form-text">
-                                Settings are currently stored in session. They will persist until you logout or the session expires.
+                                Settings and API keys are now stored encrypted in the database for security and persistence.
                             </div>
                         </div>
 
@@ -201,10 +201,10 @@
                         </div>
                         @endif
 
-                        <div class="alert alert-info">
-                            <i class="fas fa-lightbulb"></i>
-                            <strong>Future Enhancement:</strong><br>
-                            Settings will be moved to database storage for permanent configuration.
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle"></i>
+                            <strong>Database Storage Active:</strong><br>
+                            All settings and API keys are now securely stored in the database with encryption.
                         </div>
                     </div>
                 </div>
@@ -357,6 +357,155 @@
                                     <button type="button" class="btn btn-warning btn-sm" id="check-throttling">
                                         <i class="fas fa-search"></i> Check for Throttling Signs
                                     </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- Action Buttons --}}
+        <div class="row">
+            <div class="col-12 mb-4">
+                <div class="card">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-key"></i> API Keys & External Services
+                            <small class="ms-2">(Encrypted Database Storage)</small>
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-warning">
+                            <i class="fas fa-shield-alt"></i>
+                            <strong>Security Notice:</strong> API keys are encrypted before storage in the database. 
+                            They are no longer stored in plain text in the .env file.
+                        </div>
+                        
+                        {{-- Password Visibility Toggle --}}
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="show-passwords-toggle" name="show_passwords" value="1">
+                                <label class="form-check-label" for="show-passwords-toggle">
+                                    <strong><i class="fas fa-eye"></i> Show Passwords & Secrets</strong>
+                                </label>
+                            </div>
+                            <div class="form-text">
+                                <i class="fas fa-info-circle"></i> Toggle to show/hide sensitive API keys and passwords
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            {{-- FarmOS API Keys --}}
+                            <div class="col-lg-6 mb-4">
+                                <h6 class="text-primary"><i class="fas fa-seedling"></i> FarmOS Integration</h6>
+                                
+                                <div class="mb-3">
+                                    <label for="farmos_username" class="form-label">FarmOS Username</label>
+                                    <input type="text" class="form-control" id="farmos_username" name="farmos_username" 
+                                           value="{{ $settings['farmos_username'] ?? '' }}" placeholder="admin">
+                                    <div class="form-text">FarmOS admin username for API authentication</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="farmos_password" class="form-label">FarmOS Password</label>
+                                    <input type="password" class="form-control" id="farmos_password" name="farmos_password" 
+                                           value="{{ $settings['farmos_password'] ?? '' }}" placeholder="Enter password">
+                                    <div class="form-text">FarmOS admin password (stored encrypted)</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="farmos_oauth_client_id" class="form-label">OAuth Client ID</label>
+                                    <input type="text" class="form-control" id="farmos_oauth_client_id" name="farmos_oauth_client_id" 
+                                           value="{{ $settings['farmos_oauth_client_id'] ?? '' }}" placeholder="OAuth client ID">
+                                    <div class="form-text">FarmOS OAuth2 client ID</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="farmos_oauth_client_secret" class="form-label">OAuth Client Secret</label>
+                                    <input type="password" class="form-control" id="farmos_oauth_client_secret" name="farmos_oauth_client_secret" 
+                                           value="{{ $settings['farmos_oauth_client_secret'] ?? '' }}" placeholder="OAuth client secret">
+                                    <div class="form-text">FarmOS OAuth2 client secret (stored encrypted)</div>
+                                </div>
+                            </div>
+                            
+                            {{-- WooCommerce API Keys --}}
+                            <div class="col-lg-6 mb-4">
+                                <h6 class="text-success"><i class="fas fa-shopping-cart"></i> WooCommerce Integration</h6>
+                                
+                                <div class="mb-3">
+                                    <label for="woocommerce_consumer_key" class="form-label">Consumer Key</label>
+                                    <input type="text" class="form-control" id="woocommerce_consumer_key" name="woocommerce_consumer_key" 
+                                           value="{{ $settings['woocommerce_consumer_key'] ?? '' }}" placeholder="ck_...">
+                                    <div class="form-text">WooCommerce REST API consumer key</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="woocommerce_consumer_secret" class="form-label">Consumer Secret</label>
+                                    <input type="password" class="form-control" id="woocommerce_consumer_secret" name="woocommerce_consumer_secret" 
+                                           value="{{ $settings['woocommerce_consumer_secret'] ?? '' }}" placeholder="cs_...">
+                                    <div class="form-text">WooCommerce REST API consumer secret (stored encrypted)</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="mwf_api_key" class="form-label">MWF Integration Key</label>
+                                    <input type="text" class="form-control" id="mwf_api_key" name="mwf_api_key" 
+                                           value="{{ $settings['mwf_api_key'] ?? '' }}" placeholder="API key">
+                                    <div class="form-text">Middle World Farms integration API key</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            {{-- Google & Weather APIs --}}
+                            <div class="col-lg-6 mb-4">
+                                <h6 class="text-info"><i class="fas fa-map"></i> Maps & Weather Services</h6>
+                                
+                                <div class="mb-3">
+                                    <label for="google_maps_api_key" class="form-label">Google Maps API Key</label>
+                                    <input type="text" class="form-control" id="google_maps_api_key" name="google_maps_api_key" 
+                                           value="{{ $settings['google_maps_api_key'] ?? '' }}" placeholder="AIzaSy...">
+                                    <div class="form-text">Google Maps JavaScript API key</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="met_office_api_key" class="form-label">Met Office API Key</label>
+                                    <input type="text" class="form-control" id="met_office_api_key" name="met_office_api_key" 
+                                           value="{{ $settings['met_office_api_key'] ?? '' }}" placeholder="API key">
+                                    <div class="form-text">UK Met Office Weather API key</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="openweather_api_key" class="form-label">OpenWeatherMap API Key</label>
+                                    <input type="text" class="form-control" id="openweather_api_key" name="openweather_api_key" 
+                                           value="{{ $settings['openweather_api_key'] ?? '' }}" placeholder="API key">
+                                    <div class="form-text">OpenWeatherMap API key</div>
+                                </div>
+                            </div>
+                            
+                            {{-- AI & Payment APIs --}}
+                            <div class="col-lg-6 mb-4">
+                                <h6 class="text-warning"><i class="fas fa-robot"></i> AI & Payment Services</h6>
+                                
+                                <div class="mb-3">
+                                    <label for="huggingface_api_key" class="form-label">Hugging Face API Key</label>
+                                    <input type="text" class="form-control" id="huggingface_api_key" name="huggingface_api_key" 
+                                           value="{{ $settings['huggingface_api_key'] ?? '' }}" placeholder="hf_...">
+                                    <div class="form-text">Hugging Face Inference API key</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="stripe_key" class="form-label">Stripe Publishable Key</label>
+                                    <input type="text" class="form-control" id="stripe_key" name="stripe_key" 
+                                           value="{{ $settings['stripe_key'] ?? '' }}" placeholder="pk_...">
+                                    <div class="form-text">Stripe publishable key</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="stripe_secret" class="form-label">Stripe Secret Key</label>
+                                    <input type="password" class="form-control" id="stripe_secret" name="stripe_secret" 
+                                           value="{{ $settings['stripe_secret'] ?? '' }}" placeholder="sk_...">
+                                    <div class="form-text">Stripe secret key (stored encrypted)</div>
                                 </div>
                             </div>
                         </div>
@@ -876,6 +1025,33 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // ================== END SERVER MONITORING ==================
+    
+    // ================== PASSWORD VISIBILITY TOGGLE ==================
+    
+    // Password field IDs that should be toggled
+    const passwordFields = [
+        'farmos_password',
+        'farmos_oauth_client_secret', 
+        'woocommerce_consumer_secret',
+        'stripe_secret'
+    ];
+    
+    // Function to toggle password visibility
+    function togglePasswordVisibility(show) {
+        passwordFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                field.type = show ? 'text' : 'password';
+            }
+        });
+    }
+    
+    // Add event listener to the toggle switch
+    document.getElementById('show-passwords-toggle').addEventListener('change', function() {
+        togglePasswordVisibility(this.checked);
+    });
+    
+    // ================== END PASSWORD VISIBILITY TOGGLE ==================
     
     });
 </script>
