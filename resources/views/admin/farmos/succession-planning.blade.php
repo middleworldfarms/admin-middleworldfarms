@@ -92,69 +92,211 @@
         height: 400px;
     }
 
-    .drag-harvest-bar {
-        background: linear-gradient(90deg, #28a745, #20c997);
-        height: 30px;
+    .harvest-window-selector {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        border: 2px solid #dee2e6;
         border-radius: 15px;
-        cursor: grab;
-        display: flex;
-        align-items: center;
-        padding: 0 15px;
-        color: white;
-        font-weight: 500;
-        margin: 10px 0;
-        box-shadow: 0 2px 10px rgba(40, 167, 69, 0.3);
-        transition: all 0.2s ease;
+        padding: 20px;
+        margin: 20px 0;
+    }
+
+    .range-indicator {
         position: relative;
-        overflow: visible;
+        margin-bottom: 15px;
+        border-radius: 10px;
+        overflow: hidden;
     }
 
-    .drag-harvest-bar:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.5);
+    .range-indicator .progress {
+        border-radius: 10px;
+        box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
     }
 
-    .drag-harvest-bar:active {
-        cursor: grabbing;
+    .range-indicator.max-range {
+        background: linear-gradient(90deg, rgba(13, 202, 240, 0.1), rgba(13, 202, 240, 0.05));
+        border: 1px solid rgba(13, 202, 240, 0.2);
     }
 
-    .drag-handle {
+    .range-indicator.ai-range {
+        background: linear-gradient(90deg, rgba(255, 193, 7, 0.1), rgba(255, 193, 7, 0.05));
+        border: 1px solid rgba(255, 193, 7, 0.2);
+    }
+
+    .range-indicator.user-range {
+        background: linear-gradient(90deg, rgba(40, 167, 69, 0.1), rgba(40, 167, 69, 0.05));
+        border: 1px solid rgba(40, 167, 69, 0.2);
+    }
+
+    .range-handle {
         position: absolute;
         top: 0;
-        width: 25px;
-        height: 30px;
-        background: rgba(255, 255, 255, 0.8);
-        border-radius: 15px;
-        cursor: grab;
+        width: 20px;
+        height: 100%;
+        background: #28a745;
+        cursor: ew-resize;
+        border-radius: 3px;
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: all 0.2s ease;
-        font-size: 12px;
-        color: #333;
+        color: white;
         font-weight: bold;
-        border: 2px solid rgba(255, 255, 255, 0.9);
-        z-index: 10;
+        font-size: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        transition: all 0.2s ease;
     }
 
-    .drag-handle:hover {
-        background: rgba(255, 255, 255, 1);
+    .range-handle:hover {
+        background: #218838;
         transform: scale(1.1);
     }
 
-    .drag-handle.start {
-        left: -12px;
-        border-radius: 15px 5px 5px 15px;
+    .range-handle.start {
+        border-radius: 3px 0 0 3px;
     }
 
-    .drag-handle.end {
-        right: -12px;
-        border-radius: 5px 15px 15px 5px;
+    .range-handle.end {
+        border-radius: 0 3px 3px 0;
     }
 
-    .drag-handle:active {
-        cursor: grabbing;
-        transform: scale(1.2);
+    .calendar-month {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 10px;
+        text-align: center;
+        min-height: 80px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        transition: all 0.2s ease;
+    }
+
+    .calendar-month:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .calendar-month.optimal {
+        background: linear-gradient(135deg, rgba(40, 167, 69, 0.1), rgba(40, 167, 69, 0.05));
+        border-color: rgba(40, 167, 69, 0.3);
+    }
+
+    .calendar-month.extended {
+        background: linear-gradient(135deg, rgba(255, 193, 7, 0.1), rgba(255, 193, 7, 0.05));
+        border-color: rgba(255, 193, 7, 0.3);
+    }
+
+    .calendar-month.selected {
+        background: linear-gradient(135deg, rgba(0, 123, 255, 0.1), rgba(0, 123, 255, 0.05));
+        border-color: rgba(0, 123, 255, 0.3);
+        box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.2);
+    }
+
+    .succession-preview {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 10px;
+    }
+
+    .succession-item {
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .succession-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+
+    .succession-label {
+        font-weight: 600;
+        color: #495057;
+    }
+
+    .succession-timeline {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        position: relative;
+    }
+
+    .timeline-step {
+        text-align: center;
+        min-width: 80px;
+        position: relative;
+        z-index: 1;
+        background: white;
+        padding: 0 8px;
+    }
+
+    .timeline-step small {
+        display: block;
+        font-size: 0.75rem;
+        color: #6c757d;
+        margin-bottom: 2px;
+    }
+
+    .succession-date {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #495057;
+    }
+
+    /* Timeline connector lines */
+    .succession-timeline::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: #dee2e6;
+        z-index: 0;
+    }
+
+    .timeline-step:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        right: -16px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 8px;
+        height: 8px;
+        background: #28a745;
+        border-radius: 50%;
+        z-index: 2;
+    }
+
+    /* Different colors for different timeline steps */
+    .timeline-step:nth-child(1) small { color: #007bff; } /* Sow - Blue */
+    .timeline-step:nth-child(2) small { color: #ffc107; } /* Transplant - Yellow */
+    .timeline-step:nth-child(3) small { color: #28a745; } /* Harvest - Green */
+
+    .timeline-step:nth-child(1)::after { background: #007bff; }
+    .timeline-step:nth-child(2)::after { background: #ffc107; }
+
+    /* Special styling for transplant and harvest steps */
+    .transplant-step small { color: #856404 !important; font-weight: 500; }
+    .harvest-step small { color: #155724 !important; font-weight: 500; }
+
+    .transplant-step::after { background: #ffc107 !important; border: 2px solid #856404; }
+    .harvest-step::after { background: #28a745 !important; border: 2px solid #155724; }
+
+    .method-badge {
+        background: #f8f9fa;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        border: 1px solid #dee2e6;
+    }
+        color: #6c757d;
     }
 
     .harvest-window-info {
@@ -593,52 +735,102 @@
                             </div>
                         </div>
                         
-                        <!-- Drag-and-Drop Harvest Bar -->
+                        <!-- NEW: Visual Harvest Window Selector -->
                         <div class="mt-4">
-                            <label class="form-label"><strong>Drag to adjust harvest window:</strong></label>
-                            <div id="harvestTimeline" class="position-relative bg-light p-3" style="height: 100px; overflow: hidden; border-radius: 10px;">
-                                <!-- Month markers -->
-                                <div class="timeline-months d-flex justify-content-between position-absolute w-100" style="top: 10px;">
-                                    <span class="small text-muted">Jan</span>
-                                    <span class="small text-muted">Feb</span>
-                                    <span class="small text-muted">Mar</span>
-                                    <span class="small text-muted">Apr</span>
-                                    <span class="small text-muted">May</span>
-                                    <span class="small text-muted">Jun</span>
-                                    <span class="small text-muted">Jul</span>
-                                    <span class="small text-muted">Aug</span>
-                                    <span class="small text-muted">Sep</span>
-                                    <span class="small text-muted">Oct</span>
-                                    <span class="small text-muted">Nov</span>
-                                    <span class="small text-muted">Dec</span>
+                            <label class="form-label"><strong>Harvest Window Planning:</strong></label>
+
+                            <!-- Maximum Possible Range Indicator -->
+                            <div id="maxHarvestRange" class="mb-3 p-3 bg-light rounded" style="display: none;">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="fas fa-infinity text-info me-2"></i>
+                                    <strong class="text-info">Maximum Possible Harvest Window</strong>
+                                    <span id="maxRangeDates" class="ms-auto small text-muted"></span>
                                 </div>
-                                
-                                <!-- Main drag harvest bar (the beautiful green bar you liked) -->
-                                <div id="dragHarvestBar" class="drag-harvest-bar position-absolute" style="top: 35px; left: 20%; width: 40%;">
-                                    <!-- Drag handles -->
-                                    <div class="drag-handle start" data-handle="start">⋮⋮</div>
-                                    <div class="drag-handle end" data-handle="end">⋮⋮</div>
-                                    <!-- Date display -->
-                                    <div class="harvest-dates text-center flex-grow-1">
-                                        <span id="startDateDisplay">Select dates</span> → <span id="endDateDisplay"></span>
+                                <div class="progress" style="height: 20px;">
+                                    <div id="maxRangeBar" class="progress-bar bg-info opacity-25" role="progressbar" style="width: 100%"></div>
+                                </div>
+                            </div>
+
+                            <!-- AI Recommended Range -->
+                            <div id="aiRecommendedRange" class="mb-3 p-3 bg-light rounded" style="display: none;">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="fas fa-brain text-warning me-2"></i>
+                                    <strong class="text-warning">AI Recommended Window</strong>
+                                    <span id="aiRangeDates" class="ms-auto small text-muted"></span>
+                                </div>
+                                <div class="progress" style="height: 25px;">
+                                    <div id="aiRangeBar" class="progress-bar bg-warning" role="progressbar" style="width: 60%"></div>
+                                </div>
+                            </div>
+
+                            <!-- User Selected Range -->
+                            <div id="userSelectedRange" class="mb-3 p-3 border rounded" style="display: none;">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="fas fa-user text-success me-2"></i>
+                                    <strong class="text-success">Your Selected Window</strong>
+                                    <span id="userRangeDates" class="ms-auto small text-muted"></span>
+                                </div>
+                                <div class="progress position-relative" style="height: 30px;">
+                                    <div id="userRangeBar" class="progress-bar bg-success" role="progressbar" style="width: 40%; margin-left: 20%;"></div>
+                                    <!-- Range Adjusters -->
+                                    <div id="rangeStartHandle" class="position-absolute" style="left: 20%; top: 0; width: 20px; height: 30px; background: #28a745; cursor: ew-resize; border-radius: 3px 0 0 3px;">
+                                        <div class="text-white text-center small" style="line-height: 30px;">⋮⋮</div>
+                                    </div>
+                                    <div id="rangeEndHandle" class="position-absolute" style="right: 40%; top: 0; width: 20px; height: 30px; background: #28a745; cursor: ew-resize; border-radius: 0 3px 3px 0;">
+                                        <div class="text-white text-center small" style="line-height: 30px;">⋮⋮</div>
                                     </div>
                                 </div>
                             </div>
-                            
-                            <!-- AI Harvest Window Information -->
-                            <div id="harvestWindowInfo" class="harvest-window-info ai-calculated" style="display: none;">
-                                <div class="d-flex align-items-center">
-                                    <i class="fas fa-brain text-warning me-2"></i>
-                                    <strong>AI Calculated Optimal Harvest Window:</strong>
+
+                            <!-- Succession Impact Preview -->
+                            <div id="successionImpact" class="mt-3 p-3 bg-white border rounded" style="display: none;">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <strong class="text-primary">Succession Planning Impact</strong>
+                                        <i class="fas fa-info-circle text-muted" data-bs-toggle="tooltip" data-bs-placement="top" 
+                                           title="Shows sowing, transplant (if needed), and harvest dates for each succession. Timeline colors: Blue=Sow, Yellow=Transplant, Green=Harvest"></i>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span id="successionCount" class="badge bg-primary">3 Successions</span>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="exportSuccessionPlan()" title="Export as CSV">
+                                            <i class="fas fa-download"></i> Export
+                                        </button>
+                                    </div>
                                 </div>
-                                <div id="aiHarvestDetails" class="mt-2 small"></div>
+                                <div id="successionPreview" class="small text-muted">
+                                    <!-- Will be populated with succession dates -->
+                                </div>
                             </div>
-                            
-                            <div class="mt-2">
-                                <small class="text-muted">
-                                    <i class="fas fa-info-circle"></i>
-                                    Drag the handles independently to adjust start and end dates. AI calculates optimal planting dates.
-                                </small>
+
+                            <!-- Quick Adjust Buttons -->
+                            <div class="mt-3 d-flex gap-2 justify-content-center">
+                                <button type="button" class="btn btn-outline-success btn-sm" onclick="extendHarvestWindow()">
+                                    <i class="fas fa-plus"></i> Extend 20%
+                                </button>
+                                <button type="button" class="btn btn-outline-warning btn-sm" onclick="optimizeHarvestWindow()">
+                                    <i class="fas fa-magic"></i> AI Optimize
+                                </button>
+                                <button type="button" class="btn btn-outline-info btn-sm" onclick="shortenHarvestWindow()">
+                                    <i class="fas fa-minus"></i> Reduce Successions
+                                </button>
+                            </div>
+
+                            <!-- Calendar Grid View -->
+                            <div id="harvestCalendar" class="mt-4" style="display: none;">
+                                <h6 class="text-center mb-3">
+                                    <i class="fas fa-calendar-alt text-primary"></i>
+                                    Harvest Calendar Overview
+                                </h6>
+                                <div class="row g-2" id="calendarGrid">
+                                    <!-- Calendar months will be populated here -->
+                                </div>
+                                <div class="mt-2 text-center">
+                                    <small class="text-muted">
+                                        <span class="badge bg-info me-2">Optimal</span>
+                                        <span class="badge bg-warning me-2">Extended</span>
+                                        <span class="badge bg-success">Selected</span>
+                                    </small>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -819,6 +1011,29 @@
     let cropVarieties = [];
     let availableBeds = [];
 
+    // ===== INITIALIZATION =====
+
+    // Initialize when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('🚀 Initializing succession planning interface');
+
+        // Initialize the new harvest window selector
+        initializeHarvestWindowSelector();
+
+        // Set up existing functionality
+        setupDragBar();
+        setupEventListeners();
+        updateSuccessionPreview();
+
+        // Initialize Bootstrap tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    });
+
+    // ===== EXISTING FUNCTIONS =====
+
     // Safely parse JSON data with fallbacks
     try {
         cropTypes = @json($cropData['types'] ?? []);
@@ -935,6 +1150,8 @@
             cropId = this.value;
             updateVarieties();
             savePlannerState();
+            // Update succession impact with new crop timing
+            updateSuccessionImpact();
             // Don't trigger AI on crop selection - only filter varieties
         });
         
@@ -942,6 +1159,8 @@
             console.log('🔄 Variety selected:', this.value, this.options[this.selectedIndex]?.text);
             calculateAIHarvestWindow();
             savePlannerState();
+            // Update succession impact with new variety timing
+            updateSuccessionImpact();
         });
 
         // Persist season/year and harvest date inputs
@@ -968,6 +1187,52 @@
         // A11y: announce AI updates politely
         const aiDetails = document.getElementById('aiHarvestDetails');
         aiDetails?.setAttribute('aria-live', 'polite');
+    }
+
+    // Export succession plan as CSV
+    function exportSuccessionPlan() {
+        if (!harvestWindowData.userStart || !harvestWindowData.userEnd) {
+            alert('Please set a harvest window first');
+            return;
+        }
+
+        const cropSelect = document.getElementById('cropSelect');
+        const varietySelect = document.getElementById('varietySelect');
+        const cropName = cropSelect?.options[cropSelect.selectedIndex]?.text || '';
+        const varietyName = varietySelect?.options[varietySelect.selectedIndex]?.text || '';
+
+        const start = new Date(harvestWindowData.userStart);
+        const end = new Date(harvestWindowData.userEnd);
+        const duration = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+
+        const avgSuccessionInterval = getSuccessionInterval(cropName.toLowerCase(), varietyName.toLowerCase());
+        const successions = Math.max(1, Math.ceil(duration / avgSuccessionInterval));
+
+        // Generate CSV content
+        let csvContent = 'Succession,Crop,Variety,Sowing Date,Transplant Date,Harvest Date,Method\n';
+
+        for (let i = 0; i < successions; i++) {
+            const successionData = calculateSuccessionDates(start, i, avgSuccessionInterval, cropName.toLowerCase(), varietyName.toLowerCase());
+
+            const sowDateStr = successionData.sowDate.toISOString().split('T')[0];
+            const transplantDateStr = successionData.transplantDate ? successionData.transplantDate.toISOString().split('T')[0] : '';
+            const harvestDateStr = successionData.harvestDate.toISOString().split('T')[0];
+
+            csvContent += `${i + 1},"${cropName}","${varietyName}","${sowDateStr}","${transplantDateStr}","${harvestDateStr}","${successionData.method}"\n`;
+        }
+
+        // Download CSV file
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `succession-plan-${cropName.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        console.log('📊 Exported succession plan as CSV');
     }
 
     // Filter the variety dropdown by selected crop
@@ -1160,6 +1425,7 @@
         document.getElementById('planningYear').addEventListener('change', function() {
             console.log('📅 Planning year changed to:', this.value);
             setDefaultDates();
+            updateHarvestWindowDisplay(); // Update the new harvest window selector
         });
         
         document.getElementById('planningSeason').addEventListener('change', function() {
@@ -1724,6 +1990,9 @@ NO extra text. Calculate for ${contextPayload.planning_year}.`;
             }
 
             displayAIHarvestWindow(harvestInfo, cropName, varietyName);
+
+            // Update the new harvest window selector with AI data
+            updateHarvestWindowData(harvestInfo);
 
             // Auto-set the harvest window inputs and drag bar to MAXIMUM possible
             if (harvestInfo.maximum_start) {
@@ -2675,6 +2944,655 @@ Plantings:`;
                 button.disabled = false;
             }, 3000);
         });
+    }
+
+    // ===== NEW HARVEST WINDOW SELECTOR FUNCTIONS =====
+
+    // Global variables for harvest window management
+    let harvestWindowData = {
+        maxStart: null,
+        maxEnd: null,
+        aiStart: null,
+        aiEnd: null,
+        userStart: null,
+        userEnd: null,
+        selectedYear: new Date().getFullYear()
+    };
+
+    // Initialize the new harvest window selector
+    function initializeHarvestWindowSelector() {
+        console.log('🎯 Initializing new harvest window selector');
+
+        // Set up range handle event listeners
+        setupRangeHandles();
+
+        // Initialize with default dates
+        updateHarvestWindowDisplay();
+    }
+
+    // Set up drag handles for range adjustment
+    function setupRangeHandles() {
+        const startHandle = document.getElementById('rangeStartHandle');
+        const endHandle = document.getElementById('rangeEndHandle');
+
+        if (!startHandle || !endHandle) return;
+
+        let isDragging = false;
+        let dragHandle = null;
+        let startX = 0;
+        let initialLeft = 0;
+
+        function handleMouseDown(e, handle) {
+            isDragging = true;
+            dragHandle = handle;
+            startX = e.clientX;
+            const progressBar = document.querySelector('#userSelectedRange .progress');
+            const rect = progressBar.getBoundingClientRect();
+            initialLeft = rect.left;
+            document.body.style.cursor = 'ew-resize';
+            e.preventDefault();
+        }
+
+        function handleMouseMove(e) {
+            if (!isDragging || !dragHandle) return;
+
+            const progressBar = document.querySelector('#userSelectedRange .progress');
+            const rect = progressBar.getBoundingClientRect();
+            const deltaX = e.clientX - startX;
+            const percentage = Math.max(0, Math.min(100, (deltaX / rect.width) * 100));
+
+            if (dragHandle === 'start') {
+                adjustUserRange('start', percentage);
+            } else if (dragHandle === 'end') {
+                adjustUserRange('end', percentage);
+            }
+        }
+
+        function handleMouseUp() {
+            isDragging = false;
+            dragHandle = null;
+            document.body.style.cursor = 'default';
+            updateDateInputsFromRange();
+        }
+
+        startHandle.addEventListener('mousedown', (e) => handleMouseDown(e, 'start'));
+        endHandle.addEventListener('mousedown', (e) => handleMouseDown(e, 'end'));
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+    }
+
+    // Update the harvest window display with new data
+    function updateHarvestWindowDisplay() {
+        const year = document.getElementById('planningYear').value || new Date().getFullYear();
+        harvestWindowData.selectedYear = year;
+
+        // Show maximum possible range
+        if (harvestWindowData.maxStart && harvestWindowData.maxEnd) {
+            displayMaxRange();
+        }
+
+        // Show AI recommended range
+        if (harvestWindowData.aiStart && harvestWindowData.aiEnd) {
+            displayAIRange();
+        }
+
+        // Show user selected range
+        if (harvestWindowData.userStart && harvestWindowData.userEnd) {
+            displayUserRange();
+        }
+
+        // Update calendar grid
+        updateCalendarGrid();
+
+        // Update succession impact
+        updateSuccessionImpact();
+    }
+
+    // Display maximum possible harvest range
+    function displayMaxRange() {
+        const maxRangeDiv = document.getElementById('maxHarvestRange');
+        const maxRangeBar = document.getElementById('maxRangeBar');
+        const maxRangeDates = document.getElementById('maxRangeDates');
+
+        if (!maxRangeDiv || !maxRangeBar || !maxRangeDates) return;
+
+        const startDate = new Date(harvestWindowData.maxStart);
+        const endDate = new Date(harvestWindowData.maxEnd);
+        const duration = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+
+        maxRangeDates.textContent = `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()} (${duration} days)`;
+        maxRangeDiv.style.display = 'block';
+    }
+
+    // Display AI recommended harvest range
+    function displayAIRange() {
+        const aiRangeDiv = document.getElementById('aiRecommendedRange');
+        const aiRangeBar = document.getElementById('aiRangeBar');
+        const aiRangeDates = document.getElementById('aiRangeDates');
+
+        if (!aiRangeDiv || !aiRangeBar || !aiRangeDates) return;
+
+        const startDate = new Date(harvestWindowData.aiStart);
+        const endDate = new Date(harvestWindowData.aiEnd);
+        const duration = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+
+        // Calculate position within max range
+        const maxStart = new Date(harvestWindowData.maxStart);
+        const maxEnd = new Date(harvestWindowData.maxEnd);
+        const maxDuration = maxEnd - maxStart;
+        const aiStartOffset = startDate - maxStart;
+        const aiDuration = endDate - startDate;
+
+        const leftPercent = (aiStartOffset / maxDuration) * 100;
+        const widthPercent = (aiDuration / maxDuration) * 100;
+
+        aiRangeBar.style.marginLeft = `${leftPercent}%`;
+        aiRangeBar.style.width = `${widthPercent}%`;
+        aiRangeDates.textContent = `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()} (${duration} days)`;
+        aiRangeDiv.style.display = 'block';
+    }
+
+    // Display user selected harvest range
+    function displayUserRange() {
+        const userRangeDiv = document.getElementById('userSelectedRange');
+        const userRangeBar = document.getElementById('userRangeBar');
+        const userRangeDates = document.getElementById('userRangeDates');
+        const startHandle = document.getElementById('rangeStartHandle');
+        const endHandle = document.getElementById('rangeEndHandle');
+
+        if (!userRangeDiv || !userRangeBar || !userRangeDates) return;
+
+        const startDate = new Date(harvestWindowData.userStart);
+        const endDate = new Date(harvestWindowData.userEnd);
+        const duration = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+
+        // Calculate position within max range
+        const maxStart = new Date(harvestWindowData.maxStart);
+        const maxEnd = new Date(harvestWindowData.maxEnd);
+        const maxDuration = maxEnd - maxStart;
+        const userStartOffset = startDate - maxStart;
+        const userDuration = endDate - startDate;
+
+        const leftPercent = (userStartOffset / maxDuration) * 100;
+        const widthPercent = (userDuration / maxDuration) * 100;
+
+        userRangeBar.style.marginLeft = `${leftPercent}%`;
+        userRangeBar.style.width = `${widthPercent}%`;
+
+        if (startHandle) startHandle.style.left = `${leftPercent}%`;
+        if (endHandle) endHandle.style.left = `${leftPercent + widthPercent}%`;
+
+        userRangeDates.textContent = `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()} (${duration} days)`;
+        userRangeDiv.style.display = 'block';
+    }
+
+    // Adjust user selected range
+    function adjustUserRange(handle, percentage) {
+        const maxStart = new Date(harvestWindowData.maxStart);
+        const maxEnd = new Date(harvestWindowData.maxEnd);
+        const maxDuration = maxEnd - maxStart;
+
+        const newDate = new Date(maxStart.getTime() + (percentage / 100) * maxDuration);
+
+        if (handle === 'start') {
+            harvestWindowData.userStart = newDate.toISOString().split('T')[0];
+            // Ensure start doesn't go past end
+            if (new Date(harvestWindowData.userStart) >= new Date(harvestWindowData.userEnd)) {
+                harvestWindowData.userStart = harvestWindowData.userEnd;
+            }
+        } else if (handle === 'end') {
+            harvestWindowData.userEnd = newDate.toISOString().split('T')[0];
+            // Ensure end doesn't go before start
+            if (new Date(harvestWindowData.userEnd) <= new Date(harvestWindowData.userStart)) {
+                harvestWindowData.userEnd = harvestWindowData.userStart;
+            }
+        }
+
+        displayUserRange();
+        updateSuccessionImpact();
+    }
+
+    // Update date inputs from range selection
+    function updateDateInputsFromRange() {
+        const startInput = document.getElementById('harvestStart');
+        const endInput = document.getElementById('harvestEnd');
+
+        if (startInput && harvestWindowData.userStart) {
+            startInput.value = harvestWindowData.userStart;
+        }
+        if (endInput && harvestWindowData.userEnd) {
+            endInput.value = harvestWindowData.userEnd;
+        }
+    }
+
+    // Extend harvest window by maximum 20%
+    function extendHarvestWindow() {
+        if (!harvestWindowData.aiStart || !harvestWindowData.aiEnd) {
+            console.warn('No AI range to extend from');
+            return;
+        }
+
+        const aiStart = new Date(harvestWindowData.aiStart);
+        const aiEnd = new Date(harvestWindowData.aiEnd);
+        const aiDuration = aiEnd - aiStart;
+        const maxExtension = aiDuration * 0.2; // 20% maximum
+
+        const newEnd = new Date(aiEnd.getTime() + maxExtension);
+        const maxPossibleEnd = new Date(harvestWindowData.maxEnd);
+
+        // Don't extend beyond maximum possible
+        const finalEnd = newEnd > maxPossibleEnd ? maxPossibleEnd : newEnd;
+
+        harvestWindowData.userStart = harvestWindowData.aiStart;
+        harvestWindowData.userEnd = finalEnd.toISOString().split('T')[0];
+
+        updateHarvestWindowDisplay();
+        updateDateInputsFromRange();
+
+        console.log('📈 Extended harvest window by up to 20%');
+    }
+
+    // Optimize harvest window (set to AI recommended)
+    function optimizeHarvestWindow() {
+        if (!harvestWindowData.aiStart || !harvestWindowData.aiEnd) {
+            console.warn('No AI range to optimize to');
+            return;
+        }
+
+        harvestWindowData.userStart = harvestWindowData.aiStart;
+        harvestWindowData.userEnd = harvestWindowData.aiEnd;
+
+        updateHarvestWindowDisplay();
+        updateDateInputsFromRange();
+
+        console.log('🎯 Optimized harvest window to AI recommendation');
+    }
+
+    // Shorten harvest window (reduce successions)
+    function shortenHarvestWindow() {
+        if (!harvestWindowData.userStart || !harvestWindowData.userEnd) {
+            console.warn('No user range to shorten');
+            return;
+        }
+
+        const start = new Date(harvestWindowData.userStart);
+        const end = new Date(harvestWindowData.userEnd);
+        const currentDuration = end - start;
+
+        // Reduce by 25% to decrease number of successions
+        const newDuration = currentDuration * 0.75;
+        const newEnd = new Date(start.getTime() + newDuration);
+
+        harvestWindowData.userEnd = newEnd.toISOString().split('T')[0];
+
+        updateHarvestWindowDisplay();
+        updateDateInputsFromRange();
+
+        console.log('📉 Shortened harvest window to reduce successions');
+    }
+
+    // Update succession impact preview
+    function updateSuccessionImpact() {
+        const impactDiv = document.getElementById('successionImpact');
+        const countBadge = document.getElementById('successionCount');
+        const previewDiv = document.getElementById('successionPreview');
+
+        if (!impactDiv || !countBadge || !previewDiv) return;
+        if (!harvestWindowData.userStart || !harvestWindowData.userEnd) return;
+
+        const start = new Date(harvestWindowData.userStart);
+        const end = new Date(harvestWindowData.userEnd);
+        const duration = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+
+        // Get crop information for better calculations
+        const cropSelect = document.getElementById('cropSelect');
+        const varietySelect = document.getElementById('varietySelect');
+        const cropName = cropSelect?.options[cropSelect.selectedIndex]?.text?.toLowerCase() || '';
+        const varietyName = varietySelect?.options[varietySelect.selectedIndex]?.text?.toLowerCase() || '';
+
+        // Estimate number of successions based on duration
+        // Typical succession interval varies by crop
+        const avgSuccessionInterval = getSuccessionInterval(cropName, varietyName);
+        const successions = Math.max(1, Math.ceil(duration / avgSuccessionInterval));
+
+        countBadge.textContent = `${successions} Succession${successions > 1 ? 's' : ''}`;
+
+        // Generate detailed succession preview
+        let previewHTML = '';
+        for (let i = 0; i < successions; i++) {
+            const successionData = calculateSuccessionDates(start, i, avgSuccessionInterval, cropName, varietyName);
+
+            previewHTML += `
+                <div class="succession-item">
+                    <div class="succession-header">
+                        <span class="succession-label">Succession ${i + 1}</span>
+                        <small class="text-muted method-badge">${successionData.method}</small>
+                    </div>
+                    <div class="succession-timeline">
+                        <div class="timeline-step">
+                            <small class="text-muted">Sow</small>
+                            <div class="succession-date">${successionData.sowDate.toLocaleDateString()}</div>
+                        </div>
+                        ${successionData.transplantDate ? `
+                        <div class="timeline-step transplant-step">
+                            <small class="text-warning">Transplant</small>
+                            <div class="succession-date">${successionData.transplantDate.toLocaleDateString()}</div>
+                        </div>
+                        ` : ''}
+                        <div class="timeline-step harvest-step">
+                            <small class="text-success">Harvest</small>
+                            <div class="succession-date">${successionData.harvestDate.toLocaleDateString()}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        previewDiv.innerHTML = previewHTML;
+        impactDiv.style.display = 'block';
+    }
+
+    // Get succession interval based on crop type
+    function getSuccessionInterval(cropName, varietyName) {
+        // Default intervals by crop type
+        const intervals = {
+            'carrot': 14, // 2 weeks
+            'beetroot': 21, // 3 weeks
+            'lettuce': 7, // 1 week
+            'radish': 7, // 1 week
+            'onion': 21, // 3 weeks
+            'spinach': 10, // 10 days
+            'kale': 14, // 2 weeks
+            'chard': 14, // 2 weeks
+            'pak choi': 10, // 10 days
+            'cabbage': 21, // 3 weeks
+            'broccoli': 21, // 3 weeks
+            'cauliflower': 21, // 3 weeks
+            'peas': 14, // 2 weeks
+            'beans': 14, // 2 weeks
+            'tomato': 21, // 3 weeks
+            'pepper': 21, // 3 weeks
+            'cucumber': 14, // 2 weeks
+            'zucchini': 14, // 2 weeks
+            'corn': 14, // 2 weeks
+            'potato': 21, // 3 weeks
+            'garlic': 30, // 4 weeks
+            'leek': 21, // 3 weeks
+            'celery': 21, // 3 weeks
+            'fennel': 14, // 2 weeks
+            'herbs': 14 // 2 weeks
+        };
+
+        // Check for specific crop matches
+        for (const [crop, interval] of Object.entries(intervals)) {
+            if (cropName.includes(crop) || varietyName.includes(crop)) {
+                return interval;
+            }
+        }
+
+        return 21; // Default 3 weeks
+    }
+
+    // Calculate detailed succession dates including sowing and transplant
+    function calculateSuccessionDates(harvestStart, successionIndex, interval, cropName, varietyName) {
+        // Calculate harvest date for this succession
+        const harvestDate = new Date(harvestStart.getTime() + (successionIndex * interval * 24 * 60 * 60 * 1000));
+
+        // Get crop-specific timing data
+        const cropTiming = getCropTiming(cropName, varietyName);
+
+        // Calculate sowing date (working backwards from harvest)
+        const sowDate = new Date(harvestDate.getTime() - (cropTiming.daysToHarvest * 24 * 60 * 60 * 1000));
+
+        // Calculate transplant date if applicable
+        let transplantDate = null;
+        if (cropTiming.daysToTransplant) {
+            transplantDate = new Date(sowDate.getTime() + (cropTiming.daysToTransplant * 24 * 60 * 60 * 1000));
+        }
+
+        return {
+            sowDate: sowDate,
+            transplantDate: transplantDate,
+            harvestDate: harvestDate,
+            method: cropTiming.method || 'Direct sow'
+        };
+    }
+
+    // Get crop-specific timing information
+    function getCropTiming(cropName, varietyName) {
+        const cropLower = cropName.toLowerCase();
+        const varietyLower = varietyName.toLowerCase();
+
+        // Comprehensive crop timing database
+        const timingData = {
+            // Root vegetables
+            'carrot': {
+                daysToHarvest: 70,
+                daysToTransplant: null,
+                method: 'Direct sow'
+            },
+            'beetroot': {
+                daysToHarvest: 55,
+                daysToTransplant: null,
+                method: 'Direct sow'
+            },
+            'radish': {
+                daysToHarvest: 25,
+                daysToTransplant: null,
+                method: 'Direct sow'
+            },
+            'potato': {
+                daysToHarvest: 90,
+                daysToTransplant: null,
+                method: 'Plant seed potatoes'
+            },
+            'onion': {
+                daysToHarvest: 120,
+                daysToTransplant: 35,
+                method: 'Transplant seedlings'
+            },
+            'garlic': {
+                daysToHarvest: 240,
+                daysToTransplant: null,
+                method: 'Plant cloves'
+            },
+            'leek': {
+                daysToHarvest: 120,
+                daysToTransplant: 35,
+                method: 'Transplant seedlings'
+            },
+
+            // Leafy greens
+            'lettuce': {
+                daysToHarvest: 45,
+                daysToTransplant: 21,
+                method: 'Transplant seedlings'
+            },
+            'spinach': {
+                daysToHarvest: 40,
+                daysToTransplant: null,
+                method: 'Direct sow'
+            },
+            'kale': {
+                daysToHarvest: 60,
+                daysToTransplant: 28,
+                method: 'Transplant seedlings'
+            },
+            'chard': {
+                daysToHarvest: 50,
+                daysToTransplant: 21,
+                method: 'Transplant seedlings'
+            },
+            'pak choi': {
+                daysToHarvest: 35,
+                daysToTransplant: null,
+                method: 'Direct sow'
+            },
+
+            // Brassicas
+            'cabbage': {
+                daysToHarvest: 80,
+                daysToTransplant: 35,
+                method: 'Transplant seedlings'
+            },
+            'broccoli': {
+                daysToHarvest: 70,
+                daysToTransplant: 35,
+                method: 'Transplant seedlings'
+            },
+            'cauliflower': {
+                daysToHarvest: 75,
+                daysToTransplant: 35,
+                method: 'Transplant seedlings'
+            },
+
+            // Legumes
+            'peas': {
+                daysToHarvest: 60,
+                daysToTransplant: null,
+                method: 'Direct sow'
+            },
+            'beans': {
+                daysToHarvest: 55,
+                daysToTransplant: null,
+                method: 'Direct sow'
+            },
+
+            // Fruiting vegetables
+            'tomato': {
+                daysToHarvest: 75,
+                daysToTransplant: 42,
+                method: 'Transplant seedlings'
+            },
+            'pepper': {
+                daysToHarvest: 80,
+                daysToTransplant: 42,
+                method: 'Transplant seedlings'
+            },
+            'cucumber': {
+                daysToHarvest: 55,
+                daysToTransplant: 21,
+                method: 'Transplant seedlings'
+            },
+            'zucchini': {
+                daysToHarvest: 50,
+                daysToTransplant: 21,
+                method: 'Transplant seedlings'
+            },
+
+            // Other
+            'corn': {
+                daysToHarvest: 75,
+                daysToTransplant: null,
+                method: 'Direct sow'
+            },
+            'celery': {
+                daysToHarvest: 100,
+                daysToTransplant: 42,
+                method: 'Transplant seedlings'
+            },
+            'fennel': {
+                daysToHarvest: 80,
+                daysToTransplant: 35,
+                method: 'Transplant seedlings'
+            }
+        };
+
+        // Check for specific crop matches
+        for (const [crop, timing] of Object.entries(timingData)) {
+            if (cropLower.includes(crop) || varietyLower.includes(crop)) {
+                return timing;
+            }
+        }
+
+        // Default timing for unknown crops
+        return {
+            daysToHarvest: 60,
+            daysToTransplant: null,
+            method: 'Direct sow'
+        };
+    }
+
+    // Update calendar grid visualization
+    function updateCalendarGrid() {
+        const calendarDiv = document.getElementById('calendarGrid');
+        if (!calendarDiv) return;
+
+        const year = harvestWindowData.selectedYear;
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+        let calendarHTML = '';
+
+        months.forEach((month, index) => {
+            let monthClass = 'calendar-month';
+            let monthTitle = `${month} ${year}`;
+
+            // Determine if this month is within different ranges
+            if (isMonthInRange(index, harvestWindowData.maxStart, harvestWindowData.maxEnd)) {
+                if (isMonthInRange(index, harvestWindowData.userStart, harvestWindowData.userEnd)) {
+                    monthClass += ' selected';
+                    monthTitle += ' - Selected Harvest Period';
+                } else if (isMonthInRange(index, harvestWindowData.aiStart, harvestWindowData.aiEnd)) {
+                    monthClass += ' optimal';
+                    monthTitle += ' - Optimal Harvest Period';
+                } else {
+                    monthClass += ' extended';
+                    monthTitle += ' - Extended Harvest Period';
+                }
+            }
+
+            calendarHTML += `
+                <div class="col-6 col-md-4 col-lg-3 mb-3">
+                    <div class="${monthClass}" title="${monthTitle}">
+                        <strong>${month}</strong>
+                        <div class="mt-1">${year}</div>
+                    </div>
+                </div>
+            `;
+        });
+
+        calendarDiv.innerHTML = calendarHTML;
+        document.getElementById('harvestCalendar').style.display = 'block';
+    }
+
+    // Helper function to check if a month is within a date range
+    function isMonthInRange(monthIndex, startDate, endDate) {
+        if (!startDate || !endDate) return false;
+
+        const year = harvestWindowData.selectedYear;
+        const monthStart = new Date(year, monthIndex, 1);
+        const monthEnd = new Date(year, monthIndex + 1, 0);
+
+        const rangeStart = new Date(startDate);
+        const rangeEnd = new Date(endDate);
+
+        return monthStart <= rangeEnd && monthEnd >= rangeStart;
+    }
+
+    // Update harvest window data from AI results
+    function updateHarvestWindowData(aiResult) {
+        if (!aiResult) return;
+
+        // Set maximum possible range (from AI or fallback)
+        harvestWindowData.maxStart = aiResult.maximum_start || aiResult.maxStart;
+        harvestWindowData.maxEnd = aiResult.maximum_end || aiResult.maxEnd;
+
+        // Set AI recommended range (typically 80% of maximum)
+        if (harvestWindowData.maxStart && harvestWindowData.maxEnd) {
+            const maxStart = new Date(harvestWindowData.maxStart);
+            const maxEnd = new Date(harvestWindowData.maxEnd);
+            const maxDuration = maxEnd - maxStart;
+
+            harvestWindowData.aiStart = harvestWindowData.maxStart;
+            harvestWindowData.aiEnd = new Date(maxStart.getTime() + (maxDuration * 0.8)).toISOString().split('T')[0];
+
+            // Initialize user range to AI recommendation
+            harvestWindowData.userStart = harvestWindowData.aiStart;
+            harvestWindowData.userEnd = harvestWindowData.aiEnd;
+        }
+
+        updateHarvestWindowDisplay();
     }
 </script>
 @endsection
