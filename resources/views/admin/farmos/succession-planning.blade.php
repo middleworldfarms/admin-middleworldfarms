@@ -332,6 +332,23 @@
         border-color: #198754;
     }
 
+    .variety-info-section {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        border-radius: 1rem;
+        padding: 1.5rem;
+        border: 1px solid #dee2e6;
+    }
+
+    .variety-photo {
+        border: 2px solid #dee2e6;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .variety-description {
+        line-height: 1.5;
+        font-style: italic;
+    }
+
     .ai-response {
         background: rgba(40, 167, 69, 0.1);
         border-left: 4px solid #28a745;
@@ -994,6 +1011,65 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Variety Information Display -->
+            <div class="planning-card mt-3">
+                <div class="planning-section">
+                    <h3>
+                        <i class="fas fa-leaf section-icon"></i>
+                        Variety Information
+                    </h3>
+                    
+                    <div id="varietyInfoContainer" class="variety-info-section" style="display: none;">
+                        <!-- Variety Photo -->
+                        <div class="variety-photo-container mb-3 text-center">
+                            <img id="varietyPhoto" src="" alt="Variety Photo" class="variety-photo img-fluid rounded" 
+                                 style="max-height: 200px; max-width: 100%; object-fit: cover; display: none;">
+                            <div id="noPhotoMessage" class="text-muted small mt-2" style="display: none;">
+                                <i class="fas fa-image"></i> No photo available
+                            </div>
+                        </div>
+                        
+                        <!-- Variety Details -->
+                        <div class="variety-details">
+                            <h5 id="varietyName" class="text-primary mb-2"></h5>
+                            <div id="varietyDescription" class="variety-description small text-muted mb-3"></div>
+                            
+                            <!-- Additional Variety Info -->
+                            <div class="row">
+                                <div class="col-6">
+                                    <strong>Crop Type:</strong><br>
+                                    <span id="varietyCropType" class="text-muted small"></span>
+                                </div>
+                                <div class="col-6">
+                                    <strong>Variety ID:</strong><br>
+                                    <span id="varietyId" class="text-muted small"></span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Loading State -->
+                        <div id="varietyLoading" class="text-center py-3" style="display: none;">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <div class="text-muted small mt-2">Loading variety information...</div>
+                        </div>
+                        
+                        <!-- Error State -->
+                        <div id="varietyError" class="alert alert-warning py-2 small" style="display: none;">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Unable to load variety information from FarmOS
+                        </div>
+                    </div>
+                    
+                    <!-- No Variety Selected State -->
+                    <div id="noVarietySelected" class="text-center py-4 text-muted">
+                        <i class="fas fa-seedling fa-2x mb-2"></i>
+                        <div>Select a variety to see detailed information from FarmOS</div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -1173,6 +1249,8 @@
             savePlannerState();
             // Update succession impact with new variety timing
             updateSuccessionImpact();
+            // Fetch and display variety information from FarmOS
+            handleVarietySelection(this.value);
         });
 
         // Persist season/year and harvest date inputs
@@ -1301,6 +1379,147 @@
         if (!sel) return;
         for (const opt of sel.options) opt.selected = false;
         sel.dispatchEvent(new Event('change'));
+    }
+
+    // Fetch variety information from FarmOS API
+    async function fetchVarietyInfo(varietyId) {
+        if (!varietyId) return null;
+
+        try {
+            console.log('🌱 Fetching variety info for ID:', varietyId);
+            
+            // Use the existing succession planning variety endpoint
+            const response = await fetch(`/admin/succession-planning/varieties/${varietyId}`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log('📋 Variety info received:', data);
+            
+            if (data.success && data.variety) {
+                return data.variety;
+            } else {
+                console.warn('⚠️ Variety API returned success=false or no variety data');
+                return null;
+            }
+        } catch (error) {
+            console.error('❌ Error fetching variety info:', error);
+            return null;
+        }
+    }
+
+    // Display variety information in the UI
+    function displayVarietyInfo(varietyData) {
+        const container = document.getElementById('varietyInfoContainer');
+        const loading = document.getElementById('varietyLoading');
+        const error = document.getElementById('varietyError');
+        const noSelection = document.getElementById('noVarietySelected');
+
+        // Hide loading and error states
+        loading.style.display = 'none';
+        error.style.display = 'none';
+        noSelection.style.display = 'none';
+
+        if (!varietyData) {
+            container.style.display = 'none';
+            noSelection.style.display = 'block';
+            return;
+        }
+
+        // Show container
+        container.style.display = 'block';
+
+        // Update variety name
+        const nameEl = document.getElementById('varietyName');
+        nameEl.textContent = varietyData.name || varietyData.title || 'Unknown Variety';
+
+        // Update description - combine available fields
+        const descEl = document.getElementById('varietyDescription');
+        let description = '';
+        
+        if (varietyData.harvest_notes) {
+            description += varietyData.harvest_notes;
+        }
+        
+        if (varietyData.description) {
+            if (description) description += ' ';
+            description += varietyData.description;
+        }
+        
+        if (!description) {
+            description = 'No description available';
+        }
+        
+        descEl.textContent = description;
+
+        // Update crop type
+        const cropTypeEl = document.getElementById('varietyCropType');
+        cropTypeEl.textContent = varietyData.crop_family || varietyData.plant_type || 'Unknown';
+
+        // Update variety ID
+        const idEl = document.getElementById('varietyId');
+        idEl.textContent = varietyData.farmos_id || varietyData.id || 'N/A';
+
+        // Handle photo - FarmOS varieties may not have photos in the API response
+        const photoEl = document.getElementById('varietyPhoto');
+        const noPhotoEl = document.getElementById('noPhotoMessage');
+
+        // For now, we'll show "no photo available" since FarmOS API may not include photos
+        photoEl.style.display = 'none';
+        noPhotoEl.style.display = 'block';
+
+        console.log('✅ Variety information displayed');
+    }
+
+    // Handle variety selection and fetch/display info
+    async function handleVarietySelection(varietyId) {
+        const container = document.getElementById('varietyInfoContainer');
+        const loading = document.getElementById('varietyLoading');
+        const error = document.getElementById('varietyError');
+        const noSelection = document.getElementById('noVarietySelected');
+
+        if (!varietyId) {
+            // No variety selected
+            container.style.display = 'none';
+            loading.style.display = 'none';
+            error.style.display = 'none';
+            noSelection.style.display = 'block';
+            return;
+        }
+
+        // Show loading state
+        container.style.display = 'block';
+        loading.style.display = 'block';
+        error.style.display = 'none';
+        noSelection.style.display = 'none';
+
+        try {
+            // Fetch variety information
+            const varietyData = await fetchVarietyInfo(varietyId);
+            
+            if (varietyData) {
+                displayVarietyInfo(varietyData);
+            } else {
+                // Show error state
+                loading.style.display = 'none';
+                error.style.display = 'block';
+                container.style.display = 'block';
+            }
+        } catch (err) {
+            console.error('❌ Error handling variety selection:', err);
+            loading.style.display = 'none';
+            error.style.display = 'block';
+            container.style.display = 'block';
+        }
     }
 
     // helper to call AI but avoid blocking UI if route missing
