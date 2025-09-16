@@ -208,6 +208,17 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         // AI service management routes
         Route::get('/succession-planning/ai-status', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'getAIStatus'])->name('succession-planning.ai-status');
         Route::post('/succession-planning/wake-ai', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'wakeUpAI'])->name('succession-planning.wake-ai');
+        
+        // Quick Form routes - serve the quick form templates
+        Route::get('/quick/seeding', function () {
+            return view('admin.farmos.quick-forms.seeding');
+        })->name('quick.seeding');
+        Route::get('/quick/transplant', function () {
+            return view('admin.farmos.quick-forms.transplant');
+        })->name('quick.transplant');
+        Route::get('/quick/harvest', function () {
+            return view('admin.farmos.quick-forms.harvest');
+        })->name('quick.harvest');
     });
 
     // Test route for AI timing

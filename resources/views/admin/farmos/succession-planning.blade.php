@@ -502,7 +502,7 @@
     }
 
     .tab-content {
-        min-height: 600px;
+        min-height: 800px;
         background: white;
     }
 
@@ -520,14 +520,6 @@
         border-radius: 0.5rem;
         padding: 1rem;
         margin-bottom: 1rem;
-    }
-
-    .quick-form-iframe {
-        width: 100%;
-        height: 500px;
-        border: 1px solid #dee2e6;
-        border-radius: 0.5rem;
-        background: white;
     }
 
     .succession-info {
@@ -548,19 +540,6 @@
         color: #495057;
     }
 
-    .loading-indicator {
-        padding: 2rem;
-        text-align: center;
-        color: #6c757d;
-        background: #f8f9fa;
-        border-radius: 0.5rem;
-        margin-bottom: 1rem;
-    }
-
-    .loading-indicator i {
-        margin-right: 0.5rem;
-    }
-
     .quick-form-error {
         background: #f8d7da;
         border: 1px solid #f5c6cb;
@@ -570,34 +549,18 @@
         color: #721c24;
     }
 
-    .iframe-loading {
-        position: relative;
-    }
-
-    .iframe-loading::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(255, 255, 255, 0.8);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 10;
+    .form-content {
+        background: white;
+        border: 1px solid #dee2e6;
         border-radius: 0.5rem;
+        padding: 1rem;
+        margin-top: 1rem;
+        max-height: 600px;
+        overflow-y: auto;
     }
 
-    .iframe-loading::after {
-        content: 'Loading farmOS Quick Form...';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
+    .form-loading {
         color: #6c757d;
-        font-weight: 500;
-        z-index: 11;
     }
 
     .tab-button.overdue {
@@ -621,10 +584,6 @@
             min-width: 120px;
             font-size: 0.9rem;
             padding: 0.75rem 1rem;
-        }
-
-        .quick-form-iframe {
-            height: 400px;
         }
 
         .succession-info {
@@ -2813,12 +2772,47 @@ NO extra text. Calculate for ${contextPayload.planning_year}.`;
             return;
         }
 
+        // Calculate succession count based on harvest duration and crop type
+        const start = new Date(hs.value);
+        const end = new Date(he.value);
+        const duration = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+        const cropName = cropSelect?.options[cropSelect.selectedIndex]?.text?.toLowerCase() || '';
+        const varietyName = varietySelect?.options[varietySelect.selectedIndex]?.text?.toLowerCase() || '';
+        const avgSuccessionInterval = getSuccessionInterval(cropName, varietyName);
+        let successionCount = Math.max(1, Math.ceil(duration / avgSuccessionInterval));
+
+        // For crops with transplant windows, also consider transplant window constraints
+        if (cropName.toLowerCase().includes('brussels') || cropName.toLowerCase().includes('cabbage') ||
+            cropName.toLowerCase().includes('broccoli') || cropName.toLowerCase().includes('cauliflower')) {
+            // Get crop timing to check transplant window
+            const cropTiming = getCropTiming(cropName, varietyName);
+            if (cropTiming.transplantWindow) {
+                const transplantWindowDays = 61; // March 15 - May 15 is approximately 61 days
+                const transplantInterval = cropTiming.daysToTransplant || 35;
+
+                // For Brussels sprouts, allow more successions since sowing dates can overlap
+                let maxByTransplantWindow;
+                if (cropName.toLowerCase().includes('brussels')) {
+                    // Allow up to 3 successions for Brussels sprouts despite window constraints
+                    maxByTransplantWindow = 3;
+                } else {
+                    // For other crops, use the conservative calculation
+                    const minDaysPerSuccession = transplantInterval + 14; // 35 days + 2 weeks buffer
+                    maxByTransplantWindow = Math.max(1, Math.floor(transplantWindowDays / minDaysPerSuccession));
+                }
+
+                // Reduce successions if transplant window can't support them
+                successionCount = Math.min(successionCount, maxByTransplantWindow);
+            }
+        }
+
         const payload = {
             crop_id: cropSelect.value,
             variety_id: varietySelect?.value || null,
             harvest_start: hs.value,
             harvest_end: he.value,
             bed_ids: beds ? Array.from(beds.selectedOptions).map(o => o.value) : [],
+            succession_count: successionCount,
             use_ai: true
         };
 
@@ -2946,65 +2940,29 @@ NO extra text. Calculate for ${contextPayload.planning_year}.`;
                     wrap.innerHTML = `<div class="quick-form-error"><i class=\"fas fa-exclamation-triangle\"></i> ${f.label} Quick Form URL not available.</div>`;
                 } else {
                     console.log(`✅ ${f.label} URL for planting ${i+1}:`, url);
-                    let crossOrigin = false;
-                    try { crossOrigin = new URL(url).origin !== window.location.origin; } catch (_) {}
-                    if (crossOrigin) {
-                        wrap.innerHTML = `
-                            <div class=\"d-flex align-items-center justify-content-between mb-2\">
-                                <strong>${f.label} Quick Form</strong>
-                                <span class=\"badge bg-secondary\">opens in farmOS</span>
+                    // Display forms inline instead of opening in new tabs
+                    const formId = `form-${f.key}-${i}`;
+                    wrap.innerHTML = `
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <strong>${f.label} Quick Form</strong>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-success btn-sm" onclick="toggleForm('${formId}', '${url}')">
+                                    <i class="fas fa-eye"></i> Show ${f.label} Form
+                                </button>
+                                <a class="btn btn-outline-secondary btn-sm" href="${url}" target="_blank" rel="noopener">
+                                    <i class="fas fa-external-link-alt"></i> New Tab
+                                </a>
                             </div>
-                            <div class=\"alert alert-info\">This form opens in a new tab due to farmOS security settings (X-Frame-Options).</div>
-                            <div class=\"d-flex gap-2\">
-                                <a class=\"btn btn-primary btn-sm\" href=\"${url}\" target=\"_blank\" rel=\"noopener\"><i class=\"fas fa-external-link-alt\"></i> Open ${f.label}</a>
-                                <button class="btn btn-outline-secondary btn-sm" onclick="copyLink('${encodeURIComponent(url)}')"><i class="fas fa-link"></i> Copy link</button>
+                        </div>
+                        <div id="${formId}" class="form-content" style="display: none;">
+                            <div class="form-loading text-center py-4">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-2">Loading ${f.label.toLowerCase()} form...</p>
                             </div>
-                        `;
-                    } else {
-                        const loading = document.createElement('div');
-                        loading.className = 'loading-indicator';
-                        loading.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading farmOS Quick Form...';
-                        wrap.appendChild(loading);
-
-                        const iframe = document.createElement('iframe');
-                        iframe.className = 'quick-form-iframe';
-                        iframe.src = url;
-                        iframe.title = `${f.label} Quick Form`;
-                        iframe.onload = () => loading.remove();
-                        wrap.appendChild(iframe);
-
-                        setTimeout(() => {
-                            try {
-                                const blocked = !iframe.contentDocument || iframe.contentDocument.body?.childElementCount === 0;
-                                if (blocked) {
-                                    wrap.innerHTML = `
-                                        <div class=\"d-flex align-items-center justify-content-between mb-2\">
-                                            <strong>${f.label} Quick Form</strong>
-                                            <span class=\"badge bg-warning\">API Available</span>
-                                        </div>
-                                        <div class=\"alert alert-success\">Submit directly to farmOS via API.</div>
-                                        <div class=\"d-flex gap-2\">
-                                            <button class=\"btn btn-success btn-sm\" onclick=\"submitViaAPI('${f.key}', ${JSON.stringify(p).replace(/"/g, '&quot;')})\"><i class=\"fas fa-cloud-upload-alt\"></i> Submit via API</button>
-                                            <a class=\"btn btn-outline-primary btn-sm\" href=\"${url}\" target=\"_blank\" rel=\"noopener\"><i class=\"fas fa-external-link-alt\"></i> Open Form</a>
-                                            <button class="btn btn-outline-secondary btn-sm" onclick="copyLink('${encodeURIComponent(url)}')"><i class="fas fa-link"></i> Copy link</button>
-                                        </div>
-                                    `;
-                                }
-                            } catch (_) {
-                                wrap.innerHTML = `
-                                    <div class=\"d-flex align-items-center justify-content-between mb-2\">
-                                        <strong>${f.label} Quick Form</strong>
-                                        <span class=\"badge bg-info\">Manual Entry</span>
-                                    </div>
-                                    <div class=\"alert alert-info\">farmOS API integration available. Copy the link to manually create the log.</div>
-                                    <div class=\"d-flex gap-2\">
-                                        <a class=\"btn btn-primary btn-sm\" href=\"${url}\" target=\"_blank\" rel=\"noopener\"><i class=\"fas fa-external-link-alt\"></i> Open Form</a>
-                                        <button class="btn btn-outline-secondary btn-sm" onclick="copyLink('${encodeURIComponent(url)}')"><i class="fas fa-link"></i> Copy link</button>
-                                    </div>
-                                `;
-                            }
-                        }, 1500);
-                    }
+                        </div>
+                    `;
                 }
                 pane.appendChild(wrap);
             });
@@ -3023,6 +2981,56 @@ NO extra text. Calculate for ${contextPayload.planning_year}.`;
         const panes = document.querySelectorAll('#tabContent .tab-pane');
         buttons.forEach((b, i) => b.classList.toggle('active', i === index));
         panes.forEach((p, i) => p.classList.toggle('active', i === index));
+    }
+
+    async function toggleForm(formId, url) {
+        const formContainer = document.getElementById(formId);
+        const button = event.target.closest('button');
+
+        if (formContainer.style.display === 'none' || formContainer.style.display === '') {
+            // Show the form
+            formContainer.style.display = 'block';
+            button.innerHTML = '<i class="fas fa-eye-slash"></i> Hide Form';
+            button.classList.remove('btn-success');
+            button.classList.add('btn-warning');
+
+            // Load form content if not already loaded
+            if (!formContainer.dataset.loaded) {
+                try {
+                    const response = await fetch(url, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+
+                    if (response.ok) {
+                        const html = await response.text();
+                        // Extract the form content (remove layout wrapper)
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, 'text/html');
+                        const formContent = doc.querySelector('.container') || doc.body;
+
+                        if (formContent) {
+                            formContainer.innerHTML = formContent.innerHTML;
+                            formContainer.dataset.loaded = 'true';
+                        } else {
+                            formContainer.innerHTML = '<div class="alert alert-warning">Could not load form content</div>';
+                        }
+                    } else {
+                        formContainer.innerHTML = '<div class="alert alert-danger">Failed to load form</div>';
+                    }
+                } catch (error) {
+                    console.error('Error loading form:', error);
+                    formContainer.innerHTML = '<div class="alert alert-danger">Error loading form</div>';
+                }
+            }
+        } else {
+            // Hide the form
+            formContainer.style.display = 'none';
+            button.innerHTML = '<i class="fas fa-eye"></i> Show Form';
+            button.classList.remove('btn-warning');
+            button.classList.add('btn-success');
+        }
     }
 
     function copyLink(encodedUrl) {

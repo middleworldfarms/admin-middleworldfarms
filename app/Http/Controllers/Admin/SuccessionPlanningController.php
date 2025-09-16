@@ -291,6 +291,7 @@ class SuccessionPlanningController extends Controller
             'harvest_start' => 'required|date',
             'harvest_end' => 'required|date',
             'bed_ids' => 'nullable|array',
+            'succession_count' => 'nullable|integer|min:1|max:20',
             'use_ai' => 'boolean'
         ]);
 
@@ -352,9 +353,13 @@ class SuccessionPlanningController extends Controller
         // Calculate harvest duration
         $harvestDuration = $harvestStart->diffInDays($harvestEnd);
 
-        // Generate 3 successions by default (can be made configurable later)
-        for ($i = 0; $i < 3; $i++) {
-            $offsetDays = $i * 14; // 2 weeks apart
+        // Use provided succession count or calculate based on duration and typical interval
+        $successionCount = $data['succession_count'] ?? max(1, ceil($harvestDuration / 14)); // Default to 2-week intervals
+        $successionCount = min($successionCount, 20); // Cap at 20 successions max
+
+        // Generate successions based on count
+        for ($i = 0; $i < $successionCount; $i++) {
+            $offsetDays = $i * 14; // 2 weeks apart by default
 
             $successions[] = [
                 'succession_id' => $i + 1,
