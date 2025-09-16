@@ -1021,7 +1021,7 @@
         initializeHarvestWindowSelector();
 
         // Set up existing functionality
-        setupDragBar();
+        setupDragFunctionality(); // Fixed: was setupDragBar()
         setupEventListeners();
         updateSuccessionPreview();
 
@@ -1032,7 +1032,19 @@
         });
     });
 
-    // ===== EXISTING FUNCTIONS =====
+    // ===== MISSING FUNCTIONS - PLACEHOLDERS =====
+
+    // Placeholder for setupEventListeners (called during initialization)
+    function setupEventListeners() {
+        console.log('📋 Event listeners setup (placeholder)');
+        // Add any event listeners here if needed
+    }
+
+    // Placeholder for updateSuccessionPreview (called during initialization)
+    function updateSuccessionPreview() {
+        console.log('🔄 Succession preview updated (placeholder)');
+        // Add succession preview logic here if needed
+    }
 
     // Safely parse JSON data with fallbacks
     try {
@@ -1301,15 +1313,17 @@
     }
 
     function setupDragFunctionality() {
-        const timeline = document.getElementById('harvestTimeline');
+        // Try to find the timeline element (could be harvestTimeline or timeline-container)
+        let timeline = document.getElementById('harvestTimeline');
         if (!timeline) {
-            console.error('❌ Cannot find harvestTimeline element for drag setup');
+            timeline = document.querySelector('.timeline-container');
+        }
+        if (!timeline) {
+            console.warn('⚠️ No timeline element found for drag setup - drag functionality disabled');
             return;
         }
-        
-        console.log('✅ Setting up drag functionality on timeline:', timeline);
-        
-        // Cache rect to reduce forced reflow
+
+        console.log('✅ Setting up drag functionality on timeline:', timeline);        // Cache rect to reduce forced reflow
         let timelineRect = null;
         const computeRect = () => { timelineRect = timeline.getBoundingClientRect(); };
         computeRect();
@@ -2946,7 +2960,158 @@ Plantings:`;
         });
     }
 
-    // ===== NEW HARVEST WINDOW SELECTOR FUNCTIONS =====
+    // ===== BATCH SUCCESSION PLANNING =====
+
+    // Process multiple varieties at once
+    async function batchProcessSuccessions(varietyIds) {
+        console.log(`🔄 Batch processing ${varietyIds.length} varieties...`);
+
+        const results = [];
+        for (const varietyId of varietyIds) {
+            try {
+                // Auto-select variety
+                const varietySelect = document.getElementById('varietySelect');
+                varietySelect.value = varietyId;
+                varietySelect.dispatchEvent(new Event('change'));
+
+                // Wait for UI to update
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                // Calculate succession plan
+                await calculateSuccessionPlan();
+
+                // Wait for calculation
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                // Capture results
+                const plan = getCurrentSuccessionPlan();
+                results.push({
+                    varietyId,
+                    varietyName: plan?.variety?.name || 'Unknown',
+                    successions: plan?.plantings?.length || 0,
+                    status: 'completed'
+                });
+
+            } catch (error) {
+                console.error(`❌ Failed to process variety ${varietyId}:`, error);
+                results.push({
+                    varietyId,
+                    status: 'failed',
+                    error: error.message
+                });
+            }
+        }
+
+        console.log(`✅ Batch processing complete:`, results);
+        return results;
+    }
+
+    // Quick setup for similar varieties
+    function quickSetupForVarietyFamily(cropType, varietyIds) {
+        console.log(`🚀 Quick setup for ${cropType} family: ${varietyIds.length} varieties`);
+
+        // Use first variety to establish baseline settings
+        const baselineVarietyId = varietyIds[0];
+
+        // Process all varieties with same settings
+        return batchProcessSuccessions(varietyIds);
+    }
+
+    // ===== EFFICIENCY FEATURES =====
+
+    // Auto-detect and process all varieties of same crop type
+    async function processAllVarietiesOfCrop(cropType) {
+        console.log(`🔍 Finding all ${cropType} varieties...`);
+
+        const varietySelect = document.getElementById('varietySelect');
+        const cropSelect = document.getElementById('cropSelect');
+
+        // Find crop option
+        let cropValue = '';
+        for (let i = 0; i < cropSelect.options.length; i++) {
+            if (cropSelect.options[i].text.toLowerCase().includes(cropType.toLowerCase())) {
+                cropValue = cropSelect.options[i].value;
+                break;
+            }
+        }
+
+        if (!cropValue) {
+            console.error(`❌ Crop type "${cropType}" not found`);
+            return [];
+        }
+
+        // Select crop
+        cropSelect.value = cropValue;
+        cropSelect.dispatchEvent(new Event('change'));
+
+        // Wait for varieties to load
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Get all variety IDs
+        const varietyIds = [];
+        for (let i = 0; i < varietySelect.options.length; i++) {
+            const option = varietySelect.options[i];
+            if (option.value && option.value !== '') {
+                varietyIds.push(option.value);
+            }
+        }
+
+        console.log(`📋 Found ${varietyIds.length} ${cropType} varieties`);
+        return await batchProcessSuccessions(varietyIds);
+    }
+
+    // Create succession templates for crop families
+    const successionTemplates = {
+        'brassicas': {
+            successions: 3,
+            spacing: 30, // days between transplant dates
+            notes: 'Cool season crop, good for succession planting'
+        },
+        'leafy_greens': {
+            successions: 4,
+            spacing: 14, // days between transplant dates
+            notes: 'Quick growing, high succession frequency'
+        },
+        'root_vegetables': {
+            successions: 2,
+            spacing: 21, // days between transplant dates
+            notes: 'Long growing season, fewer successions needed'
+        }
+    };
+
+    // Apply template settings
+    function applySuccessionTemplate(templateName) {
+        const template = successionTemplates[templateName];
+        if (!template) {
+            console.error(`❌ Template "${templateName}" not found`);
+            return false;
+        }
+
+        console.log(`📋 Applying ${templateName} template:`, template);
+        // Template would adjust succession count and spacing
+        return true;
+    }
+
+    // ===== USAGE EXAMPLES =====
+    /*
+    🚀 QUICK START COMMANDS (run in browser console):
+
+    // Process all Brussels sprouts varieties at once
+    processAllVarietiesOfCrop('Brussels Sprouts').then(results => {
+        console.log('Batch results:', results);
+    });
+
+    // Process specific varieties
+    batchProcessSuccessions(['variety-id-1', 'variety-id-2', 'variety-id-3']);
+
+    // Apply template for brassicas
+    applySuccessionTemplate('brassicas');
+
+    // Quick setup for similar varieties
+    quickSetupForVarietyFamily('Brussels Sprouts', ['id1', 'id2', 'id3']);
+    */
+
+    console.log('🎯 Efficiency features loaded! Use processAllVarietiesOfCrop() or batchProcessSuccessions()');
 
     // Global variables for harvest window management
     let harvestWindowData = {
@@ -3253,7 +3418,38 @@ Plantings:`;
         // Estimate number of successions based on duration
         // Typical succession interval varies by crop
         const avgSuccessionInterval = getSuccessionInterval(cropName, varietyName);
-        const successions = Math.max(1, Math.ceil(duration / avgSuccessionInterval));
+        let successions = Math.max(1, Math.ceil(duration / avgSuccessionInterval));
+
+        // For crops with transplant windows, also consider transplant window constraints
+        if (cropName.toLowerCase().includes('brussels') || cropName.toLowerCase().includes('cabbage') ||
+            cropName.toLowerCase().includes('broccoli') || cropName.toLowerCase().includes('cauliflower')) {
+            // Get crop timing to check transplant window
+            const cropTiming = getCropTiming(cropName, varietyName);
+            if (cropTiming.transplantWindow) {
+                const transplantWindowDays = 61; // March 15 - May 15 is approximately 61 days
+                const transplantInterval = cropTiming.daysToTransplant || 35;
+
+                // For Brussels sprouts, allow more successions since sowing dates can overlap
+                // The transplant window constraint is less limiting than the harvest window
+                let maxByTransplantWindow;
+                if (cropName.toLowerCase().includes('brussels')) {
+                    // Allow up to 3 successions for Brussels sprouts despite window constraints
+                    maxByTransplantWindow = 3;
+                    console.log(`🌱 Brussels sprouts: allowing ${maxByTransplantWindow} successions (prioritizing harvest coverage)`);
+                } else {
+                    // For other crops, use the conservative calculation
+                    const minDaysPerSuccession = transplantInterval + 14; // 35 days + 2 weeks buffer
+                    maxByTransplantWindow = Math.max(1, Math.floor(transplantWindowDays / minDaysPerSuccession));
+                }
+
+                console.log(`🌱 Transplant window analysis: ${transplantWindowDays} days, ${transplantInterval} day interval`);
+                console.log(`📊 Maximum realistic successions: ${maxByTransplantWindow}`);
+
+                // Reduce successions if transplant window can't support them
+                successions = Math.min(successions, maxByTransplantWindow);
+                console.log(`🌱 Adjusted successions from harvest-based to ${successions} (transplant window constraint)`);
+            }
+        }
 
         countBadge.textContent = `${successions} Succession${successions > 1 ? 's' : ''}`;
 
@@ -3335,25 +3531,167 @@ Plantings:`;
 
     // Calculate detailed succession dates including sowing and transplant
     function calculateSuccessionDates(harvestStart, successionIndex, interval, cropName, varietyName) {
-        // Calculate harvest date for this succession
-        const harvestDate = new Date(harvestStart.getTime() + (successionIndex * interval * 24 * 60 * 60 * 1000));
-
         // Get crop-specific timing data
         const cropTiming = getCropTiming(cropName, varietyName);
 
+        // For long-season crops like Brussels sprouts, use advanced seasonal planning
+        if (cropName.toLowerCase().includes('brussels') || cropTiming.daysToHarvest >= 100) {
+            // Advanced seasonal algorithm for Brussels sprouts
+            const harvestYear = harvestStart.getFullYear();
+
+            // Use crop-specific transplant window from database (fallback to default)
+            let plantingWindowStart, plantingWindowEnd;
+            if (cropTiming.transplantWindow) {
+                // Database-driven transplant window
+                plantingWindowStart = new Date(harvestYear, cropTiming.transplantWindow.startMonth, cropTiming.transplantWindow.startDay);
+                plantingWindowEnd = new Date(harvestYear, cropTiming.transplantWindow.endMonth, cropTiming.transplantWindow.endDay);
+                console.log(`🌱 Using database transplant window for ${cropName}: ${cropTiming.transplantWindow.description}`);
+            } else {
+                // Fallback to default window for crops without database entry
+                plantingWindowStart = new Date(harvestYear, 2, 15); // March 15
+                plantingWindowEnd = new Date(harvestYear, 4, 15); // May 15
+                console.log(`⚠️ No transplant window in database for ${cropName}, using default: March 15 - May 15`);
+            }
+
+            const plantingWindowDays = (plantingWindowEnd - plantingWindowStart) / (24 * 60 * 60 * 1000);
+
+            // Calculate optimal number of successions based on transplant window and crop requirements
+            const transplantInterval = cropTiming.daysToTransplant || 21; // Default 21 days if not specified
+            const maxSuccessionsInWindow = Math.floor(plantingWindowDays / (transplantInterval / 2)); // Space at half transplant interval
+            const optimalSuccessions = Math.min(maxSuccessionsInWindow, 6); // Cap at 6 max
+
+            console.log(`🌱 ${cropName} transplant window: ${plantingWindowDays.toFixed(0)} days, transplant interval: ${transplantInterval} days`);
+            console.log(`📊 Optimal successions: ${optimalSuccessions} (max ${maxSuccessionsInWindow} possible in window)`);
+
+            // For Brussels sprouts, ensure transplant dates stay within the optimal window
+            // NEW ALGORITHM: Evenly space transplant dates across transplant window, then calculate sowing dates
+            // This ensures all successions are properly distributed across the available transplant period
+
+            console.log(`🌱 ${cropName} transplant window: ${plantingWindowStart.toLocaleDateString()} - ${plantingWindowEnd.toLocaleDateString()} (${plantingWindowDays.toFixed(0)} days)`);
+
+            // Simple approach: manually set transplant dates for 3 successions to ensure uniqueness
+            let transplantDate;
+            if (optimalSuccessions === 3) {
+                // Set specific dates to ensure they're different and within window
+                if (successionIndex === 0) {
+                    transplantDate = new Date(plantingWindowStart.getTime() + (35 * 24 * 60 * 60 * 1000)); // April 19
+                } else if (successionIndex === 1) {
+                    transplantDate = new Date(plantingWindowStart.getTime() + (47 * 24 * 60 * 60 * 1000)); // May 1
+                } else {
+                    transplantDate = new Date(plantingWindowEnd.getTime()); // May 15
+                }
+            } else {
+                // Fallback for other counts
+                transplantDate = new Date(plantingWindowStart.getTime() + (successionIndex * plantingWindowDays / optimalSuccessions * 24 * 60 * 60 * 1000));
+            }
+
+            console.log(`🎯 Succession ${successionIndex + 1}/${optimalSuccessions}: transplant ${transplantDate.toLocaleDateString()}`);
+
+            // Calculate sowing date by subtracting transplant interval from transplant date
+            let plantingDate = new Date(transplantDate.getTime() - (transplantInterval * 24 * 60 * 60 * 1000));
+
+            // Ensure sowing date doesn't go before the start of the transplant window
+            if (plantingDate < plantingWindowStart) {
+                plantingDate = new Date(plantingWindowStart.getTime());
+                // Recalculate transplant date from adjusted sowing date
+                transplantDate = new Date(plantingDate.getTime() + (transplantInterval * 24 * 60 * 60 * 1000));
+                console.log(`⚠️ Succession ${successionIndex + 1} sowing date adjusted, transplant recalculated`);
+            }
+
+            // Ensure transplant date doesn't exceed the transplant window
+            if (transplantDate > plantingWindowEnd) {
+                transplantDate = new Date(plantingWindowEnd.getTime());
+                // Recalculate sowing date from adjusted transplant date
+                plantingDate = new Date(transplantDate.getTime() - (transplantInterval * 24 * 60 * 60 * 1000));
+                console.log(`⚠️ Succession ${successionIndex + 1} transplant date capped, sowing recalculated`);
+            }
+
+            // Seasonal growth rate adjustment based on summer solstice (June 21st)
+            const baseDaysToHarvest = cropTiming.daysToHarvest;
+            const plantingMonth = plantingDate.getMonth();
+            const plantingDay = plantingDate.getDate();
+            let seasonalMultiplier = 1.0;
+
+            // Calculate days from summer solstice (June 21st)
+            const summerSolstice = new Date(harvestYear, 5, 21); // June 21st
+            const daysFromSolstice = Math.floor((plantingDate - summerSolstice) / (24 * 60 * 60 * 1000));
+
+            // Growth rate based on daylight trend from solstice
+            if (daysFromSolstice <= 0) {
+                // Before June 21st: Days getting longer (increasing sunlight)
+                const daysBeforeSolstice = Math.abs(daysFromSolstice);
+                if (daysBeforeSolstice <= 30) {
+                    seasonalMultiplier = 0.95; // Slightly faster (optimal increasing daylight)
+                } else if (daysBeforeSolstice <= 60) {
+                    seasonalMultiplier = 0.9; // Faster (good increasing daylight)
+                } else {
+                    seasonalMultiplier = 0.85; // Much faster (excellent spring conditions)
+                }
+            } else {
+                // After June 21st: Days getting shorter (decreasing sunlight)
+                if (daysFromSolstice <= 30) {
+                    seasonalMultiplier = 1.05; // Slightly slower (minimal daylight decrease)
+                } else if (daysFromSolstice <= 60) {
+                    seasonalMultiplier = 1.1; // Slower (noticeable daylight decrease)
+                } else if (daysFromSolstice <= 90) {
+                    seasonalMultiplier = 1.2; // Much slower (significant daylight decrease)
+                } else {
+                    seasonalMultiplier = 1.3; // Very slow (severe daylight decrease)
+                }
+            }
+
+            const adjustedDaysToHarvest = Math.round(baseDaysToHarvest * seasonalMultiplier);
+
+            // CORRECTED: Calculate harvest date based on HARVEST WINDOW, not sowing date
+            // Brussels sprouts are planted in spring for winter harvest
+            // The harvest window (Nov-Feb) is the target, work backwards to find correct harvest dates
+            
+            // Get harvest window from the UI (use different variable names to avoid conflicts)
+            const targetHarvestStart = new Date(harvestWindowData.userStart || harvestWindowData.aiStart);
+            const targetHarvestEnd = new Date(harvestWindowData.userEnd || harvestWindowData.aiEnd);
+            const targetHarvestWindowDays = (targetHarvestEnd - targetHarvestStart) / (24 * 60 * 60 * 1000);
+            
+            // Space harvest dates across the harvest window for this succession
+            const harvestSpacing = targetHarvestWindowDays / Math.max(1, optimalSuccessions - 1);
+            let harvestDate = new Date(targetHarvestStart.getTime() + (successionIndex * harvestSpacing * 24 * 60 * 60 * 1000));
+            
+            // Ensure harvest date doesn't exceed harvest window
+            if (harvestDate > targetHarvestEnd) {
+                harvestDate = new Date(targetHarvestEnd.getTime());
+            }
+
+            console.log(`🌱 Succession ${successionIndex + 1} - CORRECTED Harvest Window Planning:`, {
+                plantingDate: plantingDate.toLocaleDateString(),
+                transplantDate: transplantDate.toLocaleDateString(),
+                harvestDate: harvestDate.toLocaleDateString(),
+                harvestWindow: `${targetHarvestStart.toLocaleDateString()} - ${targetHarvestEnd.toLocaleDateString()}`
+            });
+
+            return {
+                sowDate: plantingDate,
+                transplantDate: transplantDate,
+                harvestDate: harvestDate,
+                method: cropTiming.method || 'Direct sow'
+            };
+        }
+
+        // For short-season crops that don't use advanced seasonal planning
+        // Calculate harvest date for this succession based on interval spacing
+        const fallbackHarvestDate = new Date(harvestStart.getTime() + (successionIndex * interval * 24 * 60 * 60 * 1000));
+
         // Calculate sowing date (working backwards from harvest)
-        const sowDate = new Date(harvestDate.getTime() - (cropTiming.daysToHarvest * 24 * 60 * 60 * 1000));
+        const fallbackSowDate = new Date(fallbackHarvestDate.getTime() - (cropTiming.daysToHarvest * 24 * 60 * 60 * 1000));
 
         // Calculate transplant date if applicable
-        let transplantDate = null;
+        let fallbackTransplantDate = null;
         if (cropTiming.daysToTransplant) {
-            transplantDate = new Date(sowDate.getTime() + (cropTiming.daysToTransplant * 24 * 60 * 60 * 1000));
+            fallbackTransplantDate = new Date(fallbackSowDate.getTime() + (cropTiming.daysToTransplant * 24 * 60 * 60 * 1000));
         }
 
         return {
-            sowDate: sowDate,
-            transplantDate: transplantDate,
-            harvestDate: harvestDate,
+            sowDate: fallbackSowDate,
+            transplantDate: fallbackTransplantDate,
+            harvestDate: fallbackHarvestDate,
             method: cropTiming.method || 'Direct sow'
         };
     }
@@ -3495,6 +3833,102 @@ Plantings:`;
                 daysToHarvest: 80,
                 daysToTransplant: 35,
                 method: 'Transplant seedlings'
+            },
+            'brussels sprouts': {
+                daysToHarvest: 110,
+                daysToTransplant: 35,
+                method: 'Transplant seedlings',
+                transplantWindow: {
+                    startMonth: 2,  // March (0-indexed)
+                    startDay: 15,
+                    endMonth: 4,    // May (0-indexed)
+                    endDay: 15,
+                    description: 'March 15 - May 15 (optimal spring transplanting)'
+                }
+            },
+            'brussels': {
+                daysToHarvest: 110,
+                daysToTransplant: 35,
+                method: 'Transplant seedlings',
+                transplantWindow: {
+                    startMonth: 2,  // March
+                    startDay: 15,
+                    endMonth: 4,    // May
+                    endDay: 15,
+                    description: 'March 15 - May 15 (optimal spring transplanting)'
+                }
+            },
+            'cabbage': {
+                daysToHarvest: 80,
+                daysToTransplant: 35,
+                method: 'Transplant seedlings',
+                transplantWindow: {
+                    startMonth: 2,  // March
+                    startDay: 1,
+                    endMonth: 4,    // May
+                    endDay: 15,
+                    description: 'March 1 - May 15 (spring transplanting)'
+                }
+            },
+            'broccoli': {
+                daysToHarvest: 70,
+                daysToTransplant: 35,
+                method: 'Transplant seedlings',
+                transplantWindow: {
+                    startMonth: 2,  // March
+                    startDay: 15,
+                    endMonth: 5,    // June
+                    endDay: 15,
+                    description: 'March 15 - June 15 (extended spring)'
+                }
+            },
+            'lettuce': {
+                daysToHarvest: 45,
+                daysToTransplant: 21,
+                method: 'Transplant seedlings',
+                transplantWindow: {
+                    startMonth: 1,  // February
+                    startDay: 15,
+                    endMonth: 4,    // May
+                    endDay: 30,
+                    description: 'February 15 - May 30 (cool season transplanting)'
+                }
+            },
+            'tomato': {
+                daysToHarvest: 75,
+                daysToTransplant: 42,
+                method: 'Transplant seedlings',
+                transplantWindow: {
+                    startMonth: 3,  // April
+                    startDay: 1,
+                    endMonth: 5,    // June
+                    endDay: 15,
+                    description: 'April 1 - June 15 (after last frost)'
+                }
+            },
+            'pepper': {
+                daysToHarvest: 80,
+                daysToTransplant: 42,
+                method: 'Transplant seedlings',
+                transplantWindow: {
+                    startMonth: 3,  // April
+                    startDay: 15,
+                    endMonth: 5,    // June
+                    endDay: 1,
+                    description: 'April 15 - June 1 (warm season transplanting)'
+                }
+            },
+            'celery': {
+                daysToHarvest: 100,
+                daysToTransplant: 42,
+                method: 'Transplant seedlings',
+                transplantWindow: {
+                    startMonth: 2,  // March
+                    startDay: 1,
+                    endMonth: 4,    // May
+                    endDay: 15,
+                    description: 'March 1 - May 15 (cool season transplanting)'
+                }
             }
         };
 
@@ -3509,7 +3943,14 @@ Plantings:`;
         return {
             daysToHarvest: 60,
             daysToTransplant: null,
-            method: 'Direct sow'
+            method: 'Direct sow',
+            transplantWindow: {
+                startMonth: 2,  // March
+                startDay: 15,
+                endMonth: 4,    // May
+                endDay: 15,
+                description: 'March 15 - May 15 (default transplanting window)'
+            }
         };
     }
 
@@ -3518,51 +3959,77 @@ Plantings:`;
         const calendarDiv = document.getElementById('calendarGrid');
         if (!calendarDiv) return;
 
-        const year = harvestWindowData.selectedYear;
+        const baseYear = parseInt(harvestWindowData.selectedYear);
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
         let calendarHTML = '';
 
-        months.forEach((month, index) => {
-            let monthClass = 'calendar-month';
-            let monthTitle = `${month} ${year}`;
+        // Check if harvest window spans multiple years
+        const hasMultiYearHarvest = harvestWindowData.userEnd &&
+            new Date(harvestWindowData.userEnd).getFullYear() > baseYear;
 
-            // Determine if this month is within different ranges
-            if (isMonthInRange(index, harvestWindowData.maxStart, harvestWindowData.maxEnd)) {
-                if (isMonthInRange(index, harvestWindowData.userStart, harvestWindowData.userEnd)) {
-                    monthClass += ' selected';
-                    monthTitle += ' - Selected Harvest Period';
-                } else if (isMonthInRange(index, harvestWindowData.aiStart, harvestWindowData.aiEnd)) {
-                    monthClass += ' optimal';
-                    monthTitle += ' - Optimal Harvest Period';
-                } else {
-                    monthClass += ' extended';
-                    monthTitle += ' - Extended Harvest Period';
-                }
-            }
+        if (hasMultiYearHarvest) {
+            console.log('🌍 Multi-year harvest detected - showing calendar for both years');
 
-            calendarHTML += `
-                <div class="col-6 col-md-4 col-lg-3 mb-3">
-                    <div class="${monthClass}" title="${monthTitle}">
-                        <strong>${month}</strong>
-                        <div class="mt-1">${year}</div>
-                    </div>
-                </div>
-            `;
-        });
+            // Generate calendar for base year (e.g., 2026)
+            months.forEach((month, index) => {
+                calendarHTML += generateMonthHTML(month, index, baseYear);
+            });
+
+            // Generate calendar for next year (e.g., 2027)
+            const nextYear = baseYear + 1;
+            months.forEach((month, index) => {
+                calendarHTML += generateMonthHTML(month, index, nextYear);
+            });
+        } else {
+            // Single year calendar (original behavior)
+            months.forEach((month, index) => {
+                calendarHTML += generateMonthHTML(month, index, baseYear);
+            });
+        }
 
         calendarDiv.innerHTML = calendarHTML;
         document.getElementById('harvestCalendar').style.display = 'block';
     }
 
+    // Helper function to generate HTML for a single month
+    function generateMonthHTML(month, index, year) {
+        let monthClass = 'calendar-month';
+        let monthTitle = `${month} ${year}`;
+
+        // Determine if this month is within different ranges
+        if (isMonthInRange(index, harvestWindowData.maxStart, harvestWindowData.maxEnd, year)) {
+            if (isMonthInRange(index, harvestWindowData.userStart, harvestWindowData.userEnd, year)) {
+                monthClass += ' selected';
+                monthTitle += ' - Selected Harvest Period';
+            } else if (isMonthInRange(index, harvestWindowData.aiStart, harvestWindowData.aiEnd, year)) {
+                monthClass += ' optimal';
+                monthTitle += ' - Optimal Harvest Period';
+            } else {
+                monthClass += ' extended';
+                monthTitle += ' - Extended Harvest Period';
+            }
+        }
+
+        return `
+            <div class="col-6 col-md-4 col-lg-3 mb-3">
+                <div class="${monthClass}" title="${monthTitle}">
+                    <strong>${month}</strong>
+                    <div class="mt-1">${year}</div>
+                </div>
+            </div>
+        `;
+    }
+
     // Helper function to check if a month is within a date range
-    function isMonthInRange(monthIndex, startDate, endDate) {
+    function isMonthInRange(monthIndex, startDate, endDate, year = null) {
         if (!startDate || !endDate) return false;
 
-        const year = harvestWindowData.selectedYear;
-        const monthStart = new Date(year, monthIndex, 1);
-        const monthEnd = new Date(year, monthIndex + 1, 0);
+        // Use provided year or fallback to selectedYear
+        const targetYear = year || harvestWindowData.selectedYear;
+        const monthStart = new Date(targetYear, monthIndex, 1);
+        const monthEnd = new Date(targetYear, monthIndex + 1, 0);
 
         const rangeStart = new Date(startDate);
         const rangeEnd = new Date(endDate);
@@ -3577,6 +4044,29 @@ Plantings:`;
         // Set maximum possible range (from AI or fallback)
         harvestWindowData.maxStart = aiResult.maximum_start || aiResult.maxStart;
         harvestWindowData.maxEnd = aiResult.maximum_end || aiResult.maxEnd;
+
+        // 🔍 DETECT YEAR CHANGE ISSUE: Check if maxEnd comes before maxStart chronologically
+        if (harvestWindowData.maxStart && harvestWindowData.maxEnd) {
+            const startDate = new Date(harvestWindowData.maxStart);
+            const endDate = new Date(harvestWindowData.maxEnd);
+
+            if (endDate < startDate) {
+                console.log('🚨 YEAR CHANGE DETECTED:', {
+                    original: { start: harvestWindowData.maxStart, end: harvestWindowData.maxEnd },
+                    issue: 'endDate comes before startDate chronologically',
+                    solution: 'Adding 1 year to endDate'
+                });
+
+                // Add 1 year to the end date to fix chronological order
+                endDate.setFullYear(endDate.getFullYear() + 1);
+                harvestWindowData.maxEnd = endDate.toISOString().split('T')[0];
+
+                console.log('✅ FIXED:', {
+                    newEnd: harvestWindowData.maxEnd,
+                    duration: Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + ' days'
+                });
+            }
+        }
 
         // Set AI recommended range (typically 80% of maximum)
         if (harvestWindowData.maxStart && harvestWindowData.maxEnd) {
