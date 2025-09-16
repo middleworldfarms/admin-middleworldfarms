@@ -1387,18 +1387,25 @@
 
         try {
             console.log('🌱 Fetching variety info for ID:', varietyId);
+            console.log('🌐 Making request to:', `/admin/farmos/succession-planning/varieties/${varietyId}`);
             
             // Use the existing succession planning variety endpoint
-            const response = await fetch(`/admin/succession-planning/varieties/${varietyId}`, {
+            const response = await fetch(`/admin/farmos/succession-planning/varieties/${varietyId}`, {
                 method: 'GET',
                 headers: {
                     'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/json'
                 },
                 credentials: 'same-origin'
             });
 
+            console.log('📡 Response status:', response.status);
+            console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+
             if (!response.ok) {
+                const errorText = await response.text();
+                console.error('❌ API Error Response:', errorText);
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
@@ -1409,10 +1416,15 @@
                 return data.variety;
             } else {
                 console.warn('⚠️ Variety API returned success=false or no variety data');
+                console.warn('⚠️ Full response:', data);
                 return null;
             }
         } catch (error) {
             console.error('❌ Error fetching variety info:', error);
+            console.error('❌ Error details:', {
+                message: error.message,
+                stack: error.stack
+            });
             return null;
         }
     }
@@ -1482,6 +1494,8 @@
 
     // Handle variety selection and fetch/display info
     async function handleVarietySelection(varietyId) {
+        console.log('🎯 handleVarietySelection called with ID:', varietyId);
+        
         const container = document.getElementById('varietyInfoContainer');
         const loading = document.getElementById('varietyLoading');
         const error = document.getElementById('varietyError');
@@ -1489,6 +1503,7 @@
 
         if (!varietyId) {
             // No variety selected
+            console.log('📝 No variety selected, showing default state');
             container.style.display = 'none';
             loading.style.display = 'none';
             error.style.display = 'none';
@@ -1497,25 +1512,30 @@
         }
 
         // Show loading state
+        console.log('⏳ Showing loading state');
         container.style.display = 'block';
         loading.style.display = 'block';
         error.style.display = 'none';
         noSelection.style.display = 'none';
 
         try {
+            console.log('🔍 Calling fetchVarietyInfo...');
             // Fetch variety information
             const varietyData = await fetchVarietyInfo(varietyId);
+            console.log('📊 Variety data result:', varietyData);
             
             if (varietyData) {
+                console.log('✅ Displaying variety data');
                 displayVarietyInfo(varietyData);
             } else {
                 // Show error state
+                console.log('❌ No variety data received, showing error');
                 loading.style.display = 'none';
                 error.style.display = 'block';
                 container.style.display = 'block';
             }
         } catch (err) {
-            console.error('❌ Error handling variety selection:', err);
+            console.error('❌ Error in handleVarietySelection:', err);
             loading.style.display = 'none';
             error.style.display = 'block';
             container.style.display = 'block';
