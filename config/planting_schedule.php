@@ -18,7 +18,7 @@ return [
             'row_spacing_cm' => 20,
             'in_row_spacing_cm' => 25,
             'transplant_lead_weeks' => 4,
-            'notes' => 'Aim for steady weekly salad supply.'
+            'notes' => 'Aim for steady fortnightly salad supply.'
         ],
         'carrot' => [
             'name' => 'Carrot',

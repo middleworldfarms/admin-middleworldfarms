@@ -3733,7 +3733,7 @@ Plantings:`;
         const intervals = {
             'carrot': 14, // 2 weeks
             'beetroot': 21, // 3 weeks
-            'lettuce': 7, // 1 week
+            'lettuce': 14, // 2 weeks (fortnightly)
             'radish': 7, // 1 week
             'onion': 21, // 3 weeks
             'spinach': 10, // 10 days
