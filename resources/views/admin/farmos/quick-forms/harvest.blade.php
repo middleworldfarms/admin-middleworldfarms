@@ -7,15 +7,6 @@
     <div class="row">
         <div class="col-12">
             <div class="card">
-                <div class="card-header">
-                    <h4 class="card-title">
-                        <i class="fas fa-tractor text-danger"></i>
-                        Quick Harvest Form
-                        @if(request('succession_number'))
-                            <small class="text-muted">| Succession {{ request('succession_number') }}</small>
-                        @endif
-                    </h4>
-                </div>
                 <div class="card-body">
                     <form id="harvestForm" method="POST" action="{{ route('admin.farmos.succession-planning.submit-log') }}">
                         @csrf

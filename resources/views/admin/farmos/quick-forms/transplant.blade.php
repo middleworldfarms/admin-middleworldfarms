@@ -7,19 +7,10 @@
     <div class="row">
         <div class="col-12">
             <div class="card">
-                <div class="card-header">
-                    <h4 class="card-title">
-                        <i class="fas fa-hand-paper text-warning"></i>
-                        Quick Transplant Form
-                        @if(request('succession_number'))
-                            <small class="text-muted">| Succession {{ request('succession_number') }}</small>
-                        @endif
-                    </h4>
-                </div>
                 <div class="card-body">
                     <form id="transplantForm" method="POST" action="{{ route('admin.farmos.succession-planning.submit-log') }}">
                         @csrf
-                        <input type="hidden" name="log_type" value="transplanting">
+                        <input type="hidden" name="log_type" value="transplant">
 
                         <!-- Succession Info -->
                         @if(request('succession_number'))

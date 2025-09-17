@@ -7,15 +7,6 @@
     <div class="row">
         <div class="col-12">
             <div class="card">
-                <div class="card-header">
-                    <h4 class="card-title">
-                        <i class="fas fa-seedling text-success"></i>
-                        Quick Seeding Form
-                        @if(request('succession_number'))
-                            <small class="text-muted">| Succession {{ request('succession_number') }}</small>
-                        @endif
-                    </h4>
-                </div>
                 <div class="card-body">
                     <form id="seedingForm" method="POST" action="{{ route('admin.farmos.succession-planning.submit-log') }}">
                         @csrf
