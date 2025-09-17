@@ -1059,6 +1059,7 @@
         setupDragFunctionality(); // Fixed: was setupDragBar()
         setupEventListeners();
         updateSuccessionPreview();
+        updateExportButton(); // Initialize export button state
 
         // Initialize Bootstrap tooltips
         const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
@@ -1282,6 +1283,30 @@
         document.body.removeChild(link);
 
         console.log('📊 Exported succession plan as CSV');
+    }
+
+    // Update export button state based on whether there's a plan to export
+    function updateExportButton() {
+        try {
+            const exportBtn = document.querySelector('button[onclick="exportSuccessionPlan()"]');
+            console.log('🔍 Looking for export button:', exportBtn);
+            
+            if (exportBtn) {
+                if (currentSuccessionPlan && currentSuccessionPlan.plantings && currentSuccessionPlan.plantings.length > 0) {
+                    exportBtn.disabled = false;
+                    exportBtn.classList.remove('disabled');
+                    console.log('✅ Export button enabled - plan available');
+                } else {
+                    exportBtn.disabled = true;
+                    exportBtn.classList.add('disabled');
+                    console.log('🚫 Export button disabled - no plan available');
+                }
+            } else {
+                console.warn('⚠️ Export button not found in DOM');
+            }
+        } catch (error) {
+            console.error('❌ Error in updateExportButton:', error);
+        }
     }
 
     // Filter the variety dropdown by selected crop
@@ -2834,7 +2859,12 @@ NO extra text. Calculate for ${contextPayload.planning_year}.`;
             renderSuccessionSummary(currentSuccessionPlan);
             renderQuickFormTabs(currentSuccessionPlan);
             document.getElementById('resultsSection').style.display = 'block';
-            updateExportButton();
+            
+            // Delay updateExportButton to ensure DOM is ready
+            setTimeout(() => {
+                updateExportButton();
+            }, 100);
+            
             // testQuickFormUrls(); // Function not defined
         } catch (e) {
             console.error('Failed to calculate plan:', e);
