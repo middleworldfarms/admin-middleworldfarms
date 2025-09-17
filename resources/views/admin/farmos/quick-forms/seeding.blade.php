@@ -29,7 +29,9 @@
                             @if(request('crop_name'))
                                 - {{ request('crop_name') }}
                                 @if(request('variety_name') && request('variety_name') !== 'Generic')
-                                    ({{ request('variety_name') })
+                                    @if(request('variety_name') && request('variety_name') !== 'Generic')
+                                ({{ request('variety_name') }})
+                            @endif
                                 @endif
                             @endif
                         </div>
