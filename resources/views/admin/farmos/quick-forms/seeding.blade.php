@@ -17,7 +17,7 @@
                     </h4>
                 </div>
                 <div class="card-body">
-                    <form id="seedingForm" method="POST" action="{{ route('admin.farmos.logs.store') }}">
+                    <form id="seedingForm" method="POST" action="{{ route('admin.farmos.succession-planning.submit-log') }}">
                         @csrf
                         <input type="hidden" name="log_type" value="seeding">
 

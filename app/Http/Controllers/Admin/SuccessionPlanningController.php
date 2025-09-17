@@ -2365,18 +2365,57 @@ class SuccessionPlanningController extends Controller
     public function submitLog(Request $request)
     {
         try {
-            $validated = $request->validate([
-                'log_type' => 'required|in:seeding,transplant,harvest',
-                'data' => 'required|array',
-                'data.crop_name' => 'required|string',
-                'data.variety_name' => 'required|string',
-                'data.bed_name' => 'required|string',
-                'data.quantity' => 'required|integer',
-                'data.succession_number' => 'required|integer',
-            ]);
+            // Handle both formats: nested data array (API) and direct form fields (quick forms)
+            if ($request->has('data')) {
+                // API format with nested data
+                $validated = $request->validate([
+                    'log_type' => 'required|in:seeding,transplant,harvest',
+                    'data' => 'required|array',
+                    'data.crop_name' => 'required|string',
+                    'data.variety_name' => 'required|string',
+                    'data.bed_name' => 'required|string',
+                    'data.quantity' => 'required|integer',
+                    'data.succession_number' => 'required|integer',
+                ]);
 
-            $logType = $validated['log_type'];
-            $data = $validated['data'];
+                $logType = $validated['log_type'];
+                $data = $validated['data'];
+            } else {
+                // Quick form format with direct fields
+                $validated = $request->validate([
+                    'log_type' => 'required|in:seeding,transplant,harvest',
+                    'crop' => 'required|string',
+                    'variety' => 'nullable|string',
+                    'location' => 'required|string',
+                    'quantity' => 'required|numeric',
+                    'date' => 'required|date',
+                    'succession_number' => 'nullable|integer',
+                ]);
+
+                $logType = $validated['log_type'];
+
+                // Map quick form fields to expected data format
+                $data = [
+                    'crop_name' => $validated['crop'],
+                    'variety_name' => $validated['variety'] ?? 'Generic',
+                    'bed_name' => $validated['location'],
+                    'quantity' => (int)$validated['quantity'],
+                    'succession_number' => $validated['succession_number'] ?? 1,
+                ];
+
+                // Add date based on log type
+                switch ($logType) {
+                    case 'seeding':
+                        $data['seeding_date'] = $validated['date'];
+                        break;
+                    case 'transplant':
+                        $data['transplant_date'] = $validated['date'];
+                        break;
+                    case 'harvest':
+                        $data['harvest_date'] = $validated['date'];
+                        break;
+                }
+            }
 
             // Prepare log data based on type
             $logData = [
