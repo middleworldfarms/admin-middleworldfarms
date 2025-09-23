@@ -31,14 +31,7 @@ class SuccessionPlanningController extends Controller
      */
     public function index()
     {
-        // Auto-wake AI service on page load to avoid cold start delays (but don't fail if it errors)
-        try {
-            $this->wakeUpAIService();
-        } catch (\Exception $e) {
-            // Don't let AI wake-up failures break the page load
-            Log::debug('AI wake-up failed during page load: ' . $e->getMessage());
-        }
-        
+        // Note: AI service wake-up removed - service warms up on first use
         try {
             // Get available crop types and varieties from farmOS
             $cropData = $this->farmOSApi->getAvailableCropTypes();
@@ -357,19 +350,58 @@ class SuccessionPlanningController extends Controller
         $successionCount = $data['succession_count'] ?? max(1, ceil($harvestDuration / 14)); // Default to 2-week intervals
         $successionCount = min($successionCount, 20); // Cap at 20 successions max
 
-        // Generate successions based on count
+        // Calculate base growth period (45 days from seeding to harvest)
+        $baseGrowthDays = 45;
+        $baseTransplantToHarvestDays = 21;
+
+        // Determine sowing strategy based on harvest window timing
+        $harvestStartMonth = $harvestStart->month;
+        $isSpringHarvest = $harvestStartMonth >= 3 && $harvestStartMonth <= 6; // Mar-Jun
+        $isAutumnHarvest = $harvestStartMonth >= 8 && $harvestStartMonth <= 11; // Aug-Nov
+
+        // Generate successions with seasonal adjustments
         for ($i = 0; $i < $successionCount; $i++) {
-            $offsetDays = $i * 14; // 2 weeks apart by default
+            // Calculate sowing spacing based on season
+            if ($isSpringHarvest) {
+                // Spring: wider spacing (2 weeks), faster growth
+                $sowingSpacingDays = 14;
+                $growthMultiplier = 1.0 - ($i * 0.1); // Each succession slightly faster (10% reduction)
+            } elseif ($isAutumnHarvest) {
+                // Autumn: closer spacing (1 week), slower growth
+                $sowingSpacingDays = 7;
+                $growthMultiplier = 1.0 + ($i * 0.15); // Each succession takes longer (15% increase)
+            } else {
+                // Summer/winter: standard spacing
+                $sowingSpacingDays = 10;
+                $growthMultiplier = 1.0 + ($i * 0.05); // Slight increase for later sowings
+            }
+
+            // Calculate sowing offset from first harvest
+            $sowingOffsetDays = $i * $sowingSpacingDays;
+
+            // Apply growth period adjustment
+            $adjustedGrowthDays = round($baseGrowthDays * $growthMultiplier);
+            $adjustedTransplantToHarvestDays = round($baseTransplantToHarvestDays * $growthMultiplier);
+
+            // Calculate harvest date for this succession
+            $successionHarvestStart = $harvestStart->copy()->addDays($i * 14); // Keep harvests 2 weeks apart
+            $successionHarvestEnd = $harvestEnd->copy()->addDays($i * 14);
+
+            // Calculate seeding date based on adjusted growth period
+            $seedingDate = $successionHarvestStart->copy()->subDays($adjustedGrowthDays);
+            $transplantDate = $successionHarvestStart->copy()->subDays($adjustedTransplantToHarvestDays);
 
             $successions[] = [
                 'succession_id' => $i + 1,
-                'seeding_date' => $harvestStart->copy()->subDays(45 + $offsetDays)->format('Y-m-d'), // ~6 weeks before harvest
-                'transplant_date' => $harvestStart->copy()->subDays(21 + $offsetDays)->format('Y-m-d'), // ~3 weeks before harvest
-                'harvest_date' => $harvestStart->copy()->addDays($offsetDays)->format('Y-m-d'),
-                'harvest_end_date' => $harvestEnd->copy()->addDays($offsetDays)->format('Y-m-d'),
+                'seeding_date' => $seedingDate->format('Y-m-d'),
+                'transplant_date' => $transplantDate->format('Y-m-d'),
+                'harvest_date' => $successionHarvestStart->format('Y-m-d'),
+                'harvest_end_date' => $successionHarvestEnd->format('Y-m-d'),
                 'bed_name' => $data['bed_ids'][$i] ?? 'Bed ' . ($i + 1),
                 'quantity' => 100, // Default quantity
-                'notes' => "Succession " . ($i + 1) . " - AI calculated"
+                'growth_days' => $adjustedGrowthDays,
+                'season_adjusted' => true,
+                'notes' => "Succession " . ($i + 1) . " - Seasonally adjusted (" . $adjustedGrowthDays . " day growth)"
             ];
         }
 
@@ -652,19 +684,19 @@ class SuccessionPlanningController extends Controller
     private function extractAvailableBeds($geometryAssets)
     {
         $beds = [];
-        
+
         if (isset($geometryAssets['features'])) {
             foreach ($geometryAssets['features'] as $feature) {
-                $properties = $feature['attributes'] ?? [];
+                $properties = $feature['properties'] ?? [];
                 $name = $properties['name'] ?? 'Unknown';
-                
-                // Filter for bed-type assets
-                if (stripos($name, 'bed') !== false || preg_match('/\d+\/\d+/', $name)) {
+
+                // Filter for bed-type assets with X/Y numbering pattern (e.g., "1/1", "2/3")
+                if (preg_match('/^\d+\/\d+$/', $name)) {
                     $beds[] = [
-                        'id' => $feature['id'] ?? uniqid(),
+                        'id' => $properties['id'] ?? uniqid(),
                         'name' => $name,
-                        'type' => $properties['type'] ?? 'bed',
-                        'area' => $properties['area'] ?? 0
+                        'type' => $properties['land_type'] ?? 'bed',
+                        'status' => $properties['status'] ?? 'active'
                     ];
                 }
             }
@@ -2369,7 +2401,7 @@ class SuccessionPlanningController extends Controller
             if ($request->has('data')) {
                 // API format with nested data
                 $validated = $request->validate([
-                    'log_type' => 'required|in:seeding,transplant,harvest',
+                    'log_type' => 'required|in:seeding,transplant,harvest,quick',
                     'data' => 'required|array',
                     'data.crop_name' => 'required|string',
                     'data.variety_name' => 'required|string',
@@ -2383,37 +2415,67 @@ class SuccessionPlanningController extends Controller
             } else {
                 // Quick form format with direct fields
                 $validated = $request->validate([
-                    'log_type' => 'required|in:seeding,transplant,harvest',
+                    'log_type' => 'required|in:seeding,transplant,harvest,quick',
                     'crop' => 'required|string',
                     'variety' => 'nullable|string',
                     'location' => 'required|string',
                     'quantity' => 'required|numeric',
-                    'date' => 'required|date',
+                    'seeding_date' => 'required_if:log_type,quick|nullable|date',
+                    'transplant_date' => 'nullable|date',
+                    'harvest_date' => 'nullable|date',
+                    'harvest_end_date' => 'nullable|date',
+                    'seeding_notes' => 'nullable|string',
+                    'transplant_notes' => 'nullable|string',
+                    'harvest_notes' => 'nullable|string',
                     'succession_number' => 'nullable|integer',
+                    // New format: logs array for dynamic quick forms
+                    'logs' => 'nullable|array',
+                    'logs.seeding' => 'nullable|array',
+                    'logs.transplanting' => 'nullable|array',
+                    'logs.harvest' => 'nullable|array',
+                    'season' => 'nullable|string',
+                    'crops' => 'nullable|array',
+                    'log_types' => 'nullable|array',
                 ]);
 
                 $logType = $validated['log_type'];
 
-                // Map quick form fields to expected data format
-                $data = [
-                    'crop_name' => $validated['crop'],
-                    'variety_name' => $validated['variety'] ?? 'Generic',
-                    'bed_name' => $validated['location'],
-                    'quantity' => (int)$validated['quantity'],
-                    'succession_number' => $validated['succession_number'] ?? 1,
-                ];
+                // Handle new dynamic quick form format
+                if ($logType === 'quick' && isset($validated['logs'])) {
+                    // New format with logs array
+                    $data = [
+                        'crop_name' => $validated['crops'][0] ?? 'Unknown Crop',
+                        'variety_name' => 'Generic', // Could be enhanced to handle varieties
+                        'bed_name' => $validated['logs']['seeding']['location'] ?? $validated['logs']['transplanting']['location'] ?? $validated['logs']['harvest']['location'] ?? 'Unknown Location',
+                        'quantity' => $validated['logs']['seeding']['quantity']['value'] ?? $validated['logs']['transplanting']['quantity']['value'] ?? $validated['logs']['harvest']['quantity']['value'] ?? 100,
+                        'succession_number' => $validated['succession_number'] ?? 1,
+                        'season' => $validated['season'] ?? date('Y') . ' Succession',
+                        'logs' => $validated['logs'],
+                        'log_types' => $validated['log_types'] ?? [],
+                    ];
+                } else {
+                    // Legacy format for backward compatibility
+                    $data = [
+                        'crop_name' => $validated['crop'],
+                        'variety_name' => $validated['variety'] ?? 'Generic',
+                        'bed_name' => $validated['location'],
+                        'quantity' => (int)$validated['quantity'],
+                        'succession_number' => $validated['succession_number'] ?? 1,
+                    ];
 
-                // Add date based on log type
-                switch ($logType) {
-                    case 'seeding':
+                    // Add quick form specific fields
+                    if ($logType === 'quick') {
+                        $data['seeding_date'] = $validated['seeding_date'];
+                        $data['transplant_date'] = $validated['transplant_date'] ?? null;
+                        $data['harvest_date'] = $validated['harvest_date'] ?? null;
+                        $data['harvest_end_date'] = $validated['harvest_end_date'] ?? null;
+                        $data['seeding_notes'] = $validated['seeding_notes'] ?? null;
+                        $data['transplant_notes'] = $validated['transplant_notes'] ?? null;
+                        $data['harvest_notes'] = $validated['harvest_notes'] ?? null;
+                    } else {
+                        // For single log types, use the generic date field
                         $data['seeding_date'] = $validated['date'];
-                        break;
-                    case 'transplant':
-                        $data['transplant_date'] = $validated['date'];
-                        break;
-                    case 'harvest':
-                        $data['harvest_date'] = $validated['date'];
-                        break;
+                    }
                 }
             }
 
@@ -2439,6 +2501,136 @@ class SuccessionPlanningController extends Controller
                     $logData['timestamp'] = $data['harvest_date'] ?? now()->toDateString();
                     $result = $this->farmOSApi->createHarvestLog($logData);
                     break;
+                case 'quick':
+                    // Handle both old format and new dynamic format
+                    $results = [];
+
+                    if (isset($data['logs'])) {
+                        // New dynamic format with logs array
+                        $locationId = null;
+                        $plantingId = null;
+
+                        // Create planting asset first if seeding is included
+                        if (isset($data['logs']['seeding'])) {
+                            $locationId = $this->findLocationIdByName($data['logs']['seeding']['location']);
+                            $plantingId = $this->createPlantingAsset($data, $locationId);
+                        }
+
+                        // Create seeding log
+                        if (isset($data['logs']['seeding'])) {
+                            $seedingData = [
+                                'crop_name' => $data['crop_name'],
+                                'variety_name' => $data['variety_name'],
+                                'quantity' => $data['logs']['seeding']['quantity']['value'] ?? 100,
+                                'timestamp' => $data['logs']['seeding']['date'],
+                                'notes' => $data['logs']['seeding']['notes'] ?? "AI-calculated seeding for succession #" . $data['succession_number'],
+                                'location_id' => $locationId,
+                                'planting_id' => $plantingId,
+                                'quantity_unit' => $data['logs']['seeding']['quantity']['units'] ?? 'seeds',
+                                'status' => isset($data['logs']['seeding']['done']) ? 'done' : 'pending'
+                            ];
+                            $results['seeding'] = $this->farmOSApi->createSeedingLog($seedingData);
+                        }
+
+                        // Create transplant log
+                        if (isset($data['logs']['transplanting'])) {
+                            $transplantLocationId = $this->findLocationIdByName($data['logs']['transplanting']['location']);
+                            $transplantData = [
+                                'crop_name' => $data['crop_name'],
+                                'variety_name' => $data['variety_name'],
+                                'quantity' => $data['logs']['transplanting']['quantity']['value'] ?? 100,
+                                'timestamp' => $data['logs']['transplanting']['date'],
+                                'notes' => $data['logs']['transplanting']['notes'] ?? "AI-calculated transplant for succession #" . $data['succession_number'],
+                                'source_location_id' => $locationId, // From seeding location
+                                'destination_location_id' => $transplantLocationId, // To transplant location
+                                'planting_id' => $plantingId,
+                                'quantity_unit' => $data['logs']['transplanting']['quantity']['units'] ?? 'plants',
+                                'status' => isset($data['logs']['transplanting']['done']) ? 'done' : 'pending',
+                                'is_movement' => true
+                            ];
+                            $results['transplant'] = $this->farmOSApi->createTransplantingLog($transplantData);
+                        }
+
+                        // Create harvest log
+                        if (isset($data['logs']['harvest'])) {
+                            $harvestLocationId = $this->findLocationIdByName($data['logs']['harvest']['location'] ?? $data['bed_name']);
+                            $harvestData = [
+                                'crop_name' => $data['crop_name'],
+                                'variety_name' => $data['variety_name'],
+                                'quantity' => $data['logs']['harvest']['quantity']['value'] ?? 100,
+                                'timestamp' => $data['logs']['harvest']['date'],
+                                'notes' => $data['logs']['harvest']['notes'] ?? "AI-calculated harvest for succession #" . $data['succession_number'],
+                                'location_id' => $harvestLocationId,
+                                'planting_id' => $plantingId,
+                                'quantity_unit' => $data['logs']['harvest']['quantity']['units'] ?? 'grams',
+                                'status' => isset($data['logs']['harvest']['done']) ? 'done' : 'pending'
+                            ];
+                            $results['harvest'] = $this->farmOSApi->createHarvestLog($harvestData);
+                        }
+                    } else {
+                        // Legacy format for backward compatibility
+                        // Look up location ID from bed name
+                        $locationId = $this->findLocationIdByName($data['bed_name']);
+
+                        // Create planting asset first (required for seeding logs)
+                        $plantingId = $this->createPlantingAsset($data, $locationId);
+
+                        // 1. Create seeding log
+                        if (!empty($data['seeding_date'])) {
+                            $seedingData = [
+                                'crop_name' => $data['crop_name'],
+                                'variety_name' => $data['variety_name'],
+                                'quantity' => $data['quantity'],
+                                'timestamp' => $data['seeding_date'],
+                                'notes' => $data['seeding_notes'] ?? "AI-calculated seeding for succession #" . $data['succession_number'],
+                                'location_id' => $locationId,
+                                'planting_id' => $plantingId,
+                                'quantity_unit' => 'count',
+                                'status' => 'done'
+                            ];
+                            $results['seeding'] = $this->farmOSApi->createSeedingLog($seedingData);
+                        }
+
+                        // 2. Create transplant log (if transplant date provided)
+                        if (!empty($data['transplant_date'])) {
+                            $transplantData = [
+                                'crop_name' => $data['crop_name'],
+                                'variety_name' => $data['variety_name'],
+                                'quantity' => $data['quantity'],
+                                'timestamp' => $data['transplant_date'],
+                                'notes' => $data['transplant_notes'] ?? "AI-calculated transplant for succession #" . $data['succession_number'],
+                                'source_location_id' => $locationId,
+                                'destination_location_id' => $locationId,
+                                'planting_id' => $plantingId,
+                                'quantity_unit' => 'count',
+                                'status' => 'done',
+                                'is_movement' => true
+                            ];
+                            $results['transplant'] = $this->farmOSApi->createTransplantingLog($transplantData);
+                        }
+
+                        // 3. Create harvest log (if harvest date provided)
+                        if (!empty($data['harvest_date'])) {
+                            $harvestData = [
+                                'crop_name' => $data['crop_name'],
+                                'variety_name' => $data['variety_name'],
+                                'quantity' => $data['quantity'],
+                                'timestamp' => $data['harvest_date'],
+                                'notes' => $data['harvest_notes'] ?? "AI-calculated harvest for succession #" . $data['succession_number'],
+                                'location_id' => $locationId,
+                                'planting_id' => $plantingId,
+                                'quantity_unit' => 'weight',
+                                'status' => 'done'
+                            ];
+                            if (!empty($data['harvest_end_date'])) {
+                                $harvestData['end_date'] = $data['harvest_end_date'];
+                            }
+                            $results['harvest'] = $this->farmOSApi->createHarvestLog($harvestData);
+                        }
+                    }
+
+                    $result = $results;
+                    break;
             }
 
             Log::info("{$logType} log submitted via API", [
@@ -2448,7 +2640,7 @@ class SuccessionPlanningController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => ucfirst($logType) . ' log created successfully',
+                'message' => $logType === 'quick' ? 'Quick planting logs created successfully' : ucfirst($logType) . ' log created successfully',
                 'data' => $result
             ]);
 
@@ -2466,17 +2658,274 @@ class SuccessionPlanningController extends Controller
     }
 
     /**
-     * Wake up the AI service to avoid cold start delays
+     * Find location ID by name
+     */
+    protected function findLocationIdByName(string $bedName): ?string
+    {
+        try {
+            $locations = $this->farmOSApi->getAvailableLocations();
+
+            // Look for exact match first
+            foreach ($locations as $location) {
+                if (strtolower($location['name']) === strtolower($bedName)) {
+                    return $location['id'];
+                }
+            }
+
+            // Look for partial match
+            foreach ($locations as $location) {
+                if (stripos($location['name'], $bedName) !== false) {
+                    return $location['id'];
+                }
+            }
+
+            Log::warning("Could not find location ID for bed name: {$bedName}");
+            return null;
+
+        } catch (\Exception $e) {
+            Log::error("Failed to find location ID for bed '{$bedName}': " . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Create a planting asset
+     */
+    protected function createPlantingAsset(array $data, ?string $locationId): ?string
+    {
+        try {
+            $plantingData = [
+                'crop_name' => $data['crop_name'],
+                'variety_name' => $data['variety_name'] ?? $data['crop_name'],
+                'location_id' => $locationId,
+                'quantity' => $data['quantity'] ?? 100,
+                'notes' => "Succession #" . ($data['succession_number'] ?? 1) . " planting asset"
+            ];
+
+            $result = $this->farmOSApi->createPlantingAsset($plantingData);
+
+            if ($result && isset($result['id'])) {
+                return $result['id'];
+            }
+
+            Log::warning("Failed to create planting asset, result: " . json_encode($result));
+            return null;
+
+        } catch (\Exception $e) {
+            Log::error("Failed to create planting asset: " . $e->getMessage(), $data);
+            return null;
+        }
+    }
+
+    /**
+     * Submit all quick forms at once
+     */
+    public function submitAllLogs(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'plantings' => 'required|array',
+                'plantings.*.succession_index' => 'required|integer',
+                'plantings.*.season' => 'nullable|string',
+                'plantings.*.crop_variety' => 'nullable|string',
+                'plantings.*.logs' => 'required|array',
+                'plantings.*.logs.seeding' => 'nullable|array',
+                'plantings.*.logs.transplanting' => 'nullable|array',
+                'plantings.*.logs.harvest' => 'nullable|array',
+            ]);
+
+            $results = [];
+            $errors = [];
+
+            foreach ($validated['plantings'] as $planting) {
+                $successionIndex = $planting['succession_index'];
+                $season = $planting['season'] ?? '';
+                $cropVariety = $planting['crop_variety'] ?? '';
+                $logs = $planting['logs'];
+
+                $plantingResults = [
+                    'succession_index' => $successionIndex,
+                    'logs' => []
+                ];
+
+                try {
+                    // Get the succession data from session or generate it
+                    $successionData = session('succession_plan_data', []);
+                    if (empty($successionData) || !isset($successionData[$successionIndex])) {
+                        throw new \Exception("No succession data found for index {$successionIndex}");
+                    }
+
+                    $succession = $successionData[$successionIndex];
+                    $locationId = null;
+                    $plantingId = null;
+
+                    // Parse crop variety - could be "Crop Variety" or just "Crop"
+                    $cropParts = explode(' ', $cropVariety, 2);
+                    $cropName = $cropParts[0] ?? $succession['crop_name'] ?? 'Unknown Crop';
+                    $varietyName = count($cropParts) > 1 ? $cropParts[1] : ($succession['variety_name'] ?? $cropName);
+
+                    // Create planting asset first if seeding is included
+                    if (isset($logs['seeding'])) {
+                        $locationId = $this->findLocationIdByName($logs['seeding']['location']);
+                        $plantingAssetData = [
+                            'crop_name' => $cropName,
+                            'variety_name' => $varietyName,
+                            'bed_name' => $logs['seeding']['location'],
+                            'quantity' => $logs['seeding']['quantity']['value'] ?? 100,
+                            'succession_number' => $successionIndex + 1,
+                        ];
+                        $plantingId = $this->createPlantingAsset($plantingAssetData, $locationId);
+                    }
+
+                    // Create seeding log
+                    if (isset($logs['seeding'])) {
+                        $seedingData = [
+                            'crop_name' => $cropName,
+                            'variety_name' => $varietyName,
+                            'quantity' => $logs['seeding']['quantity']['value'] ?? 100,
+                            'timestamp' => $logs['seeding']['date'],
+                            'notes' => $logs['seeding']['notes'] ?? "AI-calculated seeding for succession #" . ($successionIndex + 1),
+                            'location_id' => $locationId,
+                            'planting_id' => $plantingId,
+                            'quantity_unit' => $logs['seeding']['quantity']['units'] ?? 'seeds',
+                            'status' => isset($logs['seeding']['done']) ? 'done' : 'pending'
+                        ];
+                        $plantingResults['logs']['seeding'] = $this->farmOSApi->createSeedingLog($seedingData);
+                    }
+
+                    // Create transplant log
+                    if (isset($logs['transplanting'])) {
+                        $transplantLocationId = $this->findLocationIdByName($logs['transplanting']['location']);
+                        $transplantData = [
+                            'crop_name' => $cropName,
+                            'variety_name' => $varietyName,
+                            'quantity' => $logs['transplanting']['quantity']['value'] ?? 100,
+                            'timestamp' => $logs['transplanting']['date'],
+                            'notes' => $logs['transplanting']['notes'] ?? "AI-calculated transplant for succession #" . ($successionIndex + 1),
+                            'source_location_id' => $locationId, // From seeding location
+                            'destination_location_id' => $transplantLocationId, // To transplant location
+                            'planting_id' => $plantingId,
+                            'quantity_unit' => $logs['transplanting']['quantity']['units'] ?? 'plants',
+                            'status' => isset($logs['transplanting']['done']) ? 'done' : 'pending',
+                            'is_movement' => true
+                        ];
+                        $plantingResults['logs']['transplant'] = $this->farmOSApi->createTransplantingLog($transplantData);
+                    }
+
+                    // Create harvest log
+                    if (isset($logs['harvest'])) {
+                        $harvestLocationId = $this->findLocationIdByName($logs['harvest']['location'] ?? $logs['seeding']['location']);
+                        $harvestData = [
+                            'crop_name' => $cropName,
+                            'variety_name' => $varietyName,
+                            'quantity' => $logs['harvest']['quantity']['value'] ?? 100,
+                            'timestamp' => $logs['harvest']['date'],
+                            'notes' => $logs['harvest']['notes'] ?? "AI-calculated harvest for succession #" . ($successionIndex + 1),
+                            'location_id' => $harvestLocationId,
+                            'planting_id' => $plantingId,
+                            'quantity_unit' => $logs['harvest']['quantity']['units'] ?? 'grams',
+                            'status' => isset($logs['harvest']['done']) ? 'done' : 'pending'
+                        ];
+                        $plantingResults['logs']['harvest'] = $this->farmOSApi->createHarvestLog($harvestData);
+                    }
+
+                    $results[] = $plantingResults;
+
+                } catch (\Exception $e) {
+                    $errors[] = [
+                        'succession_index' => $successionIndex,
+                        'error' => $e->getMessage()
+                    ];
+                    Log::error("Failed to create logs for succession {$successionIndex}: " . $e->getMessage());
+                }
+            }
+
+            $successCount = count($results);
+            $errorCount = count($errors);
+
+            if ($errorCount > 0) {
+                $message = "Created {$successCount} planting record(s) successfully";
+                if ($errorCount > 0) {
+                    $message .= ", {$errorCount} failed";
+                }
+            } else {
+                $message = "All {$successCount} planting record(s) created successfully";
+            }
+
+            return response()->json([
+                'success' => $successCount > 0,
+                'message' => $message,
+                'data' => [
+                    'results' => $results,
+                    'errors' => $errors
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Bulk log submission failed: ' . $e->getMessage(), [
+                'plantings' => $request->input('plantings')
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create planting records: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get bed occupancy data from FarmOS for timeline visualization
+     */
+    public function getBedOccupancy(Request $request): JsonResponse
+    {
+        try {
+            $startDate = $request->query('start_date');
+            $endDate = $request->query('end_date');
+
+            \Log::info('Bed occupancy request', ['start_date' => $startDate, 'end_date' => $endDate]);
+
+            if (!$startDate || !$endDate) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Start date and end date are required'
+                ], 400);
+            }
+
+            // Get bed occupancy data from FarmOS
+            $bedData = $this->farmOSApi->getBedOccupancy($startDate, $endDate);
+
+            \Log::info('Bed occupancy data retrieved', ['beds' => count($bedData['beds'] ?? []), 'plantings' => count($bedData['plantings'] ?? [])]);
+
+            return response()->json([
+                'success' => true,
+                'data' => $bedData
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to get bed occupancy data: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to load bed occupancy data from FarmOS',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Wake up the AI service (internal method)
      */
     protected function wakeUpAIService(): void
     {
         try {
-            // Make a simple request to wake up the AI service by checking availability
+            // Check if AI service is available (this will warm it up)
             $this->symbiosisAI->isAvailable();
-            Log::debug('AI service wake-up successful');
+            Log::info('AI service wake-up check completed');
         } catch (\Exception $e) {
             Log::warning('AI service wake-up failed: ' . $e->getMessage());
-            // Don't throw exception - wake-up failures shouldn't break functionality
+            // Don't throw - this is just a wake-up attempt
         }
     }
 }

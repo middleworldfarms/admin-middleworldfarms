@@ -9,8 +9,7 @@
 @endsection
 
 @section('styles')
-<!-- Chart.js for timeline visualization - Simple UMD version -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<!-- Timeline Visualization Styles -->
 
 <!-- Sortable.js for drag and drop -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
@@ -77,7 +76,7 @@
         margin: 1rem 0;
     }
 
-    .timeline-container {
+    .farmos-timeline-container {
         background: white;
         border-radius: 1rem;
         padding: 1.5rem;
@@ -86,10 +85,108 @@
         min-height: 500px;
     }
 
-    .chart-container {
-        position: relative;
+    .farmos-timeline-iframe {
         width: 100%;
-        height: 400px;
+        height: 600px;
+        border: none;
+        border-radius: 0.5rem;
+    }
+
+    /* Timeline Visualization Styles */
+    .timeline-visualization {
+        width: 100%;
+        position: relative;
+        padding: 20px 0;
+    }
+
+    .timeline-axis {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 20px;
+        padding: 0 20px;
+        border-bottom: 2px solid #dee2e6;
+        position: relative;
+    }
+
+    .timeline-axis::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, #28a745, #ffc107, #dc3545);
+    }
+
+    .timeline-month {
+        text-align: center;
+        font-weight: 600;
+        color: #495057;
+        font-size: 0.9rem;
+    }
+
+    .timeline-tasks {
+        position: relative;
+        min-height: 300px;
+    }
+
+    .timeline-task {
+        position: absolute;
+        height: 40px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        padding: 0 10px;
+        color: white;
+        font-size: 0.85rem;
+        font-weight: 500;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 2px solid rgba(255,255,255,0.3);
+    }
+
+    .timeline-task:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+
+    .timeline-task.seeding {
+        background: linear-gradient(135deg, #28a745, #20c997);
+    }
+
+    .timeline-task.transplanting {
+        background: linear-gradient(135deg, #ffc107, #fd7e14);
+    }
+
+    .timeline-task.harvest {
+        background: linear-gradient(135deg, #dc3545, #fd7e14);
+    }
+
+    .timeline-task.growth {
+        background: linear-gradient(135deg, rgba(40, 167, 69, 0.7), rgba(255, 193, 7, 0.7));
+        border-style: dashed;
+    }
+
+    .timeline-legend {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        margin-top: 20px;
+        flex-wrap: wrap;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.85rem;
+    }
+
+    .legend-color {
+        width: 16px;
+        height: 16px;
+        border-radius: 3px;
     }
 
     .harvest-window-selector {
@@ -220,74 +317,11 @@
         color: #495057;
     }
 
-    .succession-timeline {
-        display: flex;
-        gap: 16px;
-        align-items: center;
-        position: relative;
-    }
-
-    .timeline-step {
-        text-align: center;
-        min-width: 80px;
-        position: relative;
-        z-index: 1;
-        background: white;
-        padding: 0 8px;
-    }
-
-    .timeline-step small {
-        display: block;
-        font-size: 0.75rem;
-        color: #6c757d;
-        margin-bottom: 2px;
-    }
-
     .succession-date {
         font-size: 0.875rem;
         font-weight: 500;
         color: #495057;
     }
-
-    /* Timeline connector lines */
-    .succession-timeline::before {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 0;
-        right: 0;
-        height: 1px;
-        background: #dee2e6;
-        z-index: 0;
-    }
-
-    .timeline-step:not(:last-child)::after {
-        content: '';
-        position: absolute;
-        right: -16px;
-        top: 50%;
-        transform: translateY(-50%);
-        width: 8px;
-        height: 8px;
-        background: #28a745;
-        border-radius: 50%;
-        z-index: 2;
-    }
-
-    /* Different colors for different timeline steps */
-    .timeline-step:nth-child(1) small { color: #007bff; } /* Sow - Blue */
-    .timeline-step:nth-child(2) small { color: #ffc107; } /* Transplant - Yellow */
-    .timeline-step:nth-child(3) small { color: #28a745; } /* Harvest - Green */
-
-    .timeline-step:nth-child(1)::after { background: #007bff; }
-    .timeline-step:nth-child(2)::after { background: #ffc107; }
-
-    /* Special styling for transplant and harvest steps */
-    .transplant-step small { color: #856404 !important; font-weight: 500; }
-    .harvest-step small { color: #155724 !important; font-weight: 500; }
-
-    .transplant-step::after { background: #ffc107 !important; border: 2px solid #856404; }
-    .harvest-step::after { background: #28a745 !important; border: 2px solid #155724; }
 
     .method-badge {
         background: #f8f9fa;
@@ -442,18 +476,6 @@
         backdrop-filter: blur(3px);
     }
 
-    .timeline-controls {
-        display: flex;
-        gap: 10px;
-        align-items: center;
-        margin-bottom: 20px;
-    }
-
-    .date-slider {
-        width: 100%;
-        margin: 10px 0;
-    }
-
     .succession-tabs {
         background: white;
         border-radius: 1rem;
@@ -590,13 +612,474 @@
             padding: 0.75rem;
         }
     }
+
+    /* Bed Occupancy Timeline Styles */
+    .bed-occupancy-timeline {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        margin: 20px 0;
+    }
+
+    .timeline-header {
+        text-align: center;
+        margin-bottom: 20px;
+    }
+
+    .timeline-header h5 {
+        color: #28a745;
+        margin-bottom: 5px;
+    }
+
+    .beds-container {
+        position: relative;
+        margin: 20px 0;
+    }
+
+    .bed-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
+        min-height: 40px;
+    }
+
+    .bed-label {
+        width: 120px;
+        font-weight: 600;
+        color: #495057;
+        font-size: 0.9rem;
+        padding-right: 15px;
+        text-align: right;
+        flex-shrink: 0;
+    }
+
+    .bed-timeline {
+        flex: 1;
+        position: relative;
+        height: 32px;
+        background: #f8f9fa;
+        border-radius: 6px;
+        border: 1px solid #dee2e6;
+        overflow: hidden;
+        cursor: pointer;
+    }
+
+    .bed-occupancy-block {
+        position: absolute;
+        height: 100%;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: white;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        border: 1px solid rgba(255,255,255,0.3);
+        transition: all 0.2s ease;
+        cursor: pointer;
+        pointer-events: none; /* Allow drops on parent timeline */
+    }
+
+    .bed-occupancy-block:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .bed-occupancy-block.active {
+        background: linear-gradient(135deg, #28a745, #20c997);
+    }
+
+    .bed-occupancy-block.completed {
+        background: linear-gradient(135deg, #6c757d, #5a6268);
+        opacity: 0.8;
+    }
+
+    .bed-occupancy-block.available {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        border: 2px dashed #dee2e6;
+    }
+
+    .crop-label {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+        padding: 0 4px;
+    }
+
+    .timeline-indicators {
+        position: absolute;
+        top: 0;
+        left: 120px;
+        right: 0;
+        height: 100%;
+        pointer-events: none;
+    }
+
+    .succession-indicator {
+        position: absolute;
+        top: -8px;
+        transform: translateX(-50%);
+        z-index: 10;
+        animation: pulse 2s infinite;
+    }
+
+    .succession-indicator i {
+        font-size: 16px;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+    }
+
+    @keyframes pulse {
+        0% { transform: translateX(-50%) scale(1); }
+        50% { transform: translateX(-50%) scale(1.2); }
+        100% { transform: translateX(-50%) scale(1); }
+    }
+
+    .timeline-legend .legend-color.active {
+        background: linear-gradient(135deg, #28a745, #20c997);
+    }
+
+    .timeline-legend .legend-color.completed {
+        background: linear-gradient(135deg, #6c757d, #5a6268);
+    }
+
+    .timeline-legend .legend-color.available {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        border: 1px dashed #dee2e6;
+    }
+
+    /* Block grouping styles */
+    .bed-block {
+        margin-bottom: 25px;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .bed-block:last-child {
+        margin-bottom: 0;
+    }
+
+    .bed-block-header {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        padding: 12px 15px;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .bed-block-header h6 {
+        margin: 0;
+        color: #495057;
+        font-weight: 600;
+        font-size: 1rem;
+    }
+
+    .bed-block-header i {
+        color: #6c757d;
+        margin-right: 8px;
+    }
+
+    .bed-block-content {
+        padding: 15px;
+    }
+
+    .bed-block-content .bed-row {
+        margin-bottom: 12px;
+    }
+
+    .bed-block-content .bed-row:last-child {
+        margin-bottom: 0;
+    }
+
+    /* Succession Planning Sidebar Styles */
+    .succession-list {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .succession-item {
+        background: white;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 8px;
+        cursor: grab;
+        transition: all 0.2s ease;
+        position: relative;
+    }
+
+    .succession-item:hover {
+        border-color: #28a745;
+        box-shadow: 0 2px 8px rgba(40, 167, 69, 0.2);
+        transform: translateY(-1px);
+    }
+
+    .succession-item.dragging {
+        opacity: 0.3;
+        transform: rotate(2deg);
+        cursor: grabbing;
+        background: #f8f9fa !important;
+        border: 2px dashed #6c757d !important;
+    }
+
+    .succession-item.dragging .succession-title {
+        color: #6c757d !important;
+    }
+
+    .succession-item.allocated {
+        opacity: 0.5;
+        background: #e9ecef !important;
+        border: 1px solid #dee2e6 !important;
+    }
+
+    .succession-item.allocated .succession-title {
+        color: #6c757d !important;
+        text-decoration: line-through;
+    }
+
+    .bed-allocation-badge {
+        font-size: 0.7rem;
+        margin-left: 8px;
+        padding: 2px 6px;
+        border-radius: 10px;
+        transition: all 0.2s ease;
+    }
+
+    .bed-allocation-badge:hover {
+        background-color: #dc3545 !important;
+        transform: scale(1.05);
+    }
+
+    .succession-item .succession-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 8px;
+        position: relative;
+    }
+
+    .succession-item .succession-title-section {
+        flex: 1;
+    }
+
+    .succession-item .succession-title {
+        font-weight: 600;
+        color: #28a745;
+        font-size: 0.9rem;
+    }
+
+    .succession-item .succession-dates {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+
+    .succession-item .succession-dates .date-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 2px;
+    }
+
+    .succession-item .succession-dates .date-label {
+        font-weight: 500;
+    }
+
+    .succession-item .succession-dates .date-value {
+        color: #495057;
+    }
+
+    /* Bed drop zones */
+    .bed-timeline.drop-target {
+        background: linear-gradient(45deg, #d4edda, #f8f9fa);
+        border: 2px dashed #28a745 !important;
+        cursor: copy;
+    }
+
+    .bed-timeline.drop-active {
+        background: linear-gradient(45deg, #28a745, #20c997);
+        border: 2px solid #28a745 !important;
+        cursor: copy;
+    }
+
+    /* Succession allocation blocks */
+    .succession-block-container {
+        position: absolute;
+        height: 100%;
+        display: flex;
+        cursor: move;
+        transition: all 0.2s ease;
+        z-index: 5;
+    }
+
+    .succession-growing-block {
+        background: linear-gradient(135deg, #17a2b8, #138496);
+        border-radius: 4px 0 0 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: white;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        border: 2px solid rgba(255,255,255,0.3);
+        transition: all 0.2s ease;
+    }
+
+    .succession-harvest-block {
+        background: linear-gradient(135deg, #ffc107, #e0a800);
+        border-radius: 0 4px 4px 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #212529;
+        text-shadow: 0 1px 2px rgba(255,255,255,0.5);
+        border: 2px solid rgba(255,255,255,0.5);
+        transition: all 0.2s ease;
+    }
+
+    .succession-growing-block:hover,
+    .succession-harvest-block:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+
+    .succession-block-container.dragging .succession-growing-block,
+    .succession-block-container.dragging .succession-harvest-block {
+        opacity: 0.7;
+        transform: rotate(2deg) scale(1.05);
+    }
+
+    .succession-allocation-block .succession-label {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+        padding: 0 2px;
+    }
+
+    /* Conflict error states */
+    .bed-timeline.conflict-error {
+        background: linear-gradient(45deg, #f8d7da, #f5c6cb);
+        border: 2px solid #dc3545 !important;
+        animation: conflict-pulse 0.5s ease-in-out;
+    }
+
+    .conflict-message {
+        position: absolute;
+        top: -30px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #dc3545;
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        white-space: nowrap;
+        z-index: 10;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .conflict-message::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 4px solid transparent;
+        border-top-color: #dc3545;
+    }
+
+    @keyframes conflict-pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.02); }
+        100% { transform: scale(1); }
+    }
+
+    /* Enhanced drop zone feedback */
+    .bed-timeline.drop-target {
+        background: linear-gradient(45deg, #d1ecf1, #bee5eb);
+        border: 2px dashed #17a2b8 !important;
+        transition: all 0.2s ease;
+    }
+
+    .bed-timeline.drop-active {
+        background: linear-gradient(45deg, #17a2b8, #138496);
+        border: 2px solid #17a2b8 !important;
+        transform: scale(1.01);
+    }
+
+    .bed-timeline.drop-active::before {
+        content: '📍 Drop succession here';
+        position: absolute;
+        top: -25px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #17a2b8;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        white-space: nowrap;
+        z-index: 10;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .bed-timeline.drop-active::after {
+        content: '';
+        position: absolute;
+        top: -21px;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 4px solid transparent;
+        border-top-color: #17a2b8;
+        z-index: 10;
+    }
+
+    /* Conflict drop state */
+    .bed-timeline.drop-conflict {
+        background: linear-gradient(45deg, #f8d7da, #f5c6cb);
+        border: 2px dashed #dc3545 !important;
+        cursor: not-allowed;
+    }
+
+    .bed-timeline.drop-conflict::before {
+        content: '🚫 Bed occupied';
+        position: absolute;
+        top: -25px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #dc3545;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        white-space: nowrap;
+        z-index: 10;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .bed-timeline.drop-conflict::after {
+        content: '';
+        position: absolute;
+        top: -21px;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 4px solid transparent;
+        border-top-color: #dc3545;
+        z-index: 10;
+    }
 </style>
 @endsection
 
 @section('content')
 <div class="succession-planner-container">
     <!-- Cache buster for development -->
-    <script>console.log('🔄 Cache buster: 1756750327-FIXED-' + Date.now() + ' - SIMPLIFIED TIMELINE - Clean succession planner');</script>
+    <script>console.log('🔄 Cache buster: 1756750327-FIXED-' + Date.now() + ' - VISUAL TIMELINE - FarmOS succession planner');</script>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
@@ -612,7 +1095,7 @@
     </div>
 
     <div class="row">
-        <!-- Left Column: Planning Interface -->
+        <!-- Left Column: Planning Interface and Timeline -->
         <div class="col-lg-8">
             <!-- Season/Year Selection -->
             <div class="planning-card mb-3">
@@ -758,26 +1241,6 @@
                                 </div>
                             </div>
 
-                            <!-- Succession Impact Preview -->
-                            <div id="successionImpact" class="mt-3 p-3 bg-white border rounded" style="display: none;">
-                                <div class="d-flex align-items-center justify-content-between mb-2">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <strong class="text-primary">Succession Planning Impact</strong>
-                                        <i class="fas fa-info-circle text-muted" data-bs-toggle="tooltip" data-bs-placement="top" 
-                                           title="Shows sowing, transplant (if needed), and harvest dates for each succession. Timeline colors: Blue=Sow, Yellow=Transplant, Green=Harvest"></i>
-                                    </div>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <span id="successionCount" class="badge bg-primary">3 Successions</span>
-                                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="exportSuccessionPlan()" title="Export as CSV">
-                                            <i class="fas fa-download"></i> Export
-                                        </button>
-                                    </div>
-                                </div>
-                                <div id="successionPreview" class="small text-muted">
-                                    <!-- Will be populated with succession dates -->
-                                </div>
-                            </div>
-
                             <!-- Quick Adjust Buttons -->
                             <div class="mt-3 d-flex gap-2 justify-content-center">
                                 <button type="button" class="btn btn-outline-success btn-sm" onclick="extendHarvestWindow()">
@@ -812,35 +1275,7 @@
                     </div>
                 </div>
 
-                <!-- Step 3: Available Beds -->
-                <div class="planning-section">
-                    <h3>
-                        <i class="fas fa-map section-icon"></i>
-                        Select Available Beds
-                    </h3>
-                    <div class="row">
-                        <div class="col-md-8">
-                            <label for="bedSelect" class="form-label">Available Beds from farmOS</label>
-                            <select class="form-select" id="bedSelect" name="bedSelect[]" multiple>
-                                @if(isset($availableBeds) && count($availableBeds) > 0)
-                                    @foreach($availableBeds as $bed)
-                                        <option value="{{ $bed['id'] }}">{{ $bed['name'] }}</option>
-                                    @endforeach
-                                @endif
-                            </select>
-                            <small class="text-muted">Hold Ctrl/Cmd to select multiple beds</small>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Quick Select</label>
-                            <div class="d-flex gap-2">
-                                <button class="btn btn-outline-primary btn-sm" onclick="selectAllBeds()" aria-label="Select all beds">All Beds</button>
-                                <button class="btn btn-outline-secondary btn-sm" onclick="clearBedSelection()" aria-label="Clear bed selection">Clear</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Step 4: Calculate Button -->
+                <!-- Step 3: Calculate Button -->
                 <div class="planning-section">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
@@ -860,14 +1295,19 @@
 
             <!-- Results Section -->
             <div id="resultsSection" style="display: none;">
-                <!-- Succession Timeline Chart -->
-                <div class="timeline-container">
-                    <h4><i class="fas fa-chart-gantt text-success"></i> Interactive Succession Timeline</h4>
-                    <p class="text-muted">Gantt chart showing planting dates and harvest windows</p>
-                    <div class="chart-container">
-                        <canvas id="successionChart"></canvas>
+                <!-- FarmOS Timeline Chart -->
+            <div class="farmos-timeline-container">
+                <h4><i class="fas fa-chart-gantt text-success"></i> FarmOS Succession Timeline</h4>
+                <p class="text-muted">Interactive Gantt chart showing planting dates and harvest windows from FarmOS</p>
+                <div id="farmosTimelineContainer">
+                    <div class="text-center p-4">
+                        <div class="spinner-border text-success" role="status">
+                            <span class="visually-hidden">Loading timeline...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Loading FarmOS timeline...</p>
                     </div>
                 </div>
+            </div>
 
                 <!-- Quick Forms Tabs - This replaces the old summary cards -->
                 <div id="quickFormTabsContainer" class="succession-tabs" style="display: none;">
@@ -878,12 +1318,53 @@
                         <!-- Tab panes will be populated here -->
                     </div>
                 </div>
+
+                <!-- Submit All Forms Button -->
+                <div class="mt-4 text-center">
+                    <button type="button" class="btn btn-success btn-lg" onclick="submitAllQuickForms()">
+                        <i class="fas fa-save"></i> Submit All Planting Records
+                    </button>
+                </div>
             </div>
         </div>
 
-        <!-- Right Column: AI Chat Integration -->
+        <!-- Right Column: Succession Planning Sidebar -->
         <div class="col-lg-4">
-            <div class="planning-card">
+            <!-- Succession Planning Impact Sidebar -->
+            <div id="successionSidebar" class="planning-card sticky-top" style="display: none; top: 20px;">
+                <div class="planning-section">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h4 class="mb-0">
+                            <i class="fas fa-tasks text-success"></i>
+                            Succession Planning
+                        </h4>
+                        <span id="sidebarSuccessionCount" class="badge bg-primary">0 Successions</span>
+                    </div>
+
+                    <div class="succession-list" id="successionList">
+                        <!-- Successions will be populated here as draggable items -->
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-seedling fa-2x mb-2"></i>
+                            <p>Calculate a succession plan to see successions here</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <div class="d-grid gap-2 mb-2">
+                            <button class="btn btn-outline-danger btn-sm" onclick="clearAllAllocations()" title="Clear all bed allocations to start fresh">
+                                <i class="fas fa-trash"></i> Clear All Allocations
+                            </button>
+                        </div>
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Drag successions onto beds in the timeline to allocate them
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Chat Integration (shown when no succession plan) -->
+            <div id="aiChatSection" class="planning-card">
                 <div class="planning-section">
                     <h3>
                         <i class="fas fa-robot section-icon"></i>
@@ -1056,7 +1537,6 @@
         initializeHarvestWindowSelector();
 
         // Set up existing functionality
-        setupDragFunctionality(); // Fixed: was setupDragBar()
         setupEventListeners();
         updateSuccessionPreview();
         updateExportButton(); // Initialize export button state
@@ -1123,7 +1603,6 @@
     const FARMOS_BASE = "{{ config('services.farmos.url', '') }}";
 
     let currentSuccessionPlan = null;
-    let timelineChart = null;
     let isDragging = false;
     let dragHandle = null;
     let dragStartX = 0;
@@ -1350,21 +1829,6 @@
         }
     }
 
-    // Quick select helpers for beds
-    function selectAllBeds() {
-        const sel = document.getElementById('bedSelect');
-        if (!sel) return;
-        for (const opt of sel.options) opt.selected = true;
-        sel.dispatchEvent(new Event('change'));
-    }
-
-    function clearBedSelection() {
-        const sel = document.getElementById('bedSelect');
-        if (!sel) return;
-        for (const opt of sel.options) opt.selected = false;
-        sel.dispatchEvent(new Event('change'));
-    }
-
     // Fetch variety information from FarmOS API
     async function fetchVarietyInfo(varietyId) {
         if (!varietyId) return null;
@@ -1536,10 +2000,13 @@
     }
 
     function setupDragFunctionality() {
-        // Try to find the timeline element (could be harvestTimeline or timeline-container)
+        // Try to find the timeline element (could be harvestTimeline, timeline-container, or farmos-timeline-container)
         let timeline = document.getElementById('harvestTimeline');
         if (!timeline) {
             timeline = document.querySelector('.timeline-container');
+        }
+        if (!timeline) {
+            timeline = document.querySelector('.farmos-timeline-container');
         }
         if (!timeline) {
             console.warn('⚠️ No timeline element found for drag setup - drag functionality disabled');
@@ -2675,21 +3142,6 @@ NO extra text. Calculate for ${contextPayload.planning_year}.`;
         askHolisticAI();
     }
 
-    // Bed selection helpers for accessibility and UX
-    function selectAllBeds() {
-        const bedSelect = document.getElementById('bedSelect');
-        if (!bedSelect) return;
-        Array.from(bedSelect.options).forEach(opt => opt.selected = true);
-        bedSelect.dispatchEvent(new Event('change'));
-    }
-
-    function clearBedSelection() {
-        const bedSelect = document.getElementById('bedSelect');
-        if (!bedSelect) return;
-        Array.from(bedSelect.options).forEach(opt => opt.selected = false);
-        bedSelect.dispatchEvent(new Event('change'));
-    }
-
     // AI request state to prevent duplicate rapid sends
     let __aiInFlight = false;
     let __aiLastMsg = '';
@@ -2784,13 +3236,11 @@ NO extra text. Calculate for ${contextPayload.planning_year}.`;
         }
     }
 
-    // Calculate plan and render Quick Form tabs
     async function calculateSuccessionPlan() {
         const cropSelect = document.getElementById('cropSelect');
         const varietySelect = document.getElementById('varietySelect');
         const hs = document.getElementById('harvestStart');
         const he = document.getElementById('harvestEnd');
-        const beds = document.getElementById('bedSelect');
 
         if (!cropSelect?.value || !hs?.value || !he?.value) {
             showToast('Select crop and harvest dates first', 'warning');
@@ -2836,7 +3286,7 @@ NO extra text. Calculate for ${contextPayload.planning_year}.`;
             variety_id: varietySelect?.value || null,
             harvest_start: hs.value,
             harvest_end: he.value,
-            bed_ids: beds ? Array.from(beds.selectedOptions).map(o => o.value) : [],
+            bed_ids: [], // Beds will be assigned via drag-and-drop on timeline
             succession_count: successionCount,
             use_ai: true
         };
@@ -2857,7 +3307,18 @@ NO extra text. Calculate for ${contextPayload.planning_year}.`;
 
             currentSuccessionPlan = data.succession_plan;
             renderSuccessionSummary(currentSuccessionPlan);
+            await renderFarmOSTimeline(currentSuccessionPlan);
             renderQuickFormTabs(currentSuccessionPlan);
+            
+            // Populate succession sidebar with draggable cards
+            populateSuccessionSidebar(currentSuccessionPlan);
+            
+            // Initialize drag and drop after both timeline and sidebar are ready
+            setTimeout(() => {
+                initializeDragAndDrop();
+                console.log('🔄 Drag and drop initialized after plan calculation');
+            }, 300);
+            
             document.getElementById('resultsSection').style.display = 'block';
             
             // Delay updateExportButton to ensure DOM is ready
@@ -2952,50 +3413,245 @@ NO extra text. Calculate for ${contextPayload.planning_year}.`;
                 <p><strong>Harvest:</strong> ${p.harvest_date}${p.harvest_end_date ? ' → ' + p.harvest_end_date : ''}</p>`;
             pane.appendChild(info);
 
-            const qfu = p.quick_form_urls || {};
-            console.log(`🔗 Quick Form URLs for planting ${i+1}:`, qfu);
-            
-            const forms = [
-                { key: 'seeding', label: 'Seeding' },
-                { key: 'transplant', label: 'Transplant' },
-                { key: 'harvest', label: 'Harvest' }
-            ];
+            // Generate URLs for all quick form types
+            const baseUrl = window.location.origin + '/admin/farmos';
+            const quickFormUrls = {
+                seeding: baseUrl + '/quick/seeding?' + new URLSearchParams({
+                    crop_name: p.crop_name || '',
+                    variety_name: p.variety_name || '',
+                    bed_name: p.bed_name || '',
+                    quantity: p.quantity || '',
+                    succession_number: p.succession_id || 1,
+                    seeding_date: p.seeding_date || '',
+                    season: p.season || ''
+                }).toString(),
+                transplanting: baseUrl + '/quick/transplant?' + new URLSearchParams({
+                    crop_name: p.crop_name || '',
+                    variety_name: p.variety_name || '',
+                    bed_name: p.bed_name || '',
+                    quantity: p.quantity || '',
+                    succession_number: p.succession_id || 1,
+                    transplant_date: p.transplant_date || '',
+                    season: p.season || ''
+                }).toString(),
+                harvest: baseUrl + '/quick/harvest?' + new URLSearchParams({
+                    crop_name: p.crop_name || '',
+                    variety_name: p.variety_name || '',
+                    bed_name: p.bed_name || '',
+                    quantity: p.quantity || '',
+                    succession_number: p.succession_id || 1,
+                    harvest_date: p.harvest_date || '',
+                    season: p.season || ''
+                }).toString()
+            };
 
-            forms.forEach(f => {
-                const wrap = document.createElement('div');
-                wrap.className = 'quick-form-container';
-                const url = qfu[f.key];
-                if (!url) {
-                    console.warn(`⚠️ No ${f.label} URL for planting ${i+1}`);
-                    wrap.innerHTML = `<div class="quick-form-error"><i class=\"fas fa-exclamation-triangle\"></i> ${f.label} Quick Form URL not available.</div>`;
-                } else {
-                    console.log(`✅ ${f.label} URL for planting ${i+1}:`, url);
-                    // Display forms inline instead of opening in new tabs
-                    const formId = `form-${f.key}-${i}`;
-                    wrap.innerHTML = `
-                        <div class="d-flex align-items-center justify-content-between mb-2">
-                            <strong>${f.label} Quick Form</strong>
-                            <div class="d-flex gap-2">
-                                <button class="btn btn-success btn-sm" onclick="toggleForm('${formId}', '${url}')">
-                                    <i class="fas fa-eye"></i> Show ${f.label} Form
-                                </button>
-                                <a class="btn btn-outline-secondary btn-sm" href="${url}" target="_blank" rel="noopener">
-                                    <i class="fas fa-external-link-alt"></i> New Tab
-                                </a>
-                            </div>
+            // Display quick form buttons that toggle form sections
+            pane.innerHTML += `
+                <div class="quick-form-container">
+                    <h6>Quick Forms</h6>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input log-type-checkbox" type="checkbox" id="seeding-enabled-${i}" onchange="toggleQuickForm(${i}, 'seeding')">
+                            <label class="form-check-label" for="seeding-enabled-${i}">
+                                <strong>Seeding</strong> - Record when seeds are planted
+                            </label>
                         </div>
-                        <div id="${formId}" class="form-content" style="display: none;">
-                            <div class="form-loading text-center py-4">
-                                <div class="spinner-border text-primary" role="status">
-                                    <span class="visually-hidden">Loading...</span>
+                        ${p.transplant_date ? `<div class="form-check">
+                            <input class="form-check-input log-type-checkbox" type="checkbox" id="transplanting-enabled-${i}" onchange="toggleQuickForm(${i}, 'transplanting')">
+                            <label class="form-check-label" for="transplanting-enabled-${i}">
+                                <strong>Transplanting</strong> - Record when seedlings are transplanted
+                            </label>
+                        </div>` : ''}
+                        <div class="form-check">
+                            <input class="form-check-input log-type-checkbox" type="checkbox" id="harvest-enabled-${i}" onchange="toggleQuickForm(${i}, 'harvest')">
+                            <label class="form-check-label" for="harvest-enabled-${i}">
+                                <strong>Harvest</strong> - Record harvest dates and quantities
+                            </label>
+                        </div>
+                    </div>
+                    <div class="alert alert-info mt-2">
+                        <small>Check boxes to fill out forms directly here</small>
+                    </div>
+                </div>
+
+                <!-- Season Selection -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h5 class="mb-3"><i class="fas fa-calendar-alt text-primary"></i> Season</h5>
+                        <div class="mb-3">
+                            <label class="form-label">What season(s) will this be part of? *</label>
+                            <input type="text" class="form-control" name="plantings[${i}][season]"
+                                   value="${p.season || (new Date().getFullYear() + ' Succession')}" required
+                                   placeholder="e.g., 2025, 2025 Summer, 2025 Succession">
+                            <div class="form-text">This will be prepended to the plant asset name for organization.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Crops/Varieties Section -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h5 class="mb-3"><i class="fas fa-leaf text-success"></i> Crop/Variety</h5>
+                        <div class="mb-3">
+                            <input type="text" class="form-control" name="plantings[${i}][crop_variety]"
+                                   value="${p.variety_name || p.crop_name || ''}" required
+                                   placeholder="Enter crop/variety (e.g., Lettuce, Carrot, Tomato)">
+                            <div class="form-text">Enter the crop or variety name for this planting.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Embedded Quick Form Sections -->
+                <div id="quick-form-seeding-${i}" class="embedded-quick-form" style="display: none;">
+                    <div class="form-content">
+                        <h6><i class="fas fa-seedling text-success"></i> Seeding Form</h6>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Seeding Date *</label>
+                                <input type="datetime-local" class="form-control" name="plantings[${i}][seeding][date]"
+                                       value="${p.seeding_date ? new Date(p.seeding_date).toISOString().slice(0, 16) : ''}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Completed</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="plantings[${i}][seeding][done]" value="1">
+                                    <label class="form-check-label">Mark as completed</label>
                                 </div>
-                                <p class="mt-2">Loading ${f.label.toLowerCase()} form...</p>
                             </div>
                         </div>
-                    `;
-                }
-                pane.appendChild(wrap);
-            });
+                        <div class="mb-3">
+                            <label class="form-label">Location *</label>
+                            <input type="text" class="form-control" name="plantings[${i}][seeding][location]"
+                                   value="${p.bed_name || ''}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Quantity *</label>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <input type="number" class="form-control" name="plantings[${i}][seeding][quantity][value]"
+                                           value="${p.quantity || 100}" step="0.01" min="0" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <select class="form-select" name="plantings[${i}][seeding][quantity][units]">
+                                        <option value="seeds" selected>Seeds</option>
+                                        <option value="plants">Plants</option>
+                                        <option value="grams">Grams</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <select class="form-select" name="plantings[${i}][seeding][quantity][measure]">
+                                        <option value="count" selected>Count</option>
+                                        <option value="weight">Weight</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Notes</label>
+                            <textarea class="form-control" name="plantings[${i}][seeding][notes]" rows="2">Seeding for succession #${p.succession_id || 1}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                ${p.transplant_date ? `
+                <div id="quick-form-transplanting-${i}" class="embedded-quick-form" style="display: none;">
+                    <div class="form-content">
+                        <h6><i class="fas fa-shipping-fast text-warning"></i> Transplanting Form</h6>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Transplant Date *</label>
+                                <input type="datetime-local" class="form-control" name="plantings[${i}][transplanting][date]"
+                                       value="${p.transplant_date ? new Date(p.transplant_date).toISOString().slice(0, 16) : ''}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Completed</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="plantings[${i}][transplanting][done]" value="1">
+                                    <label class="form-check-label">Mark as completed</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Location *</label>
+                            <input type="text" class="form-control" name="plantings[${i}][transplanting][location]"
+                                   value="${p.bed_name || ''}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Quantity *</label>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <input type="number" class="form-control" name="plantings[${i}][transplanting][quantity][value]"
+                                           value="${p.quantity || 100}" step="0.01" min="0" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <select class="form-select" name="plantings[${i}][transplanting][quantity][units]">
+                                        <option value="plants" selected>Plants</option>
+                                        <option value="seeds">Seeds</option>
+                                        <option value="grams">Grams</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <select class="form-select" name="plantings[${i}][transplanting][quantity][measure]">
+                                        <option value="count" selected>Count</option>
+                                        <option value="weight">Weight</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Notes</label>
+                            <textarea class="form-control" name="plantings[${i}][transplanting][notes]" rows="2">Transplanting for succession #${p.succession_id || 1}</textarea>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+
+                <div id="quick-form-harvest-${i}" class="embedded-quick-form" style="display: none;">
+                    <div class="form-content">
+                        <h6><i class="fas fa-shopping-basket text-danger"></i> Harvest Form</h6>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Harvest Date *</label>
+                                <input type="datetime-local" class="form-control" name="plantings[${i}][harvest][date]"
+                                       value="${p.harvest_date ? new Date(p.harvest_date).toISOString().slice(0, 16) : ''}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Completed</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="plantings[${i}][harvest][done]" value="1">
+                                    <label class="form-check-label">Mark as completed</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Quantity *</label>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <input type="number" class="form-control" name="plantings[${i}][harvest][quantity][value]"
+                                           value="${p.quantity || 100}" step="0.01" min="0" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <select class="form-select" name="plantings[${i}][harvest][quantity][units]">
+                                        <option value="grams" selected>Grams</option>
+                                        <option value="pounds">Pounds</option>
+                                        <option value="kilograms">Kilograms</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <select class="form-select" name="plantings[${i}][harvest][quantity][measure]">
+                                        <option value="weight" selected>Weight</option>
+                                        <option value="count">Count</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Notes</label>
+                            <textarea class="form-control" name="plantings[${i}][harvest][notes]" rows="2">Harvest for succession #${p.succession_id || 1}</textarea>
+                        </div>
+                    </div>
+                </div>
+            `;
 
             content.appendChild(pane);
         });
@@ -3003,14 +3659,1123 @@ NO extra text. Calculate for ${contextPayload.planning_year}.`;
         // Show the tabs container
         console.log('✅ Showing tabs container');
         tabsWrap.style.display = 'block';
-        // initializeTabs(); // Not needed - switchTab handles the logic
+
+        // Add submit all button at the bottom
+        const submitAllContainer = document.createElement('div');
+        submitAllContainer.className = 'text-center mt-4 p-3 bg-light rounded';
+        submitAllContainer.innerHTML = `
+            <button type="button" class="btn btn-success btn-lg" onclick="submitAllQuickForms()">
+                <i class="fas fa-save"></i> Submit All Planting Records to FarmOS
+            </button>
+            <p class="text-muted mt-2 mb-0">
+                <small>This will create plant assets and log all the planting events you've filled out above</small>
+            </p>
+        `;
+        tabsWrap.appendChild(submitAllContainer);
     }
 
-    function switchTab(index) {
-        const buttons = document.querySelectorAll('#tabNavigation .tab-button');
-        const panes = document.querySelectorAll('#tabContent .tab-pane');
-        buttons.forEach((b, i) => b.classList.toggle('active', i === index));
-        panes.forEach((p, i) => p.classList.toggle('active', i === index));
+    async function renderFarmOSTimeline(plan) {
+        console.log('� renderFarmOSTimeline called with plan:', plan);
+        console.log('�🔧 Rendering FarmOS timeline for plan:', plan);
+
+        const container = document.getElementById('farmosTimelineContainer');
+        console.log('🔍 Looking for container #farmosTimelineContainer:', container);
+        if (!container) {
+            console.error('❌ FarmOS timeline container not found');
+            return;
+        }
+        console.log('✅ Found container, current content:', container.innerHTML.substring(0, 100) + '...');
+
+        try {
+            // Show loading state
+            container.innerHTML = `
+                <div class="text-center p-4">
+                    <div class="spinner-border text-success" role="status">
+                        <span class="visually-hidden">Loading timeline...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Loading FarmOS bed occupancy data...</p>
+                </div>
+            `;
+
+            console.log('📊 Fetching FarmOS bed and planting data...');
+            // Fetch bed occupancy data from FarmOS
+            const bedData = await fetchFarmOSBedData(plan);
+            console.log('✅ Bed data fetched:', bedData);
+
+            // Create comprehensive bed occupancy timeline
+            const timelineHtml = createBedOccupancyTimeline(plan, bedData);
+            console.log('✅ Timeline HTML created, length:', timelineHtml.length);
+
+            // Add a visible test indicator
+            const testHtml = '<div style="background: yellow; padding: 10px; margin: 10px 0; border: 2px solid red;">🚀 BED OCCUPANCY TIMELINE TEST - If you see this, the function is working!</div>' + timelineHtml;
+
+            container.innerHTML = testHtml;
+            console.log('🎯 Bed occupancy timeline rendered successfully!');
+
+            // Drag and drop will be initialized centrally after both timeline and sidebar are ready
+
+        } catch (error) {
+            console.error('❌ Error rendering FarmOS bed occupancy timeline:', error);
+            container.innerHTML = `
+                <div class="alert alert-danger">
+                    <h5><i class="fas fa-exclamation-triangle"></i> FarmOS Data Unavailable</h5>
+                    <p>Unable to load real bed occupancy data from FarmOS. Please check your FarmOS connection and credentials.</p>
+                    <p><small>Error: ${error.message}</small></p>
+                    <div class="mt-3">
+                        <button class="btn btn-outline-primary btn-sm" onclick="renderFarmOSTimeline(window.currentSuccessionPlan)">
+                            <i class="fas fa-sync"></i> Retry
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    function createTimelineVisualization(plan) {
+        if (!plan.plantings || plan.plantings.length === 0) {
+            return `
+                <div class="alert alert-info">
+                    <h5><i class="fas fa-info-circle"></i> No Timeline Data</h5>
+                    <p>Generate a succession plan to see the timeline visualization.</p>
+                </div>
+            `;
+        }
+
+        // Calculate timeline bounds
+        const allDates = [];
+        plan.plantings.forEach(planting => {
+            if (planting.seeding_date) allDates.push(new Date(planting.seeding_date));
+            if (planting.transplant_date) allDates.push(new Date(planting.transplant_date));
+            if (planting.harvest_date) allDates.push(new Date(planting.harvest_date));
+            if (planting.harvest_end_date) allDates.push(new Date(planting.harvest_end_date));
+        });
+
+        if (allDates.length === 0) {
+            return `
+                <div class="alert alert-warning">
+                    <h5><i class="fas fa-exclamation-triangle"></i> No Dates Available</h5>
+                    <p>The succession plan doesn't have date information yet.</p>
+                </div>
+            `;
+        }
+
+        const minDate = new Date(Math.min(...allDates));
+        const maxDate = new Date(Math.max(...allDates));
+
+        // Extend timeline by 2 weeks on each side for better visualization
+        minDate.setDate(minDate.getDate() - 14);
+        maxDate.setDate(maxDate.getDate() + 14);
+
+        const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24));
+
+        // Create month labels
+        const months = [];
+        const current = new Date(minDate);
+        while (current <= maxDate) {
+            months.push({
+                label: current.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+                date: new Date(current)
+            });
+            current.setMonth(current.getMonth() + 1);
+        }
+
+        // Create timeline tasks
+        const tasks = [];
+        plan.plantings.forEach((planting, index) => {
+            const successionNum = index + 1;
+            const cropName = planting.crop_name || 'Unknown Crop';
+
+            // Seeding task
+            if (planting.seeding_date) {
+                const seedingDate = new Date(planting.seeding_date);
+                const left = ((seedingDate - minDate) / (maxDate - minDate)) * 100;
+                tasks.push({
+                    id: `seeding-${successionNum}`,
+                    type: 'seeding',
+                    label: `Sow ${cropName}`,
+                    succession: successionNum,
+                    left: Math.max(0, Math.min(95, left)),
+                    date: seedingDate
+                });
+            }
+
+            // Transplanting task
+            if (planting.transplant_date) {
+                const transplantDate = new Date(planting.transplant_date);
+                const left = ((transplantDate - minDate) / (maxDate - minDate)) * 100;
+                tasks.push({
+                    id: `transplant-${successionNum}`,
+                    type: 'transplanting',
+                    label: `Transplant ${cropName}`,
+                    succession: successionNum,
+                    left: Math.max(0, Math.min(95, left)),
+                    date: transplantDate
+                });
+            }
+
+            // Growth period (from seeding/transplant to harvest)
+            if (planting.harvest_date) {
+                const harvestDate = new Date(planting.harvest_date);
+                const startDate = planting.transplant_date ? new Date(planting.transplant_date) : (planting.seeding_date ? new Date(planting.seeding_date) : harvestDate);
+                const left = ((startDate - minDate) / (maxDate - minDate)) * 100;
+                const width = ((harvestDate - startDate) / (maxDate - minDate)) * 100;
+
+                if (width > 0) {
+                    tasks.push({
+                        id: `growth-${successionNum}`,
+                        type: 'growth',
+                        label: `${cropName} Growth`,
+                        succession: successionNum,
+                        left: Math.max(0, left),
+                        width: Math.max(5, Math.min(100 - left, width)),
+                        date: startDate
+                    });
+                }
+            }
+
+            // Harvest task
+            if (planting.harvest_date) {
+                const harvestDate = new Date(planting.harvest_date);
+                const left = ((harvestDate - minDate) / (maxDate - minDate)) * 100;
+                tasks.push({
+                    id: `harvest-${successionNum}`,
+                    type: 'harvest',
+                    label: `Harvest ${cropName}`,
+                    succession: successionNum,
+                    left: Math.max(0, Math.min(95, left)),
+                    date: harvestDate
+                });
+            }
+        });
+
+        // Sort tasks by date for proper layering
+        tasks.sort((a, b) => a.date - b.date);
+
+        return `
+            <div class="timeline-visualization">
+                <div class="timeline-axis">
+                    ${months.map(month => `<div class="timeline-month">${month.label}</div>`).join('')}
+                </div>
+
+                <div class="timeline-tasks">
+                    ${tasks.map(task => `
+                        <div class="timeline-task ${task.type}"
+                             style="left: ${task.left}%; ${task.width ? `width: ${task.width}%;` : 'width: 120px;'} top: ${(task.succession - 1) * 50 + 10}px;"
+                             title="${task.label} - ${task.date.toLocaleDateString()}">
+                            <span>${task.label}</span>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <div class="timeline-legend">
+                    <div class="legend-item">
+                        <div class="legend-color seeding"></div>
+                        <span>Seeding</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color transplanting"></div>
+                        <span>Transplanting</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color growth"></div>
+                        <span>Growth Period</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color harvest"></div>
+                        <span>Harvest</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    async function fetchFarmOSBedData(plan) {
+        console.log('🌐 Fetching real FarmOS bed occupancy data from API...');
+
+        // Calculate date range from succession plan for API request
+        const allDates = [];
+        if (plan.plantings) {
+            plan.plantings.forEach(planting => {
+                if (planting.seeding_date) allDates.push(new Date(planting.seeding_date));
+                if (planting.transplant_date) allDates.push(new Date(planting.transplant_date));
+                if (planting.harvest_date) allDates.push(new Date(planting.harvest_date));
+                if (planting.harvest_end_date) allDates.push(new Date(planting.harvest_end_date));
+            });
+        }
+
+        const minDate = allDates.length > 0 ? new Date(Math.min(...allDates)) : new Date();
+        const maxDate = allDates.length > 0 ? new Date(Math.max(...allDates)) : new Date();
+
+        // Call the real FarmOS API endpoint
+        const response = await fetch(`${API_BASE}/bed-occupancy?start_date=${minDate.toISOString().split('T')[0]}&end_date=${maxDate.toISOString().split('T')[0]}`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`FarmOS API request failed: ${response.status} ${response.statusText} - ${errorText}`);
+        }
+
+        const data = await response.json();
+
+        if (data.error || (data.success !== undefined && data.success === false)) {
+            throw new Error(data.message || data.error || `FarmOS API error: ${response.status}`);
+        }
+
+        console.log('✅ Successfully fetched real FarmOS bed data:', {
+            beds: data.data?.beds?.length || 0,
+            plantings: data.data?.plantings?.length || 0
+        });
+
+        return data;
+    }
+
+    function createBedOccupancyTimeline(plan, bedData) {
+        console.log('🔍 createBedOccupancyTimeline called with bedData:', bedData);
+        
+        // Handle API response structure: {success: true, data: {beds: [...], plantings: [...]}}
+        const actualBedData = bedData.data || bedData;
+        console.log('🔍 actualBedData:', actualBedData);
+        
+        if (!actualBedData || !actualBedData.beds || actualBedData.beds.length === 0) {
+            return `
+                <div class="alert alert-info">
+                    <h5><i class="fas fa-info-circle"></i> No FarmOS Beds Found</h5>
+                    <p>Your FarmOS instance doesn't have any beds (land assets) configured yet.</p>
+                    <p>Create some beds in FarmOS first, then the timeline will show real bed occupancy data.</p>
+                </div>
+            `;
+        }
+
+        // Calculate timeline bounds from succession plan dates
+        const allDates = [];
+        if (plan.plantings) {
+            plan.plantings.forEach(planting => {
+                if (planting.seeding_date) allDates.push(new Date(planting.seeding_date));
+                if (planting.transplant_date) allDates.push(new Date(planting.transplant_date));
+                if (planting.harvest_date) allDates.push(new Date(planting.harvest_date));
+                if (planting.harvest_end_date) allDates.push(new Date(planting.harvest_end_date));
+            });
+        }
+
+        // Include existing planting dates
+        if (actualBedData.plantings) {
+            actualBedData.plantings.forEach(planting => {
+                if (planting.start_date) allDates.push(new Date(planting.start_date));
+                if (planting.end_date) allDates.push(new Date(planting.end_date));
+            });
+        }
+
+        if (allDates.length === 0) {
+            return `
+                <div class="alert alert-info">
+                    <h5><i class="fas fa-info-circle"></i> No Timeline Data</h5>
+                    <p>Generate a succession plan to see bed availability over time.</p>
+                </div>
+            `;
+        }
+
+        const minDate = new Date(Math.min(...allDates));
+        const maxDate = new Date(Math.max(...allDates));
+
+        // Extend timeline by 1 month on each side for context
+        minDate.setMonth(minDate.getMonth() - 1);
+        maxDate.setMonth(maxDate.getMonth() + 1);
+
+        // Create month labels
+        const months = [];
+        const current = new Date(minDate);
+        while (current <= maxDate) {
+            months.push({
+                label: current.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+                date: new Date(current)
+            });
+            current.setMonth(current.getMonth() + 1);
+        }
+
+        // Group beds by block
+        const bedsByBlock = {};
+        actualBedData.beds.forEach(bed => {
+            const block = bed.block || 'Block Unknown';
+            if (!bedsByBlock[block]) {
+                bedsByBlock[block] = [];
+            }
+            bedsByBlock[block].push(bed);
+        });
+
+        // Sort blocks numerically and filter out "Block Unknown"
+        const sortedBlocks = Object.keys(bedsByBlock)
+            .filter(blockName => blockName !== 'Block Unknown')
+            .sort((a, b) => {
+                const aNum = parseInt(a.replace('Block ', '')) || 999;
+                const bNum = parseInt(b.replace('Block ', '')) || 999;
+                return aNum - bNum;
+            });
+
+        // Create bed rows grouped by block
+        const bedRows = sortedBlocks.map(blockName => {
+            const blockBeds = bedsByBlock[blockName];
+
+            // Sort beds within block by bed number
+            blockBeds.sort((a, b) => {
+                const aMatch = a.name.match(/\/(\d+)/);
+                const bMatch = b.name.match(/\/(\d+)/);
+                const aNum = aMatch ? parseInt(aMatch[1]) : 999;
+                const bNum = bMatch ? parseInt(bMatch[1]) : 999;
+                return aNum - bNum;
+            });
+
+            const blockBedRows = blockBeds.map(bed => {
+                const bedPlantings = actualBedData.plantings.filter(p => p.bed_id === bed.id);
+
+                // Create occupancy blocks for this bed
+                const occupancyBlocks = bedPlantings.map(planting => {
+                    const startDate = new Date(planting.start_date);
+                    const endDate = new Date(planting.end_date);
+                    const left = ((startDate - minDate) / (maxDate - minDate)) * 100;
+                    const width = ((endDate - startDate) / (maxDate - minDate)) * 100;
+
+                    return `
+                        <div class="bed-occupancy-block ${planting.status}"
+                             style="left: ${Math.max(0, left)}%; width: ${Math.max(2, Math.min(100 - left, width))}%;"
+                             title="${planting.crop} ${planting.variety || ''} (${planting.start_date} to ${planting.end_date}) - ${planting.status}">
+                            <span class="crop-label">${planting.crop}</span>
+                        </div>
+                    `;
+                }).join('');
+
+                return `
+                    <div class="bed-row">
+                        <div class="bed-label">${bed.name}</div>
+                        <div class="bed-timeline" data-bed-id="${bed.id}" data-bed-name="${bed.name}">
+                            ${occupancyBlocks}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="bed-block">
+                    <div class="bed-block-header">
+                        <h6><i class="fas fa-th-large"></i> ${blockName}</h6>
+                    </div>
+                    <div class="bed-block-content">
+                        ${blockBedRows}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Add succession planning indicators
+        const successionIndicators = [];
+        if (plan.plantings) {
+            plan.plantings.forEach((planting, index) => {
+                const harvestDate = planting.harvest_date ? new Date(planting.harvest_date) : null;
+                if (harvestDate) {
+                    const left = ((harvestDate - minDate) / (maxDate - minDate)) * 100;
+                    successionIndicators.push(`
+                        <div class="succession-indicator"
+                             style="left: ${left}%;"
+                             title="Succession ${index + 1} Harvest: ${planting.crop_name || 'Unknown'} on ${planting.harvest_date}">
+                            <i class="fas fa-star text-warning"></i>
+                        </div>
+                    `);
+                }
+            });
+        }
+
+        return `
+            <div class="bed-occupancy-timeline" data-min-date="${minDate.toISOString()}" data-max-date="${maxDate.toISOString()}">
+                <div class="timeline-header">
+                    <h5><i class="fas fa-seedling text-success"></i> Real FarmOS Bed Occupancy</h5>
+                    <p class="text-muted small">Live bed availability from your FarmOS database • Yellow stars show planned harvest dates</p>
+                </div>
+
+                <div class="timeline-axis">
+                    ${months.map(month => `<div class="timeline-month">${month.label}</div>`).join('')}
+                </div>
+
+                <div class="beds-container">
+                    ${bedRows}
+                </div>
+
+                <div class="timeline-indicators">
+                    ${successionIndicators.join('')}
+                </div>
+
+                <div class="timeline-legend">
+                    <div class="legend-item">
+                        <div class="legend-color active"></div>
+                        <span>Currently Planted</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color completed"></div>
+                        <span>Recently Harvested</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color available"></div>
+                        <span>Available</span>
+                    </div>
+                    <div class="legend-item">
+                        <i class="fas fa-star text-warning"></i>
+                        <span>Succession Harvest</span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Initialize drag and drop for the newly created timeline
+        setTimeout(() => {
+            // Re-attach drop listeners to bed timelines
+            document.querySelectorAll('.bed-timeline').forEach(timeline => {
+                timeline.removeEventListener('dragover', handleDragOver);
+                timeline.removeEventListener('dragleave', handleDragLeave);
+                timeline.removeEventListener('drop', handleDrop);
+
+                timeline.addEventListener('dragover', handleDragOver);
+                timeline.addEventListener('dragleave', handleDragLeave);
+                timeline.addEventListener('drop', handleDrop);
+                console.log('✅ Re-attached drop listeners to bed timeline');
+            });
+        }, 100);
+    }
+
+    // Initialize drag and drop for successions
+    function initializeDragAndDrop() {
+        // Remove existing listeners first to avoid duplicates
+        document.querySelectorAll('.succession-item[draggable="true"]').forEach(item => {
+            item.removeEventListener('dragstart', handleDragStart);
+            item.removeEventListener('dragend', handleDragEnd);
+        });
+
+        document.querySelectorAll('.bed-timeline').forEach(timeline => {
+            timeline.removeEventListener('dragover', handleDragOver);
+            timeline.removeEventListener('dragleave', handleDragLeave);
+            timeline.removeEventListener('drop', handleDrop);
+        });
+
+        const successionItems = document.querySelectorAll('.succession-item[draggable="true"]');
+        const bedTimelines = document.querySelectorAll('.bed-timeline');
+
+        successionItems.forEach(item => {
+            item.addEventListener('dragstart', handleDragStart);
+            item.addEventListener('dragend', handleDragEnd);
+        });
+
+        bedTimelines.forEach(timeline => {
+            timeline.addEventListener('dragover', handleDragOver);
+            timeline.addEventListener('dragleave', handleDragLeave);
+            timeline.addEventListener('drop', handleDrop);
+        });
+    }
+
+    function handleDragStart(e) {
+        e.dataTransfer.setData('text/plain', e.target.dataset.successionIndex);
+        e.target.classList.add('dragging');
+
+        // Add visual feedback to potential drop targets
+        document.querySelectorAll('.bed-timeline').forEach(timeline => {
+            timeline.classList.add('drop-target');
+        });
+    }
+
+    function handleDragEnd(e) {
+        e.target.classList.remove('dragging');
+
+        // Remove visual feedback from drop targets
+        document.querySelectorAll('.bed-timeline').forEach(timeline => {
+            timeline.classList.remove('drop-target', 'drop-active');
+        });
+    }
+
+    function handleDragOver(e) {
+        e.preventDefault();
+
+        const dragType = e.dataTransfer.getData('text/plain');
+        const bedTimeline = e.currentTarget;
+        const bedId = bedTimeline.dataset.bedId;
+
+        let successionData;
+
+        if (dragType === 'block-move') {
+            // Moving an existing block
+            const allocationData = JSON.parse(e.dataTransfer.getData('application/json'));
+            successionData = {
+                sowDate: new Date(allocationData.sowDate),
+                transplantDate: allocationData.transplantDate ? new Date(allocationData.transplantDate) : null,
+                harvestDate: new Date(allocationData.harvestDate),
+                method: allocationData.method
+            };
+        } else {
+            // Dragging a new succession from sidebar
+            const successionIndex = dragType;
+            const successionItem = document.querySelector(`[data-succession-index="${successionIndex}"]`);
+            if (!successionItem) return;
+
+            successionData = JSON.parse(successionItem.dataset.successionData);
+            successionData.sowDate = new Date(successionData.sowDate);
+            if (successionData.transplantDate) {
+                successionData.transplantDate = new Date(successionData.transplantDate);
+            }
+            successionData.harvestDate = new Date(successionData.harvestDate);
+        }
+
+        // Check for conflicts
+        if (checkBedConflicts(bedId, successionData)) {
+            // Show conflict state
+            bedTimeline.classList.remove('drop-active');
+            bedTimeline.classList.add('drop-conflict');
+        } else {
+            // Show valid drop state
+            bedTimeline.classList.remove('drop-conflict');
+            bedTimeline.classList.add('drop-active');
+        }
+    }
+
+    function handleDragLeave(e) {
+        e.currentTarget.classList.remove('drop-active', 'drop-conflict');
+    }
+
+    function handleDrop(e) {
+        e.preventDefault();
+        e.currentTarget.classList.remove('drop-active', 'drop-target');
+
+        console.log('🎯 Drop event triggered on bed timeline');
+
+        const dragType = e.dataTransfer.getData('text/plain');
+        console.log('📋 Drag type:', dragType);
+
+        const bedTimeline = e.currentTarget;
+        const bedRow = bedTimeline.closest('.bed-row');
+        const bedName = bedRow.querySelector('.bed-label').textContent;
+        const bedId = bedTimeline.dataset.bedId;
+
+        console.log('🏡 Drop target - Bed name:', bedName, 'Bed ID:', bedId);
+
+        if (dragType === 'block-move') {
+            // Moving an existing succession block
+            const allocationData = JSON.parse(e.dataTransfer.getData('application/json'));
+            console.log('🏗️ Moving existing block:', allocationData);
+
+            // Check if dropping on the same bed
+            if (allocationData.bedId === bedId) {
+                console.log('📍 Dropped on same bed, no change needed');
+                return;
+            }
+
+            // Check for conflicts
+            if (checkBedConflicts(bedId, {
+                sowDate: new Date(allocationData.sowDate),
+                transplantDate: allocationData.transplantDate ? new Date(allocationData.transplantDate) : null,
+                harvestDate: new Date(allocationData.harvestDate),
+                method: allocationData.method
+            })) {
+                showConflictError(bedRow);
+                return;
+            }
+
+            // Update allocation
+            let allocations = JSON.parse(localStorage.getItem('bedAllocations') || '[]');
+            const existingAllocation = allocations.find(a => a.successionIndex === allocationData.successionIndex && a.bedId === allocationData.bedId);
+            if (existingAllocation) {
+                existingAllocation.bedId = bedId;
+                existingAllocation.bedName = bedName;
+                localStorage.setItem('bedAllocations', JSON.stringify(allocations));
+
+                // Update succession item badge
+                const successionItem = document.querySelector(`[data-succession-index="${allocationData.successionIndex - 1}"]`);
+                if (successionItem) {
+                    const badge = successionItem.querySelector('.bed-allocation-badge');
+                    if (badge) {
+                        badge.textContent = `Allocated to ${bedName}`;
+                    }
+                }
+
+                // Remove old block and create new one
+                const oldBlock = document.querySelector(`[data-succession-index="${allocationData.successionIndex - 1}"][data-allocation-data*="${allocationData.bedId}"]`);
+                if (oldBlock) {
+                    oldBlock.remove();
+                }
+
+                // Create new block on target bed
+                const harvestEndDate = new Date(allocationData.harvestEndDate || allocationData.harvestDate);
+                harvestEndDate.setDate(harvestEndDate.getDate() + 14); // Add 2 weeks if not specified
+                createSuccessionBlock(bedTimeline, {
+                    successionNumber: allocationData.successionIndex,
+                    sowDate: new Date(allocationData.sowDate),
+                    transplantDate: allocationData.transplantDate ? new Date(allocationData.transplantDate) : null,
+                    harvestDate: new Date(allocationData.harvestDate),
+                    method: allocationData.method
+                }, new Date(allocationData.occupationStart), new Date(allocationData.harvestDate), harvestEndDate);
+
+                console.log('✅ Moved succession block to new bed:', bedName);
+            }
+        } else {
+            // Dropping a new succession from sidebar
+            const successionIndex = dragType;
+            console.log('📋 Succession index from drag data:', successionIndex);
+
+            // Get succession data
+            const successionItem = document.querySelector(`[data-succession-index="${successionIndex}"]`);
+            if (!successionItem) {
+                console.error('❌ Succession item not found for index:', successionIndex);
+                return;
+            }
+
+            const successionData = JSON.parse(successionItem.dataset.successionData);
+            console.log('🌱 Succession data:', successionData);
+
+            // Convert ISO date strings back to Date objects
+            successionData.sowDate = new Date(successionData.sowDate);
+            if (successionData.transplantDate) {
+                successionData.transplantDate = new Date(successionData.transplantDate);
+            }
+            successionData.harvestDate = new Date(successionData.harvestDate);
+
+            // Check for conflicts with existing plantings
+            if (checkBedConflicts(bedId, successionData)) {
+                showConflictError(bedRow);
+                return;
+            }
+
+            // Allocate succession to bed with proper positioning
+            allocateSuccessionToBed(bedName, bedId, successionData, successionIndex, bedTimeline);
+
+            // Visual feedback
+            showAllocationFeedback(bedRow, successionData);
+        }
+    }
+
+    function allocateSuccessionToBed(bedName, bedId, successionData, successionIndex, bedTimeline) {
+        // Determine occupation start date based on planting method
+        const occupationStart = successionData.method.toLowerCase().includes('transplant') && successionData.transplantDate
+            ? successionData.transplantDate
+            : successionData.sowDate;
+
+        // Determine occupation end date - include harvest period (add 2 weeks buffer for harvest)
+        const harvestEndDate = new Date(successionData.harvestDate);
+        harvestEndDate.setDate(harvestEndDate.getDate() + 14); // Add 2 weeks for harvest period
+        const occupationEnd = harvestEndDate;
+
+        // Create visual succession block on the timeline with harvest window
+        createSuccessionBlock(bedTimeline, successionData, occupationStart, successionData.harvestDate, occupationEnd);
+
+        // Store allocation
+        const allocation = {
+            bedName: bedName,
+            bedId: bedId,
+            successionIndex: parseInt(successionIndex) + 1,
+            sowDate: successionData.sowDate.toISOString().split('T')[0],
+            transplantDate: successionData.transplantDate ? successionData.transplantDate.toISOString().split('T')[0] : null,
+            harvestDate: successionData.harvestDate.toISOString().split('T')[0],
+            harvestEndDate: occupationEnd.toISOString().split('T')[0],
+            occupationStart: occupationStart.toISOString().split('T')[0],
+            occupationEnd: occupationEnd.toISOString().split('T')[0],
+            method: successionData.method
+        };
+
+        // Store in localStorage for now (could be replaced with API call)
+        let allocations = JSON.parse(localStorage.getItem('bedAllocations') || '[]');
+        allocations.push(allocation);
+        localStorage.setItem('bedAllocations', JSON.stringify(allocations));
+
+        // Mark succession as allocated and add bed badge
+        const successionItem = document.querySelector(`[data-succession-index="${successionIndex}"]`);
+        if (successionItem) {
+            successionItem.classList.add('allocated');
+
+            // Add bed allocation badge
+            const header = successionItem.querySelector('.succession-header');
+            if (header) {
+                // Remove existing badge if present
+                const existingBadge = header.querySelector('.bed-allocation-badge');
+                if (existingBadge) {
+                    existingBadge.remove();
+                }
+
+                // Add new badge
+                const badge = document.createElement('span');
+                badge.className = 'bed-allocation-badge badge bg-success';
+                badge.textContent = `Allocated to ${bedName}`;
+                badge.title = `Click to remove allocation`;
+                badge.style.cursor = 'pointer';
+                badge.onclick = () => removeSuccessionAllocation(successionIndex);
+                header.appendChild(badge);
+            }
+
+            // Store allocation data on the element for quickforms
+            successionItem.dataset.allocationData = JSON.stringify(allocation);
+        }
+
+        console.log('✅ Allocated succession to bed:', allocation);
+    }
+
+    function removeSuccessionAllocation(successionIndex) {
+        // Remove from localStorage
+        let allocations = JSON.parse(localStorage.getItem('bedAllocations') || '[]');
+        allocations = allocations.filter(a => a.successionIndex !== parseInt(successionIndex) + 1);
+        localStorage.setItem('bedAllocations', JSON.stringify(allocations));
+
+        // Remove visual allocation from timeline
+        const successionBlocks = document.querySelectorAll('.succession-allocation-block');
+        successionBlocks.forEach(block => {
+            if (block.querySelector('.succession-label')?.textContent === `S${parseInt(successionIndex) + 1}`) {
+                block.remove();
+            }
+        });
+
+        // Reset succession item appearance
+        const successionItem = document.querySelector(`[data-succession-index="${successionIndex}"]`);
+        if (successionItem) {
+            successionItem.classList.remove('allocated');
+            const badge = successionItem.querySelector('.bed-allocation-badge');
+            if (badge) {
+                badge.remove();
+            }
+            delete successionItem.dataset.allocationData;
+        }
+
+        console.log('🗑️ Removed allocation for succession:', parseInt(successionIndex) + 1);
+    }
+
+    function clearAllAllocations() {
+        if (confirm('Are you sure you want to clear all bed allocations? This will allow you to manually reassign successions by dragging.')) {
+            localStorage.removeItem('bedAllocations');
+
+            // Remove all visual allocation blocks from timelines
+            document.querySelectorAll('.succession-allocation-block, .succession-block-container').forEach(block => {
+                block.remove();
+            });
+
+            // Reset all succession items to unallocated state
+            document.querySelectorAll('.succession-item').forEach(item => {
+                item.classList.remove('allocated');
+                const badge = item.querySelector('.bed-allocation-badge');
+                if (badge) badge.remove();
+                delete item.dataset.allocationData;
+            });
+
+            console.log('🗑️ Cleared all bed allocations');
+            showToast('All allocations cleared. You can now manually assign successions by dragging.', 'info');
+        }
+    }
+
+    function getSuccessionAllocation(successionIndex) {
+        // Return allocation data for a specific succession
+        const allocations = JSON.parse(localStorage.getItem('bedAllocations') || '[]');
+        return allocations.find(a => a.successionIndex === parseInt(successionIndex) + 1);
+    }
+
+    function checkBedConflicts(bedId, successionData) {
+        // Get existing allocations for this bed
+        const allocations = JSON.parse(localStorage.getItem('bedAllocations') || '[]');
+        const bedAllocations = allocations.filter(a => a.bedId === bedId);
+
+        // Determine occupation period for the new succession (including harvest time)
+        const occupationStart = successionData.method.toLowerCase().includes('transplant') && successionData.transplantDate
+            ? successionData.transplantDate
+            : successionData.sowDate;
+        const harvestEndDate = new Date(successionData.harvestDate);
+        harvestEndDate.setDate(harvestEndDate.getDate() + 14); // Add 2 weeks for harvest period
+        const occupationEnd = harvestEndDate;
+
+        // Check for overlaps with existing allocations
+        for (const allocation of bedAllocations) {
+            const existingStart = new Date(allocation.occupationStart);
+            const existingEnd = new Date(allocation.occupationEnd || allocation.harvestDate);
+
+            // Check for time overlap
+            if (occupationStart < existingEnd && occupationEnd > existingStart) {
+                return true; // Conflict found
+            }
+        }
+
+        return false; // No conflicts
+    }
+
+    function showConflictError(bedRow) {
+        // Visual feedback for conflict
+        const timeline = bedRow.querySelector('.bed-timeline');
+        timeline.classList.add('conflict-error');
+
+        // Add error message
+        const errorMsg = document.createElement('div');
+        errorMsg.className = 'conflict-message';
+        errorMsg.textContent = '❌ Bed occupied during this period';
+        timeline.appendChild(errorMsg);
+
+        // Remove after 3 seconds
+        setTimeout(() => {
+            timeline.classList.remove('conflict-error');
+            if (errorMsg.parentNode) {
+                errorMsg.remove();
+            }
+        }, 3000);
+    }
+
+    function createSuccessionBlock(bedTimeline, successionData, startDate, harvestDate, endDate) {
+        console.log('🎨 Creating succession block:', {
+            successionNumber: successionData.successionNumber,
+            startDate: startDate.toISOString(),
+            harvestDate: harvestDate.toISOString(),
+            endDate: endDate.toISOString()
+        });
+
+        // Get timeline date range from data attributes
+        const timelineContainer = bedTimeline.closest('.bed-occupancy-timeline');
+        const minDateStr = timelineContainer.dataset.minDate;
+        const maxDateStr = timelineContainer.dataset.maxDate;
+
+        console.log('📅 Timeline date range:', { minDateStr, maxDateStr });
+
+        if (!minDateStr || !maxDateStr) {
+            console.error('Timeline date range not found');
+            return;
+        }
+
+        const timelineStart = new Date(minDateStr);
+        const timelineEnd = new Date(maxDateStr);
+
+        console.log('📅 Parsed timeline dates:', {
+            timelineStart: timelineStart.toISOString(),
+            timelineEnd: timelineEnd.toISOString()
+        });
+
+        // Calculate positions for growing period and harvest window
+        const totalDuration = timelineEnd - timelineStart;
+
+        // Growing period (from start to harvest)
+        const growingLeft = ((startDate - timelineStart) / totalDuration) * 100;
+        const growingWidth = ((harvestDate - startDate) / totalDuration) * 100;
+
+        // Harvest window (from harvest to end)
+        const harvestLeft = ((harvestDate - timelineStart) / totalDuration) * 100;
+        const harvestWidth = ((endDate - harvestDate) / totalDuration) * 100;
+
+        console.log('📐 Calculated positions:', {
+            growingLeft, growingWidth,
+            harvestLeft, harvestWidth,
+            totalDuration
+        });
+
+        // Create container for the succession block
+        const blockContainer = document.createElement('div');
+        blockContainer.className = 'succession-block-container';
+        blockContainer.style.left = `${Math.max(0, growingLeft)}%`;
+        blockContainer.style.width = `${Math.max(2, Math.min(100 - growingLeft, growingWidth + harvestWidth))}%`;
+
+        // Growing period block
+        if (growingWidth > 0) {
+            const growingBlock = document.createElement('div');
+            growingBlock.className = 'succession-growing-block';
+            growingBlock.style.left = '0%';
+            growingBlock.style.width = growingWidth > 0 ? `${(growingWidth / (growingWidth + harvestWidth)) * 100}%` : '100%';
+            growingBlock.title = `Succession ${successionData.successionNumber} - Growing Period (${startDate.toLocaleDateString()} - ${harvestDate.toLocaleDateString()})`;
+
+            const growingLabel = document.createElement('span');
+            growingLabel.className = 'succession-label';
+            growingLabel.textContent = `S${successionData.successionNumber}`;
+            growingBlock.appendChild(growingLabel);
+            blockContainer.appendChild(growingBlock);
+        }
+
+        // Harvest window block
+        if (harvestWidth > 0) {
+            const harvestBlock = document.createElement('div');
+            harvestBlock.className = 'succession-harvest-block';
+            harvestBlock.style.left = growingWidth > 0 ? `${(growingWidth / (growingWidth + harvestWidth)) * 100}%` : '0%';
+            harvestBlock.style.width = harvestWidth > 0 ? `${(harvestWidth / (growingWidth + harvestWidth)) * 100}%` : '0%';
+            harvestBlock.title = `Succession ${successionData.successionNumber} - Harvest Window (${harvestDate.toLocaleDateString()} - ${endDate.toLocaleDateString()})`;
+
+            const harvestLabel = document.createElement('span');
+            harvestLabel.className = 'succession-label';
+            harvestLabel.textContent = `H${successionData.successionNumber}`;
+            harvestBlock.appendChild(harvestLabel);
+            blockContainer.appendChild(harvestBlock);
+        }
+
+        // Add drag functionality to the container
+        blockContainer.draggable = true;
+        blockContainer.dataset.successionIndex = successionData.successionNumber - 1;
+        blockContainer.dataset.allocationData = JSON.stringify({
+            bedName: bedTimeline.closest('.bed-row').querySelector('.bed-label').textContent,
+            bedId: bedTimeline.dataset.bedId,
+            successionIndex: successionData.successionNumber,
+            sowDate: successionData.sowDate.toISOString().split('T')[0],
+            transplantDate: successionData.transplantDate ? successionData.transplantDate.toISOString().split('T')[0] : null,
+            harvestDate: successionData.harvestDate.toISOString().split('T')[0],
+            harvestEndDate: endDate.toISOString().split('T')[0],
+            occupationStart: startDate.toISOString().split('T')[0],
+            occupationEnd: endDate.toISOString().split('T')[0],
+            method: successionData.method
+        });
+
+        // Add drag functionality
+        blockContainer.addEventListener('dragstart', handleBlockDragStart);
+        blockContainer.addEventListener('dragend', handleBlockDragEnd);
+
+        // Add right-click delete
+        blockContainer.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            if (confirm(`Remove Succession ${successionData.successionNumber} from this bed?`)) {
+                removeSuccessionBlock(blockContainer);
+            }
+        });
+
+        bedTimeline.appendChild(blockContainer);
+        console.log('✅ Succession block with harvest window added to timeline');
+    }
+
+    function handleBlockDragStart(e) {
+        e.dataTransfer.setData('text/plain', 'block-move');
+        e.dataTransfer.setData('application/json', e.target.dataset.allocationData);
+        e.target.classList.add('dragging');
+        console.log('🏗️ Started dragging succession block');
+    }
+
+    function handleBlockDragEnd(e) {
+        e.target.classList.remove('dragging');
+        document.querySelectorAll('.bed-timeline').forEach(timeline => {
+            timeline.classList.remove('drop-target', 'drop-active', 'drop-conflict');
+        });
+        console.log('🏗️ Finished dragging succession block');
+    }
+
+    function removeSuccessionBlock(block) {
+        const allocationData = JSON.parse(block.dataset.allocationData);
+        const successionIndex = allocationData.successionIndex - 1;
+
+        // Remove from localStorage
+        let allocations = JSON.parse(localStorage.getItem('bedAllocations') || '[]');
+        allocations = allocations.filter(a => !(a.successionIndex === allocationData.successionIndex && a.bedId === allocationData.bedId));
+        localStorage.setItem('bedAllocations', JSON.stringify(allocations));
+
+        // Remove the block
+        block.remove();
+
+        // Reset succession item appearance
+        const successionItem = document.querySelector(`[data-succession-index="${successionIndex}"]`);
+        if (successionItem) {
+            successionItem.classList.remove('allocated');
+            const badge = successionItem.querySelector('.bed-allocation-badge');
+            if (badge) {
+                badge.remove();
+            }
+            delete successionItem.dataset.allocationData;
+        }
+
+        console.log('🗑️ Removed succession block:', allocationData);
+    }
+
+    function showAllocationFeedback(bedRow, successionData) {
+        // Add visual indicator
+        const timeline = bedRow.querySelector('.bed-timeline');
+        const indicator = document.createElement('div');
+        indicator.className = 'allocated-succession';
+        indicator.textContent = `Succession ${successionData.successionNumber || 'N/A'}`;
+        timeline.appendChild(indicator);
+
+        // Remove after 3 seconds
+        setTimeout(() => {
+            if (indicator.parentNode) {
+                indicator.remove();
+            }
+        }, 3000);
+    }
+
+    function toggleQuickForm(successionIndex, formType) {
+        const checkbox = document.getElementById(`${formType}-enabled-${successionIndex}`);
+        const formElement = document.getElementById(`quick-form-${formType}-${successionIndex}`);
+
+        if (checkbox && formElement) {
+            if (checkbox.checked) {
+                formElement.style.display = 'block';
+            } else {
+                formElement.style.display = 'none';
+            }
+        }
+    }
+
+    async function submitAllQuickForms() {
+        // Collect all form data
+        const formData = new FormData();
+        formData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+
+        // Get all planting data
+        const plantings = [];
+        const tabPanes = document.querySelectorAll('#tabContent .tab-pane');
+
+        tabPanes.forEach((pane, index) => {
+            const planting = {
+                succession_index: index,
+                logs: {}
+            };
+
+            // Check each form type
+            ['seeding', 'transplanting', 'harvest'].forEach(formType => {
+                const formElement = document.getElementById(`quick-form-${formType}-${index}`);
+                if (formElement && formElement.style.display !== 'none') {
+                    // Form is visible, collect its data
+                    const formDataObj = {};
+                    const inputs = formElement.querySelectorAll('input, select, textarea');
+                    inputs.forEach(input => {
+                        if (input.name && input.value) {
+                            const nameParts = input.name.replace(`plantings[${index}][${formType}][`, '').replace(']', '').split('][');
+                            let current = formDataObj;
+                            for (let i = 0; i < nameParts.length - 1; i++) {
+                                if (!current[nameParts[i]]) current[nameParts[i]] = {};
+                                current = current[nameParts[i]];
+                            }
+                            current[nameParts[nameParts.length - 1]] = input.value;
+                        }
+                    });
+                    planting.logs[formType] = formDataObj;
+                }
+            });
+
+            if (Object.keys(planting.logs).length > 0) {
+                plantings.push(planting);
+            }
+        });
+
+        if (plantings.length === 0) {
+            alert('No forms have been filled out. Please fill out at least one form before submitting.');
+            return;
+        }
+
+        // Submit to backend
+        try {
+            showLoading(true);
+            const response = await fetch('/admin/farmos/succession-planning/submit-all-logs', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({ plantings })
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                showToast('All planting records submitted successfully!', 'success');
+                // Hide all forms and show success message
+                document.querySelectorAll('.embedded-quick-form').forEach(form => {
+                    form.style.display = 'none';
+                });
+            } else {
+                showToast('Failed to submit planting records: ' + (result.message || 'Unknown error'), 'error');
+            }
+        } catch (error) {
+            console.error('Submit error:', error);
+            showToast('Error submitting planting records', 'error');
+        } finally {
+            showLoading(false);
+        }
     }
 
     async function toggleForm(formId, url) {
@@ -3673,6 +5438,76 @@ Plantings:`;
         console.log('📉 Shortened harvest window to reduce successions');
     }
 
+    function populateSuccessionSidebar(plan) {
+        const successionList = document.getElementById('successionList');
+        const successionSidebar = document.getElementById('successionSidebar');
+        const aiChatSection = document.getElementById('aiChatSection');
+
+        if (!successionList || !successionSidebar || !aiChatSection) return;
+
+        const plantings = plan.plantings || [];
+        
+        if (plantings.length > 0) {
+            let sidebarHTML = '';
+
+            plantings.forEach((planting, i) => {
+                const sowDate = planting.seeding_date ? new Date(planting.seeding_date) : null;
+                const transplantDate = planting.transplant_date ? new Date(planting.transplant_date) : null;
+                const harvestDate = planting.harvest_date ? new Date(planting.harvest_date) : null;
+
+                const successionDataForJson = {
+                    successionNumber: i + 1,
+                    sowDate: sowDate ? sowDate.toISOString() : null,
+                    transplantDate: transplantDate ? transplantDate.toISOString() : null,
+                    harvestDate: harvestDate ? harvestDate.toISOString() : null,
+                    method: planting.method || 'Direct Sow'
+                };
+
+                sidebarHTML += `
+                    <div class="succession-item" draggable="true" data-succession-index="${i}" data-succession-data='${JSON.stringify(successionDataForJson)}'>
+                        <div class="succession-header">
+                            <div class="succession-title-section">
+                                <span class="succession-title">Succession ${i + 1}</span>
+                                <small class="text-muted">${planting.method || 'Direct Sow'}</small>
+                            </div>
+                        </div>
+                        <div class="succession-dates">
+                            ${sowDate ? `
+                            <div class="date-row">
+                                <span class="date-label">Sow:</span>
+                                <span class="date-value">${sowDate.toLocaleDateString()}</span>
+                            </div>
+                            ` : ''}
+                            ${transplantDate ? `
+                            <div class="date-row">
+                                <span class="date-label">Transplant:</span>
+                                <span class="date-value">${transplantDate.toLocaleDateString()}</span>
+                            </div>
+                            ` : ''}
+                            ${harvestDate ? `
+                            <div class="date-row">
+                                <span class="date-label">Harvest:</span>
+                                <span class="date-value">${harvestDate.toLocaleDateString()}</span>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+
+            successionList.innerHTML = sidebarHTML;
+            successionSidebar.style.display = 'block';
+            aiChatSection.style.display = 'none';
+
+            console.log('📝 Succession sidebar populated with', plantings.length, 'successions');
+
+            // Drag and drop will be initialized centrally after both timeline and sidebar are ready
+        } else {
+            successionSidebar.style.display = 'none';
+            aiChatSection.style.display = 'block';
+        }
+    }
+
     // Update succession impact preview
     function updateSuccessionImpact() {
         const impactDiv = document.getElementById('successionImpact');
@@ -3730,11 +5565,20 @@ Plantings:`;
 
         countBadge.textContent = `${successions} Succession${successions > 1 ? 's' : ''}`;
 
-        // Generate detailed succession preview
+        // Update sidebar count
+        const sidebarCountBadge = document.getElementById('sidebarSuccessionCount');
+        if (sidebarCountBadge) {
+            sidebarCountBadge.textContent = `${successions} Succession${successions > 1 ? 's' : ''}`;
+        }
+
+        // Generate detailed succession preview for both locations
         let previewHTML = '';
+        let sidebarHTML = '';
+
         for (let i = 0; i < successions; i++) {
             const successionData = calculateSuccessionDates(start, i, avgSuccessionInterval, cropName, varietyName);
 
+            // Original preview format
             previewHTML += `
                 <div class="succession-item">
                     <div class="succession-header">
@@ -3759,10 +5603,67 @@ Plantings:`;
                     </div>
                 </div>
             `;
+
+            // Sidebar draggable format
+            const successionDataForJson = {
+                successionNumber: i + 1,
+                sowDate: successionData.sowDate.toISOString(),
+                transplantDate: successionData.transplantDate ? successionData.transplantDate.toISOString() : null,
+                harvestDate: successionData.harvestDate.toISOString(),
+                method: successionData.method
+            };
+
+            sidebarHTML += `
+                <div class="succession-item" draggable="true" data-succession-index="${i}" data-succession-data='${JSON.stringify(successionDataForJson)}'>
+                    <div class="succession-header">
+                        <div class="succession-title-section">
+                            <span class="succession-title">Succession ${i + 1}</span>
+                            <small class="text-muted">${successionData.method}</small>
+                        </div>
+                    </div>
+                    <div class="succession-dates">
+                        <div class="date-row">
+                            <span class="date-label">Sow:</span>
+                            <span class="date-value">${successionData.sowDate.toLocaleDateString()}</span>
+                        </div>
+                        ${successionData.transplantDate ? `
+                        <div class="date-row">
+                            <span class="date-label">Transplant:</span>
+                            <span class="date-value">${successionData.transplantDate.toLocaleDateString()}</span>
+                        </div>
+                        ` : ''}
+                        <div class="date-row">
+                            <span class="date-label">Harvest:</span>
+                            <span class="date-value">${successionData.harvestDate.toLocaleDateString()}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
         }
 
         previewDiv.innerHTML = previewHTML;
         impactDiv.style.display = 'block';
+
+        // Update sidebar
+        const successionList = document.getElementById('successionList');
+        const successionSidebar = document.getElementById('successionSidebar');
+        const aiChatSection = document.getElementById('aiChatSection');
+
+        if (successionList && successionSidebar && aiChatSection) {
+            if (successions > 0) {
+                successionList.innerHTML = sidebarHTML;
+                successionSidebar.style.display = 'block';
+                aiChatSection.style.display = 'none';
+
+                console.log('📝 Sidebar HTML created:', sidebarHTML.substring(0, 200) + '...');
+
+                // Initialize drag and drop
+                initializeDragAndDrop();
+            } else {
+                successionSidebar.style.display = 'none';
+                aiChatSection.style.display = 'block';
+            }
+        }
     }
 
     // Get succession interval based on crop type
@@ -4360,6 +6261,111 @@ Plantings:`;
         }
 
         updateHarvestWindowDisplay();
+    }
+
+    function toggleQuickForm(successionIndex, formType) {
+        const checkbox = document.getElementById(`${formType}-enabled-${successionIndex}`);
+        const formElement = document.getElementById(`quick-form-${formType}-${successionIndex}`);
+
+        if (checkbox && formElement) {
+            if (checkbox.checked) {
+                formElement.style.display = 'block';
+            } else {
+                formElement.style.display = 'none';
+            }
+        }
+    }
+
+    async function submitAllQuickForms() {
+        // Collect all form data
+        const formData = new FormData();
+        formData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+
+        // Get all planting data
+        const plantings = [];
+        const tabPanes = document.querySelectorAll('#tabContent .tab-pane');
+
+        tabPanes.forEach((pane, index) => {
+            const planting = {
+                succession_index: index,
+                season: '',
+                crop_variety: '',
+                logs: {}
+            };
+
+            // Get season and crop variety
+            const seasonInput = pane.querySelector(`input[name="plantings[${index}][season]"]`);
+            const cropInput = pane.querySelector(`input[name="plantings[${index}][crop_variety]"]`);
+            planting.season = seasonInput ? seasonInput.value : '';
+            planting.crop_variety = cropInput ? cropInput.value : '';
+
+            // Check each form type
+            ['seeding', 'transplanting', 'harvest'].forEach(formType => {
+                const checkbox = document.getElementById(`${formType}-enabled-${index}`);
+                if (checkbox && checkbox.checked) {
+                    // Form is enabled, collect its data
+                    const formElement = document.getElementById(`quick-form-${formType}-${index}`);
+                    if (formElement) {
+                        const formDataObj = {};
+                        const inputs = formElement.querySelectorAll('input, select, textarea');
+                        inputs.forEach(input => {
+                            if (input.name && input.value) {
+                                const nameParts = input.name.replace(`plantings[${index}][${formType}][`, '').replace(']', '').split('][');
+                                let current = formDataObj;
+                                for (let i = 0; i < nameParts.length - 1; i++) {
+                                    if (!current[nameParts[i]]) current[nameParts[i]] = {};
+                                    current = current[nameParts[i]];
+                                }
+                                current[nameParts[nameParts.length - 1]] = input.value;
+                            }
+                        });
+                        planting.logs[formType] = formDataObj;
+                    }
+                }
+            });
+
+            if (Object.keys(planting.logs).length > 0) {
+                plantings.push(planting);
+            }
+        });
+
+        if (plantings.length === 0) {
+            alert('No forms have been filled out. Please check at least one form type and fill out the required fields.');
+            return;
+        }
+
+        // Submit to backend
+        try {
+            showLoading(true);
+            const response = await fetch('/admin/farmos/succession-planning/submit-all-logs', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({ plantings })
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                showToast('All planting records submitted successfully!', 'success');
+                // Hide all forms and uncheck all checkboxes
+                document.querySelectorAll('.embedded-quick-form').forEach(form => {
+                    form.style.display = 'none';
+                });
+                document.querySelectorAll('.log-type-checkbox').forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+            } else {
+                showToast('Failed to submit planting records: ' + (result.message || 'Unknown error'), 'error');
+            }
+        } catch (error) {
+            console.error('Submit error:', error);
+            showToast('Error submitting planting records', 'error');
+        } finally {
+            showLoading(false);
+        }
     }
 </script>
 @endsection
