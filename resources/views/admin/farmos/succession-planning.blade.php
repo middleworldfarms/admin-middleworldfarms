@@ -13,6 +13,9 @@
 
 <!-- Sortable.js for drag and drop -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+
+<!-- Succession Planner Module -->
+<script src="{{ asset('js/succession-planner.js') }}?v={{ time() }}"></script>
 <style>
     .succession-planner-container {
         padding: 20px;
@@ -642,6 +645,60 @@
         align-items: center;
         margin-bottom: 8px;
         min-height: 40px;
+        position: relative;
+    }
+
+    .bed-block:not(:last-child) {
+        margin-bottom: 30px;
+        position: relative;
+    }
+
+    .bed-block:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        bottom: -15px;
+        left: 0;
+        right: 0;
+        height: 6px;
+        background: repeating-linear-gradient(
+            90deg,
+            #8B4513 0px,
+            #8B4513 4px,
+            #228B22 4px,
+            #228B22 8px,
+            #8B4513 8px,
+            #8B4513 12px
+        );
+        border-radius: 3px;
+        opacity: 0.8;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    }
+
+    .block-timeline-header {
+        margin-bottom: 15px;
+        padding: 0 20px;
+    }
+
+    .block-timeline-header .timeline-axis {
+        margin-bottom: 10px;
+        padding: 0;
+        border-bottom: 2px solid #dee2e6;
+        position: relative;
+    }
+
+    .block-timeline-header .timeline-axis::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, #28a745, #ffc107, #dc3545);
+    }
+
+    .block-timeline-header .timeline-month {
+        font-size: 0.8rem;
+        padding: 4px 0;
     }
 
     .bed-label {
@@ -1246,8 +1303,8 @@
                                 <button type="button" class="btn btn-outline-success btn-sm" onclick="extendHarvestWindow()">
                                     <i class="fas fa-plus"></i> Extend 20%
                                 </button>
-                                <button type="button" class="btn btn-outline-warning btn-sm" onclick="optimizeHarvestWindow()">
-                                    <i class="fas fa-magic"></i> AI Optimize
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="calculateAIHarvestWindow()">
+                                    <i class="fas fa-brain"></i> Calculate Harvest Window
                                 </button>
                                 <button type="button" class="btn btn-outline-info btn-sm" onclick="shortenHarvestWindow()">
                                     <i class="fas fa-minus"></i> Reduce Successions
@@ -1426,7 +1483,11 @@
                         </div>
                             <div class="ai-response" id="welcomeMessage">
                                 <strong>🌱 farmOS AI Ready</strong><br>
-                                I have access to your farmOS database with 3600+ varieties and bed specifications. I can provide specific succession planning advice for your crops, including F1 Doric Brussels Sprouts winter timing, plant spacing for your 30cm beds, and variety-specific growing advice.
+                                @if(isset($initialAIAdvice))
+                                    {!! nl2br(e($initialAIAdvice)) !!}
+                                @else
+                                    I have access to your farmOS database with 3600+ varieties and bed specifications. I can provide specific succession planning advice for your crops, including F1 Doric Brussels Sprouts winter timing, plant spacing for your 76cm beds, and variety-specific growing advice.
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -1518,51 +1579,15 @@
 <script>
     // Force cache busting - this script loaded at: ' + new Date().toISOString()
     console.log('🔄 Succession Planner Loading - Version: 1756750327-FIXED-' + Date.now());
-    
+
     // Force cache busting by adding timestamp to all dynamic requests
     const CACHE_BUSTER = Date.now();
 
-    // Global variables - with proper fallbacks and error handling
+    // Safely parse JSON data with fallbacks
     let cropTypes = [];
     let cropVarieties = [];
     let availableBeds = [];
 
-    // ===== INITIALIZATION =====
-
-    // Initialize when page loads
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('🚀 Initializing succession planning interface');
-
-        // Initialize the new harvest window selector
-        initializeHarvestWindowSelector();
-
-        // Set up existing functionality
-        setupEventListeners();
-        updateSuccessionPreview();
-        updateExportButton(); // Initialize export button state
-
-        // Initialize Bootstrap tooltips
-        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-        const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl);
-        });
-    });
-
-    // ===== MISSING FUNCTIONS - PLACEHOLDERS =====
-
-    // Placeholder for setupEventListeners (called during initialization)
-    function setupEventListeners() {
-        console.log('📋 Event listeners setup (placeholder)');
-        // Add any event listeners here if needed
-    }
-
-    // Placeholder for updateSuccessionPreview (called during initialization)
-    function updateSuccessionPreview() {
-        console.log('🔄 Succession preview updated (placeholder)');
-        // Add succession preview logic here if needed
-    }
-
-    // Safely parse JSON data with fallbacks
     try {
         cropTypes = @json($cropData['types'] ?? []);
     } catch (e) {
@@ -1598,9 +1623,10 @@
     }
 
     // Global API base (always use same origin/protocol to avoid mixed-content)
-    // Keep base clean; add cache buster per-request
     const API_BASE = window.location.origin + '/admin/farmos/succession-planning';
     const FARMOS_BASE = "{{ config('services.farmos.url', '') }}";
+
+    // SuccessionPlanner will be initialized in DOMContentLoaded below
 
     let currentSuccessionPlan = null;
     let isDragging = false;
@@ -1612,111 +1638,6 @@
     let __aiChatController = null;
     // Store last AI harvest info for overlay rendering
     let __lastAIHarvestInfo = null;
-
-    // Initialize the application with real farmOS data
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('🚀 Succession Planner Loading...');
-
-    // Initialize app which will also initialize the harvest bar once
-    initializeApp();
-        // Removed duplicate initializeHarvestBar() call to avoid race conditions
-        setupSeasonYearHandlers();
-        
-        // Debug: Log initial data
-        console.log('🔍 Initial cropTypes:', cropTypes);
-        console.log('🔍 Initial cropVarieties:', cropVarieties);
-
-    // Ensure we have a favicon to avoid 404s on /favicon.ico (use site icon)
-        (function ensureFavicon(){
-            try {
-                if (!document.querySelector('link[rel="icon"]')) {
-                    const link = document.createElement('link');
-            link.rel = 'icon';
-            link.type = 'image/x-icon';
-            link.href = '/middle_world_icon.ico';
-            document.head.appendChild(link);
-            // Add shortcut icon for broader compatibility
-            const link2 = document.createElement('link');
-            link2.rel = 'shortcut icon';
-            link2.type = 'image/x-icon';
-            link2.href = '/middle_world_icon.ico';
-            document.head.appendChild(link2);
-                }
-            } catch (e) {
-                console.warn('Favicon inject skipped:', e);
-            }
-        })();
-    });
-
-    async function initializeApp() {
-        console.log('🌱 Initializing farmOS Succession Planner with real data...');
-
-        // Test connections
-        await testConnections();
-
-    // Restore any saved state before initializing UI
-    restorePlannerState();
-
-    // Show the harvest bar immediately with default or restored dates
-    initializeHarvestBar();
-
-        // Set up AI status monitoring
-        setupAIStatusMonitoring();
-
-        // Initialize variety select to show "Select crop first..." if no crop is selected
-        const cropSelectEl = document.getElementById('cropSelect');
-        const varietySelectEl = document.getElementById('varietySelect');
-        
-        if (varietySelectEl && (!cropSelectEl || !cropSelectEl.value)) {
-            varietySelectEl.innerHTML = '<option value="">Select crop first...</option>';
-        }
-
-        // Set up crop change listeners
-        document.getElementById('cropSelect').addEventListener('change', function() {
-            // Update the global cropId variable for variety filtering
-            cropId = this.value;
-            updateVarieties();
-            savePlannerState();
-            // Update succession impact with new crop timing
-            updateSuccessionImpact();
-            // Don't trigger AI on crop selection - only filter varieties
-        });
-        
-        document.getElementById('varietySelect').addEventListener('change', function() {
-            console.log('🔄 Variety selected:', this.value, this.options[this.selectedIndex]?.text);
-            calculateAIHarvestWindow();
-            savePlannerState();
-            // Update succession impact with new variety timing
-            updateSuccessionImpact();
-            // Fetch and display variety information from FarmOS
-            handleVarietySelection(this.value);
-        });
-
-        // Persist season/year and harvest date inputs
-        const yearEl = document.getElementById('planningYear');
-        const seasonEl = document.getElementById('planningSeason');
-        const hsEl = document.getElementById('harvestStart');
-        const heEl = document.getElementById('harvestEnd');
-        yearEl?.addEventListener('change', savePlannerState);
-        seasonEl?.addEventListener('change', savePlannerState);
-        hsEl?.addEventListener('change', savePlannerState);
-        heEl?.addEventListener('change', savePlannerState);
-
-        // Chat UX: Enter to send
-        const chatInput = document.getElementById('aiChatInput');
-        if (chatInput && !chatInput.__enterBound) {
-            chatInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    askHolisticAI();
-                }
-            });
-            chatInput.__enterBound = true;
-        }
-        // A11y: announce AI updates politely
-        const aiDetails = document.getElementById('aiHarvestDetails');
-        aiDetails?.setAttribute('aria-live', 'polite');
-    }
 
     // Export succession plan as CSV
     function exportSuccessionPlan() {
@@ -1788,46 +1709,7 @@
         }
     }
 
-    // Filter the variety dropdown by selected crop
-    function updateVarieties() {
-        const cropSelectEl = document.getElementById('cropSelect');
-        const varietySelectEl = document.getElementById('varietySelect');
-        if (!varietySelectEl) return;
-
-        const selectedCropId = cropSelectEl?.value || null;
-        const options = [];
-        if (!selectedCropId) {
-            options.push('<option value="">Select crop first...</option>');
-        } else {
-            // Find the actual crop object to get its farmOS ID
-            const selectedCrop = cropTypes.find(c => c.id === selectedCropId);
-            const farmOSCropId = selectedCrop?.id || selectedCropId;
-            
-            // Filter varieties by matching crop_type with the farmOS crop ID
-            const filtered = (cropVarieties || []).filter(v => 
-                v.crop_type === farmOSCropId || 
-                v.parent_id === farmOSCropId ||
-                v.crop_id === farmOSCropId
-            );
-            
-            if (filtered.length === 0) {
-                options.push('<option value="">No varieties found for this crop</option>');
-            } else {
-                options.push('<option value="">Select a variety (optional)</option>');
-                for (const v of filtered) {
-                    const id = v.id || v.uuid || v.variety_id;
-                    const name = v.name || v.title || 'Variety';
-                    options.push(`<option value="${id}" data-crop="${selectedCropId}" data-name="${name}">${name}</option>`);
-                }
-            }
-        }
-        const prev = varietySelectEl.value;
-        varietySelectEl.innerHTML = options.join('');
-        if (prev) {
-            const opt = Array.from(varietySelectEl.options).find(o => o.value === prev);
-            if (opt) varietySelectEl.value = prev;
-        }
-    }
+    // Filter the variety dropdown by selected crop - HANDLED BY SuccessionPlanner
 
     // Fetch variety information from FarmOS API
     async function fetchVarietyInfo(varietyId) {
@@ -2463,6 +2345,8 @@
 
     // Calculate AI harvest window - main function for getting maximum possible harvest
     async function calculateAIHarvestWindow() {
+        let harvestInfo = null; // Declare at function level
+
         try {
             console.log('🤖 calculateAIHarvestWindow() called');
 
@@ -2504,80 +2388,28 @@
                 request_type: 'maximum_harvest_window'
             };
 
-            // Build a comprehensive prompt for MAXIMUM harvest windows based on real farming knowledge
-            const prompt = `You are an expert UK market gardener calculating MAXIMUM POSSIBLE harvest windows for succession planning.
+            // Build a concise prompt for harvest windows
+            const prompt = `Calculate the maximum harvest window for ${cropName} ${varietyName || ''} in the UK for ${contextPayload.planning_year}.
 
-CRITICAL: Use the provided farmOS variety_meta data if available. This is REAL farm data and takes priority over generic information.
-
-TASK: Return ONLY a JSON object with the ABSOLUTE MAXIMUM harvest period for ${cropName} ${varietyName || ''} in year ${contextPayload.planning_year}.
-
-VARIETY DATA PROVIDED: ${varietyMeta ? JSON.stringify(varietyMeta) : 'None - use crop defaults'}
-
-IGNORE today's date (${new Date().toDateString()}). Calculate based on SEASONAL POTENTIAL for the planning year.
-
-If variety_meta contains timing data, USE IT. Otherwise use these maximums:
-
-CARROT VARIETIES (Early Nantes, Amsterdam, Paris Market, etc.):
-- Maximum harvest window: MAY 1st through DECEMBER 31st
-- Peak quality: June-October
-- Extended storage harvest: November-December
-- Peak quality: June-October
-- Extended harvest: November-December with protection
-
-BEETROOT VARIETIES:
-- Sowing: April-July
-- Maximum harvest window: JUNE 1st through DECEMBER 31st
-- Can harvest baby beets from June, main crop July-November, storage crop December
-
-LETTUCE VARIETIES:
-- Year-round with protection
-- Maximum harvest window: MARCH 1st through NOVEMBER 30th (outdoor)
-- Winter varieties: JANUARY 1st through DECEMBER 31st (with protection)
-
-RADISH VARIETIES:
-- Quick crop, succession plantings
-- Maximum harvest window: APRIL 1st through OCTOBER 31st
-
-ONION VARIETIES:
-- Spring sets planted March-April
-- Maximum harvest window: JULY 1st through SEPTEMBER 30th
-
-Return JSON format:
+Return ONLY a JSON object:
 {
   "maximum_start": "YYYY-MM-DD",
-  "maximum_end": "YYYY-MM-DD", 
+  "maximum_end": "YYYY-MM-DD",
   "days_to_harvest": 60,
   "yield_peak": "YYYY-MM-DD",
-  "notes": "Maximum harvest window explanation",
-  "extended_window": {
-    "max_extension_days": 30,
-    "risk_level": "low"
-  }
-}
-- Early varieties like "Early Nantes 2": May 1st - November 30th (214 days maximum)
-
-ROOT VEGETABLES GENERAL:
-- Baby harvest: 50-70 days after sowing
-- Main harvest: 90-120 days after sowing  
-- Extended harvest: Can stay in ground 180-250+ days with protection
-- Winter storage: Many can be harvested through winter months
-
-MAXIMUM HARVEST CALCULATION:
-- Start: Earliest possible harvest date (baby stage)
-- End: Latest possible harvest before quality deteriorates
-- Consider storage, succession planting, winter protection
-
-Return ONLY a JSON object with these exact keys:
-{
-  "maximum_start": "YYYY-MM-DD",
-  "maximum_end": "YYYY-MM-DD", 
-  "days_to_harvest": 60,
-  "yield_peak": "YYYY-MM-DD",
-  "notes": "Maximum possible harvest window for succession planning",
-  "extended_window": {"max_extension_days": 45, "risk_level": "low"}
+  "notes": "Brief explanation",
+  "extended_window": {"max_extension_days": 30, "risk_level": "low"}
 }
 
-NO extra text. Calculate for ${contextPayload.planning_year}.`;
+Use these guidelines:
+- Carrots: May 1 - December 31
+- Beets: June 1 - December 31  
+- Lettuce: March 1 - November 30
+- Radishes: April 1 - October 31
+- Onions: July 1 - September 30
+- Brussels Sprouts: October 1 - March 31
+
+Calculate for ${contextPayload.planning_year}.`;
 
             // Use same-origin Laravel route that exists in this app (chat endpoint)
             const chatUrl = window.location.origin + '/admin/farmos/succession-planning/chat';
@@ -2592,7 +2424,7 @@ NO extra text. Calculate for ${contextPayload.planning_year}.`;
             });
 
             // Timeout to abort long-running requests
-            const timeoutId = setTimeout(() => { try { __aiCalcController.abort(); } catch(_){} }, 10000); // 10s timeout
+            const timeoutId = setTimeout(() => { try { __aiCalcController.abort(); } catch(_){} }, 60000); // 60s timeout
 
             const response = await fetch(chatUrl, {
                 method: 'POST',
@@ -2602,8 +2434,7 @@ NO extra text. Calculate for ${contextPayload.planning_year}.`;
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
                 },
                 body: JSON.stringify({ 
-                    question: prompt, 
-                    crop_type: contextPayload.crop,
+                    message: prompt, 
                     context: contextPayload 
                 }),
                 signal: __aiCalcController.signal
@@ -2623,9 +2454,9 @@ NO extra text. Calculate for ${contextPayload.planning_year}.`;
 
             const data = await response.json();
             console.log('🛰️ AI raw response:', data);
+            console.log('🛰️ AI answer content:', data.answer);
 
             // Prefer structured harvest window from backend; else use AI answer parsing
-            let harvestInfo = null;
             if (data && (data.maximum_start || data.optimal_window_days || data.peak_harvest_days)) {
                 // Build a normalized harvestInfo object from structured backend response
                 let maxStart = data.maximum_start || null;
@@ -2688,41 +2519,119 @@ NO extra text. Calculate for ${contextPayload.planning_year}.`;
                 }
             }
 
-            if (!harvestInfo || !harvestInfo.maximum_start || !harvestInfo.maximum_end) {
-                console.warn('AI returned incomplete harvest info, using fallback');
-                harvestInfo = parseHarvestWindow(String(data.answer || data.wisdom || ''), cropName, varietyName);
-            }
-
-            displayAIHarvestWindow(harvestInfo, cropName, varietyName);
-
-            // Update the new harvest window selector with AI data
-            updateHarvestWindowData(harvestInfo);
-
-            // Auto-set the harvest window inputs and drag bar to MAXIMUM possible
-            if (harvestInfo.maximum_start) {
-                document.getElementById('harvestStart').value = harvestInfo.maximum_start;
-                console.log('📅 Set harvest start to maximum:', harvestInfo.maximum_start);
-            }
-            if (harvestInfo.maximum_end) {
-                document.getElementById('harvestEnd').value = harvestInfo.maximum_end;
-                console.log('📅 Set harvest end to maximum:', harvestInfo.maximum_end);
-            }
-            
-            // Force update the drag bar and timeline
-            setTimeout(() => {
-                updateDragBar();
-                updateTimelineMonths(document.getElementById('planningYear').value || new Date().getFullYear());
-                console.log('🔄 Drag bar and timeline updated for maximum harvest window');
-            }, 100);
-
-            console.log('✅ AI response processed successfully', harvestInfo);
         } catch (error) {
             if (error.name === 'AbortError') {
                 console.error('AI request timed out');
             } else {
                 console.error('Error calculating AI harvest window:', error);
             }
+            // Continue to fallback logic below
         }
+
+        // Always provide fallback harvest windows if AI failed or returned incomplete data
+        if (!harvestInfo || !harvestInfo.maximum_start || !harvestInfo.maximum_end) {
+            console.log('🔄 Using fallback harvest window for:', cropName);
+
+            // Simple fallback based on crop type
+            const year = contextPayload.planning_year || new Date().getFullYear();
+            let fallbackInfo = null;
+
+            switch (cropName.toLowerCase()) {
+                case 'carrots':
+                case 'carrot':
+                    fallbackInfo = {
+                        maximum_start: `${year}-05-01`,
+                        maximum_end: `${year}-12-31`,
+                        days_to_harvest: 70,
+                        yield_peak: `${year}-08-15`,
+                        notes: 'Carrot harvest window (fallback)',
+                        extended_window: { max_extension_days: 30, risk_level: 'low' }
+                    };
+                    break;
+                case 'beets':
+                case 'beetroot':
+                    fallbackInfo = {
+                        maximum_start: `${year}-06-01`,
+                        maximum_end: `${year}-12-31`,
+                        days_to_harvest: 60,
+                        yield_peak: `${year}-09-15`,
+                        notes: 'Beet harvest window (fallback)',
+                        extended_window: { max_extension_days: 45, risk_level: 'low' }
+                    };
+                    break;
+                case 'lettuce':
+                    fallbackInfo = {
+                        maximum_start: `${year}-03-01`,
+                        maximum_end: `${year}-11-30`,
+                        days_to_harvest: 45,
+                        yield_peak: `${year}-06-15`,
+                        notes: 'Lettuce harvest window (fallback)',
+                        extended_window: { max_extension_days: 60, risk_level: 'moderate' }
+                    };
+                    break;
+                case 'radish':
+                case 'radishes':
+                    fallbackInfo = {
+                        maximum_start: `${year}-04-01`,
+                        maximum_end: `${year}-10-31`,
+                        days_to_harvest: 25,
+                        yield_peak: `${year}-06-15`,
+                        notes: 'Radish harvest window (fallback)',
+                        extended_window: { max_extension_days: 30, risk_level: 'low' }
+                    };
+                    break;
+                case 'onion':
+                case 'onions':
+                    fallbackInfo = {
+                        maximum_start: `${year}-07-01`,
+                        maximum_end: `${year}-09-30`,
+                        days_to_harvest: 100,
+                        yield_peak: `${year}-08-15`,
+                        notes: 'Onion harvest window (fallback)',
+                        extended_window: { max_extension_days: 15, risk_level: 'low' }
+                    };
+                    break;
+                default:
+                    fallbackInfo = {
+                        maximum_start: `${year}-05-01`,
+                        maximum_end: `${year}-10-31`,
+                        days_to_harvest: 60,
+                        yield_peak: `${year}-07-15`,
+                        notes: 'Default harvest window (fallback)',
+                        extended_window: { max_extension_days: 30, risk_level: 'moderate' }
+                    };
+            }
+
+            harvestInfo = fallbackInfo;
+            console.log('✅ Fallback harvest info applied:', harvestInfo);
+        }
+
+        // Display and apply the harvest information
+        displayAIHarvestWindow(harvestInfo, cropName, varietyName);
+
+        console.log('📊 Final harvestInfo:', harvestInfo);
+
+        // Update the new harvest window selector with AI data
+        updateHarvestWindowData(harvestInfo);
+
+        // Auto-set the harvest window inputs and drag bar to MAXIMUM possible
+        if (harvestInfo.maximum_start) {
+            document.getElementById('harvestStart').value = harvestInfo.maximum_start;
+            console.log('📅 Set harvest start to maximum:', harvestInfo.maximum_start);
+        }
+        if (harvestInfo.maximum_end) {
+            document.getElementById('harvestEnd').value = harvestInfo.maximum_end;
+            console.log('📅 Set harvest end to maximum:', harvestInfo.maximum_end);
+        }
+
+        // Force update the drag bar and timeline
+        requestAnimationFrame(() => {
+            updateDragBar();
+            updateTimelineMonths(document.getElementById('planningYear').value || new Date().getFullYear());
+            console.log('🔄 Drag bar and timeline updated for maximum harvest window');
+        });
+
+        console.log('✅ Harvest window calculation completed');
     }
 
     // Display AI harvest window information in the UI
@@ -3172,6 +3081,36 @@ NO extra text. Calculate for ${contextPayload.planning_year}.`;
         
         console.log('🤖 Sending message to AI:', message);
         
+        // Display the user's question in the chat area
+        const aiResponseArea = document.getElementById('aiResponseArea');
+        if (aiResponseArea) {
+            const userMessageDiv = document.createElement('div');
+            userMessageDiv.className = 'ai-response mt-3';
+            userMessageDiv.innerHTML = `
+                <div class="d-flex align-items-start">
+                    <div class="flex-shrink-0 me-2">
+                        <i class="fas fa-user text-primary"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <strong>You:</strong><br>
+                        ${message.replace(/\n/g, '<br>')}
+                    </div>
+                </div>
+            `;
+            
+            // Insert the user message at the top
+            aiResponseArea.insertBefore(userMessageDiv, aiResponseArea.firstChild);
+            
+            // Hide the welcome message if it exists
+            const welcomeMessage = document.getElementById('welcomeMessage');
+            if (welcomeMessage) {
+                welcomeMessage.style.display = 'none';
+            }
+            
+            // Clear the input
+            chatInput.value = '';
+        }
+        
         // Show loading state
         const loadingOverlay = document.getElementById('loadingOverlay');
         if (loadingOverlay) {
@@ -3207,13 +3146,36 @@ NO extra text. Calculate for ${contextPayload.planning_year}.`;
             const data = await response.json();
             console.log('🤖 AI response:', data);
             
-            // Handle the response (you might want to display it in a chat area)
+            // Display the AI response in the chat area
             if (data.answer) {
-                // For now, just log the response
-                console.log('AI Answer:', data.answer);
-                
-                // You could display the response in a chat area or alert
-                // alert('AI Response: ' + data.answer);
+                const aiResponseArea = document.getElementById('aiResponseArea');
+                if (aiResponseArea) {
+                    // Create a new response element
+                    const responseDiv = document.createElement('div');
+                    responseDiv.className = 'ai-response mt-3';
+                    responseDiv.innerHTML = `
+                        <div class="d-flex align-items-start">
+                            <div class="flex-shrink-0 me-2">
+                                <i class="fas fa-robot text-warning"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <strong>AI Advisor:</strong><br>
+                                ${data.answer.replace(/\n/g, '<br>')}
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Insert the AI response right after the user message (second position)
+                    const firstChild = aiResponseArea.firstChild;
+                    if (firstChild) {
+                        aiResponseArea.insertBefore(responseDiv, firstChild.nextSibling);
+                    } else {
+                        aiResponseArea.appendChild(responseDiv);
+                    }
+                    
+                    // Scroll to the new response
+                    responseDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
             }
             
         } catch (error) {
@@ -3314,17 +3276,17 @@ NO extra text. Calculate for ${contextPayload.planning_year}.`;
             populateSuccessionSidebar(currentSuccessionPlan);
             
             // Initialize drag and drop after both timeline and sidebar are ready
-            setTimeout(() => {
+            requestAnimationFrame(() => {
                 initializeDragAndDrop();
                 console.log('🔄 Drag and drop initialized after plan calculation');
-            }, 300);
+            });
             
             document.getElementById('resultsSection').style.display = 'block';
             
             // Delay updateExportButton to ensure DOM is ready
-            setTimeout(() => {
+            requestAnimationFrame(() => {
                 updateExportButton();
-            }, 100);
+            });
             
             // testQuickFormUrls(); // Function not defined
         } catch (e) {
@@ -4063,6 +4025,11 @@ NO extra text. Calculate for ${contextPayload.planning_year}.`;
                     <div class="bed-block-header">
                         <h6><i class="fas fa-th-large"></i> ${blockName}</h6>
                     </div>
+                    <div class="block-timeline-header">
+                        <div class="timeline-axis">
+                            ${months.map(month => `<div class="timeline-month">${month.label}</div>`).join('')}
+                        </div>
+                    </div>
                     <div class="bed-block-content">
                         ${blockBedRows}
                     </div>
@@ -4129,19 +4096,19 @@ NO extra text. Calculate for ${contextPayload.planning_year}.`;
         `;
 
         // Initialize drag and drop for the newly created timeline
-        setTimeout(() => {
-            // Re-attach drop listeners to bed timelines
+        requestAnimationFrame(() => {
+            // Re-attach drop listeners to bed timelines (only if not already attached)
             document.querySelectorAll('.bed-timeline').forEach(timeline => {
-                timeline.removeEventListener('dragover', handleDragOver);
-                timeline.removeEventListener('dragleave', handleDragLeave);
-                timeline.removeEventListener('drop', handleDrop);
-
-                timeline.addEventListener('dragover', handleDragOver);
-                timeline.addEventListener('dragleave', handleDragLeave);
-                timeline.addEventListener('drop', handleDrop);
-                console.log('✅ Re-attached drop listeners to bed timeline');
+                // Check if listeners are already attached to avoid duplicates
+                if (!timeline.hasAttribute('data-listeners-attached')) {
+                    timeline.addEventListener('dragover', handleDragOver);
+                    timeline.addEventListener('dragleave', handleDragLeave);
+                    timeline.addEventListener('drop', handleDrop);
+                    timeline.setAttribute('data-listeners-attached', 'true');
+                    console.log('✅ Attached drop listeners to bed timeline');
+                }
             });
-        }, 100);
+        });
     }
 
     // Initialize drag and drop for successions
@@ -4203,7 +4170,12 @@ NO extra text. Calculate for ${contextPayload.planning_year}.`;
 
         if (dragType === 'block-move') {
             // Moving an existing block
-            const allocationData = JSON.parse(e.dataTransfer.getData('application/json'));
+            const jsonData = e.dataTransfer.getData('application/json');
+            if (!jsonData || jsonData === 'undefined') {
+                console.log('⚠️ No allocation data for drag preview');
+                return;
+            }
+            const allocationData = JSON.parse(jsonData);
             successionData = {
                 sowDate: new Date(allocationData.sowDate),
                 transplantDate: allocationData.transplantDate ? new Date(allocationData.transplantDate) : null,
@@ -4258,7 +4230,12 @@ NO extra text. Calculate for ${contextPayload.planning_year}.`;
 
         if (dragType === 'block-move') {
             // Moving an existing succession block
-            const allocationData = JSON.parse(e.dataTransfer.getData('application/json'));
+            const jsonData = e.dataTransfer.getData('application/json');
+            if (!jsonData || jsonData === 'undefined') {
+                console.error('❌ No allocation data found for block move');
+                return;
+            }
+            const allocationData = JSON.parse(jsonData);
             console.log('🏗️ Moving existing block:', allocationData);
 
             // Check if dropping on the same bed
@@ -5277,7 +5254,17 @@ Plantings:`;
         const aiRangeBar = document.getElementById('aiRangeBar');
         const aiRangeDates = document.getElementById('aiRangeDates');
 
-        if (!aiRangeDiv || !aiRangeBar || !aiRangeDates) return;
+        if (!aiRangeDiv || !aiRangeBar || !aiRangeDates) {
+            console.warn('❌ displayAIRange: Missing DOM elements');
+            return;
+        }
+
+        console.log('🤖 displayAIRange called with data:', {
+            aiStart: harvestWindowData.aiStart,
+            aiEnd: harvestWindowData.aiEnd,
+            maxStart: harvestWindowData.maxStart,
+            maxEnd: harvestWindowData.maxEnd
+        });
 
         const startDate = new Date(harvestWindowData.aiStart);
         const endDate = new Date(harvestWindowData.aiEnd);
@@ -5293,10 +5280,22 @@ Plantings:`;
         const leftPercent = (aiStartOffset / maxDuration) * 100;
         const widthPercent = (aiDuration / maxDuration) * 100;
 
+        console.log('📊 AI range calculations:', {
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+            aiStartOffset,
+            aiDuration,
+            maxDuration,
+            leftPercent,
+            widthPercent
+        });
+
         aiRangeBar.style.marginLeft = `${leftPercent}%`;
         aiRangeBar.style.width = `${widthPercent}%`;
         aiRangeDates.textContent = `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()} (${duration} days)`;
         aiRangeDiv.style.display = 'block';
+
+        console.log('✅ AI range displayed');
     }
 
     // Display user selected harvest range
@@ -5307,7 +5306,17 @@ Plantings:`;
         const startHandle = document.getElementById('rangeStartHandle');
         const endHandle = document.getElementById('rangeEndHandle');
 
-        if (!userRangeDiv || !userRangeBar || !userRangeDates) return;
+        if (!userRangeDiv || !userRangeBar || !userRangeDates) {
+            console.warn('❌ displayUserRange: Missing DOM elements');
+            return;
+        }
+
+        console.log('🎨 displayUserRange called with data:', {
+            userStart: harvestWindowData.userStart,
+            userEnd: harvestWindowData.userEnd,
+            maxStart: harvestWindowData.maxStart,
+            maxEnd: harvestWindowData.maxEnd
+        });
 
         const startDate = new Date(harvestWindowData.userStart);
         const endDate = new Date(harvestWindowData.userEnd);
@@ -5323,6 +5332,18 @@ Plantings:`;
         const leftPercent = (userStartOffset / maxDuration) * 100;
         const widthPercent = (userDuration / maxDuration) * 100;
 
+        console.log('📊 User range calculations:', {
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+            maxStart: maxStart.toISOString(),
+            maxEnd: maxEnd.toISOString(),
+            userStartOffset,
+            userDuration,
+            maxDuration,
+            leftPercent,
+            widthPercent
+        });
+
         userRangeBar.style.marginLeft = `${leftPercent}%`;
         userRangeBar.style.width = `${widthPercent}%`;
 
@@ -5331,6 +5352,8 @@ Plantings:`;
 
         userRangeDates.textContent = `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()} (${duration} days)`;
         userRangeDiv.style.display = 'block';
+
+        console.log('✅ User range displayed');
     }
 
     // Adjust user selected range
@@ -6219,34 +6242,38 @@ Plantings:`;
     function updateHarvestWindowData(aiResult) {
         if (!aiResult) return;
 
-        // Set maximum possible range (from AI or fallback)
-        harvestWindowData.maxStart = aiResult.maximum_start || aiResult.maxStart;
-        harvestWindowData.maxEnd = aiResult.maximum_end || aiResult.maxEnd;
+        console.log('📊 updateHarvestWindowData called with:', aiResult);
 
-        // 🔍 DETECT YEAR CHANGE ISSUE: Check if maxEnd comes before maxStart chronologically
-        if (harvestWindowData.maxStart && harvestWindowData.maxEnd) {
-            const startDate = new Date(harvestWindowData.maxStart);
-            const endDate = new Date(harvestWindowData.maxEnd);
+        // Only update max range if AI provides better data than current
+        // Don't override manually set crop-specific dates
+        if (aiResult.maximum_start && aiResult.maximum_end) {
+            const aiMaxStart = new Date(aiResult.maximum_start);
+            const aiMaxEnd = new Date(aiResult.maximum_end);
 
-            if (endDate < startDate) {
-                console.log('🚨 YEAR CHANGE DETECTED:', {
-                    original: { start: harvestWindowData.maxStart, end: harvestWindowData.maxEnd },
-                    issue: 'endDate comes before startDate chronologically',
-                    solution: 'Adding 1 year to endDate'
-                });
+            // Only update if AI dates are significantly different (more than 30 days)
+            // This prevents AI from overriding correct crop-specific dates
+            if (harvestWindowData.maxStart && harvestWindowData.maxEnd) {
+                const currentMaxStart = new Date(harvestWindowData.maxStart);
+                const currentMaxEnd = new Date(harvestWindowData.maxEnd);
 
-                // Add 1 year to the end date to fix chronological order
-                endDate.setFullYear(endDate.getFullYear() + 1);
-                harvestWindowData.maxEnd = endDate.toISOString().split('T')[0];
+                const aiDuration = aiMaxEnd - aiMaxStart;
+                const currentDuration = currentMaxEnd - currentMaxStart;
 
-                console.log('✅ FIXED:', {
-                    newEnd: harvestWindowData.maxEnd,
-                    duration: Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + ' days'
-                });
+                if (Math.abs(aiDuration - currentDuration) > (30 * 24 * 60 * 60 * 1000)) { // 30 days
+                    console.log('⚠️ AI dates differ significantly from current, updating max range');
+                    harvestWindowData.maxStart = aiResult.maximum_start;
+                    harvestWindowData.maxEnd = aiResult.maximum_end;
+                } else {
+                    console.log('✅ AI dates similar to current, keeping existing max range');
+                }
+            } else {
+                // No existing data, use AI results
+                harvestWindowData.maxStart = aiResult.maximum_start;
+                harvestWindowData.maxEnd = aiResult.maximum_end;
             }
         }
 
-        // Set AI recommended range (typically 80% of maximum)
+        // Always update AI recommended range
         if (harvestWindowData.maxStart && harvestWindowData.maxEnd) {
             const maxStart = new Date(harvestWindowData.maxStart);
             const maxEnd = new Date(harvestWindowData.maxEnd);
@@ -6255,11 +6282,14 @@ Plantings:`;
             harvestWindowData.aiStart = harvestWindowData.maxStart;
             harvestWindowData.aiEnd = new Date(maxStart.getTime() + (maxDuration * 0.8)).toISOString().split('T')[0];
 
-            // Initialize user range to AI recommendation
-            harvestWindowData.userStart = harvestWindowData.aiStart;
-            harvestWindowData.userEnd = harvestWindowData.aiEnd;
+            // Only set user range to AI recommendation if not already set
+            if (!harvestWindowData.userStart || !harvestWindowData.userEnd) {
+                harvestWindowData.userStart = harvestWindowData.aiStart;
+                harvestWindowData.userEnd = harvestWindowData.aiEnd;
+            }
         }
 
+        console.log('📊 Final harvestWindowData:', harvestWindowData);
         updateHarvestWindowDisplay();
     }
 
@@ -6367,5 +6397,254 @@ Plantings:`;
             showLoading(false);
         }
     }
+
+    // Initialize Succession Planner when DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('🌱 Initializing Succession Planning Interface...');
+
+        // Create SuccessionPlanner instance with configuration
+        const successionPlanner = new SuccessionPlanner({
+            cropTypes: @json($cropData['types'] ?? []),
+            cropVarieties: @json($cropData['varieties'] ?? []),
+            availableBeds: @json($availableBeds ?? []),
+            farmosBase: '{{ config("services.farmos.url") }}'
+        });
+
+        // Initialize the planner
+        successionPlanner.initialize().catch(error => {
+            console.error('❌ Failed to initialize Succession Planner:', error);
+        });
+
+        // Initialize the new harvest window selector
+        initializeHarvestWindowSelector();
+
+        // Initialize Bootstrap tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    });
+
+    // AI Chat Functions
+    async function askHolisticAI(customPrompt, contextType) {
+        const input = document.getElementById('aiChatInput');
+        const message = customPrompt || (input ? input.value.trim() : '');
+
+        if (!message) {
+            showToast('Please enter a question for the AI', 'warning');
+            return;
+        }
+
+        // Show loading state
+        const responseArea = document.getElementById('aiResponseArea');
+        if (responseArea) {
+            responseArea.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Thinking...</div>';
+        }
+
+        try {
+            // Build context from current succession plan
+            const context = getCurrentPlanContext();
+
+            const response = await fetch('/admin/farmos/succession-planning/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({
+                    message: message,
+                    context: context
+                })
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                // Display the AI response
+                displayAIResponse(result.response);
+                
+                // Clear input if it was from the textarea
+                if (input && !customPrompt) {
+                    input.value = '';
+                }
+            } else {
+                const errorMsg = result.message || 'Failed to get AI response';
+                showToast(errorMsg, 'error');
+                if (responseArea) {
+                    responseArea.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> ${errorMsg}</div>`;
+                }
+            }
+        } catch (error) {
+            console.error('AI chat error:', error);
+            showToast('Failed to communicate with AI service', 'error');
+            if (responseArea) {
+                responseArea.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> Failed to communicate with AI service</div>';
+            }
+        }
+    }
+
+    function getCurrentPlanContext() {
+        // Build context from current succession planning state
+        const context = {};
+
+        // Add harvest window info
+        if (harvestWindowData.userStart && harvestWindowData.userEnd) {
+            context.harvest_window = {
+                start: harvestWindowData.userStart,
+                end: harvestWindowData.userEnd
+            };
+        }
+
+        // Add current crop selection
+        const cropSelect = document.getElementById('cropSelect');
+        const varietySelect = document.getElementById('varietySelect');
+        if (cropSelect && cropSelect.value) {
+            context.crop = cropSelect.options[cropSelect.selectedIndex].text;
+        }
+        if (varietySelect && varietySelect.value) {
+            context.variety = varietySelect.options[varietySelect.selectedIndex].text;
+        }
+
+        // Add current succession plan if available
+        if (currentSuccessionPlan) {
+            context.succession_plan = {
+                total_successions: currentSuccessionPlan.total_successions || 0,
+                plantings_count: currentSuccessionPlan.plantings ? currentSuccessionPlan.plantings.length : 0
+            };
+        }
+
+        return context;
+    }
+
+    function displayAIResponse(response) {
+        const responseArea = document.getElementById('aiResponseArea');
+        if (!responseArea) return;
+
+        // Format the response with proper HTML
+        const formattedResponse = response.replace(/\n/g, '<br>');
+        
+        responseArea.innerHTML = `
+            <div class="ai-response">
+                <div class="d-flex align-items-start">
+                    <div class="ai-avatar me-2">
+                        <i class="fas fa-robot text-primary"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="ai-message p-3 bg-light rounded">
+                            ${formattedResponse}
+                        </div>
+                        <small class="text-muted mt-1 d-block">
+                            <i class="fas fa-clock"></i> ${new Date().toLocaleTimeString()}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    async function getQuickAdvice() {
+        const context = getCurrentPlanContext();
+        let prompt = "Provide quick succession planning advice for UK organic vegetable production.";
+
+        if (context.crop) {
+            prompt += ` Focus on ${context.crop}`;
+            if (context.variety) {
+                prompt += ` (${context.variety})`;
+            }
+        }
+
+        prompt += " Keep it brief and actionable.";
+
+        await askHolisticAI(prompt, 'quick_advice');
+    }
+
+    function askQuickQuestion(questionType) {
+        const questions = {
+            'succession-timing': "What's the optimal timing between successions for continuous harvest?",
+            'companion-plants': "What are good companion plants for this crop in a UK climate?",
+            'lunar-timing': "How can lunar cycles affect planting timing?",
+            'harvest-optimization': "How can I optimize my harvest schedule for market demand?"
+        };
+
+        const question = questions[questionType];
+        if (question) {
+            askHolisticAI(question, questionType);
+        }
+    }
+
+    // AI Status Functions
+    async function checkAIStatus() {
+        try {
+            const response = await fetch('/admin/farmos/succession-planning/ai-status', {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success !== undefined) {
+                updateAIStatusDisplay(result);
+            } else {
+                updateAIStatusDisplay({ available: false, message: 'Unable to check AI status' });
+            }
+        } catch (error) {
+            console.error('AI status check failed:', error);
+            updateAIStatusDisplay({ available: false, message: 'Connection failed' });
+        }
+    }
+
+    function updateAIStatusDisplay(status) {
+        const statusLight = document.getElementById('aiStatusLight');
+        const statusText = document.getElementById('aiStatusText');
+        const statusDetails = document.getElementById('aiStatusDetails');
+
+        if (!statusLight || !statusText) return;
+
+        // Update status light
+        statusLight.classList.remove('online', 'offline', 'checking');
+        if (status.available) {
+            statusLight.classList.add('online');
+        } else {
+            statusLight.classList.add('offline');
+        }
+
+        // Update status text
+        statusText.textContent = status.available ? 'AI Service Online' : 'AI Service Offline';
+
+        // Update details
+        if (statusDetails) {
+            statusDetails.textContent = status.message || '';
+        }
+
+        console.log('🤖 AI Status updated:', status);
+    }
+
+    async function refreshAIStatus() {
+        const statusLight = document.getElementById('aiStatusLight');
+        const statusText = document.getElementById('aiStatusText');
+
+        if (statusLight) {
+            statusLight.classList.remove('online', 'offline');
+            statusLight.classList.add('checking');
+        }
+
+        if (statusText) {
+            statusText.textContent = 'Checking AI service...';
+        }
+
+        await checkAIStatus();
+    }
+
+    // Initialize AI status checking
+    document.addEventListener('DOMContentLoaded', function() {
+        // Check AI status on page load
+        checkAIStatus();
+
+        // Set up periodic status checking (every 30 seconds)
+        setInterval(checkAIStatus, 30000);
+    });
 </script>
 @endsection
