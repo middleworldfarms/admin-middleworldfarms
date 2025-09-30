@@ -198,6 +198,7 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         Route::post('/succession-planning/harvest-window', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'getOptimalHarvestWindow'])->name('succession-planning.harvest-window');
         Route::post('/succession-planning/seeding-transplant', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'getSeedingTransplantData'])->name('succession-planning.seeding-transplant');
         Route::post('/succession-planning/chat', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'chat'])->name('succession-planning.chat');
+        Route::post('/succession-planning/analyze-cash-crops', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'analyzeCashCrops'])->name('succession-planning.analyze-cash-crops');
         
         // API log submission for Quick Forms
         Route::post('/succession-planning/submit-log', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'submitLog'])->name('succession-planning.submit-log');
@@ -205,20 +206,31 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         // Variety details endpoint for AI processing
         Route::get('/succession-planning/varieties/{varietyId}', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'getVariety'])->name('succession-planning.variety');
         
+        // Bed occupancy data for timeline visualization
+        Route::get('/succession-planning/bed-occupancy', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'getBedOccupancy'])->name('succession-planning.bed-occupancy');
+        
         // AI service management routes
         Route::get('/succession-planning/ai-status', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'getAIStatus'])->name('succession-planning.ai-status');
         Route::post('/succession-planning/wake-ai', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'wakeUpAI'])->name('succession-planning.wake-ai');
         
-        // Quick Form routes - serve the quick form templates
+        // Image proxy for FarmOS variety images
+        Route::get('/variety-image/{fileId}', [App\Http\Controllers\Admin\FarmOSDataController::class, 'proxyVarietyImage'])->name('variety-image');
+        
+        // Quick Form routes - serve the unified quick form template
         Route::get('/quick/seeding', function () {
-            return view('admin.farmos.quick-forms.seeding');
+            return view('admin.farmos.quick-forms.quick-planting');
         })->name('quick.seeding');
         Route::get('/quick/transplant', function () {
-            return view('admin.farmos.quick-forms.transplant');
+            return view('admin.farmos.quick-forms.quick-planting');
         })->name('quick.transplant');
         Route::get('/quick/harvest', function () {
-            return view('admin.farmos.quick-forms.harvest');
+            return view('admin.farmos.quick-forms.quick-planting');
         })->name('quick.harvest');
+
+        // Proxy routes for FarmOS Quick Forms with pre-filling
+        Route::get('/proxy/quick/seeding', [App\Http\Controllers\Admin\FarmOSProxyController::class, 'proxySeedingForm'])->name('proxy.quick.seeding');
+        Route::get('/proxy/quick/transplant', [App\Http\Controllers\Admin\FarmOSProxyController::class, 'proxyTransplantForm'])->name('proxy.quick.transplant');
+        Route::get('/proxy/quick/harvest', [App\Http\Controllers\Admin\FarmOSProxyController::class, 'proxyHarvestForm'])->name('proxy.quick.harvest');
     });
 
     // Test route for AI timing

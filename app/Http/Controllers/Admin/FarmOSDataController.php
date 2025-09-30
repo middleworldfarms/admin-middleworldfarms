@@ -1128,5 +1128,188 @@ class FarmOSDataController extends Controller
         
         return $activities;
     }
-    
+
+    /**
+     * Get bed occupancy data for timeline visualization
+     */
+    public function getBedOccupancyData(Request $request)
+    {
+        try {
+            Log::info('Fetching FarmOS bed occupancy data for timeline');
+
+            // Get beds (land assets) from FarmOS
+            $beds = $this->farmOSApi->getAvailableLocations();
+
+            // Filter to only include actual beds (exclude block headers and other locations)
+            $beds = array_filter($beds, function($bed) {
+                $name = $bed['name'];
+                // Only include beds that match the "X/Y" pattern (actual beds)
+                return preg_match('/^\d+\/\d+$/', $name);
+            });
+
+            // Get plant assets with location relationships
+            $plantAssets = $this->farmOSApi->getPlantAssetsWithLocations();
+
+            // Process plant assets into planting records
+            $plantings = [];
+            foreach ($plantAssets as $plant) {
+                $plantings[] = [
+                    'id' => $plant['id'],
+                    'bed_id' => $plant['location_id'],
+                    'bed_name' => $this->getBedNameById($beds, $plant['location_id']),
+                    'crop' => $plant['name'],
+                    'variety' => $this->farmOSApi->getPlantTypeName($plant['plant_type_id']),
+                    'start_date' => $plant['plant_date'] ? date('Y-m-d', strtotime($plant['plant_date'])) : null,
+                    'end_date' => $plant['harvest_date'],
+                    'status' => $plant['status'],
+                    'maturity_days' => $plant['maturity_days']
+                ];
+            }
+
+            // Calculate date range from request or use defaults
+            $startDate = $request->get('start_date');
+            $endDate = $request->get('end_date');
+
+            if (!$startDate || !$endDate) {
+                // Calculate from plantings
+                $allDates = [];
+                foreach ($plantings as $planting) {
+                    if ($planting['start_date']) $allDates[] = $planting['start_date'];
+                    if ($planting['end_date']) $allDates[] = $planting['end_date'];
+                }
+
+                if (!empty($allDates)) {
+                    $startDate = min($allDates);
+                    $endDate = max($allDates);
+                } else {
+                    $startDate = date('Y-m-d', strtotime('-1 month'));
+                    $endDate = date('Y-m-d', strtotime('+2 months'));
+                }
+            }
+
+            $response = [
+                'beds' => array_map(function($bed) {
+                    return [
+                        'id' => $bed['id'],
+                        'name' => $bed['name'],
+                        'location' => 'Farm', // Could be enhanced to get actual location hierarchy
+                        'block' => $this->extractBlockFromBedName($bed['name'])
+                    ];
+                }, $beds),
+                'plantings' => $plantings,
+                'dateRange' => [
+                    'start' => $startDate,
+                    'end' => $endDate
+                ]
+            ];
+
+            Log::info('Successfully fetched bed occupancy data', [
+                'bed_count' => count($beds),
+                'planting_count' => count($plantings)
+            ]);
+
+            return response()->json($response);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch bed occupancy data: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to fetch bed occupancy data',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Helper method to get bed name by ID
+     */
+    private function getBedNameById($beds, $bedId)
+    {
+        foreach ($beds as $bed) {
+            if ($bed['id'] == $bedId) {
+                return $bed['name'];
+            }
+        }
+        return 'Unknown Bed';
+    }
+
+    /**
+     * Extract block number from bed name (e.g., "1/5" -> "Block 1")
+     */
+    private function extractBlockFromBedName($bedName)
+    {
+        // Match pattern like "1/5" where first digit is block
+        if (preg_match('/^(\d+)\//', $bedName, $matches)) {
+            return 'Block ' . $matches[1];
+        }
+
+        // If no slash pattern, try to extract first digit
+        if (preg_match('/^(\d)/', $bedName, $matches)) {
+            return 'Block ' . $matches[1];
+        }
+
+        return 'Block Unknown';
+    }
+
+    /**
+     * Proxy variety images from FarmOS with authentication
+     */
+    public function proxyVarietyImage($fileId)
+    {
+        try {
+            // Get file data from FarmOS API
+            $fileData = $this->farmOSApi->getFileData($fileId);
+
+            if (!$fileData) {
+                return response()->json(['error' => 'File not found'], 404);
+            }
+
+            // Get the file URL
+            $fileUrl = null;
+            if (isset($fileData['url'])) {
+                $fileUrl = $fileData['url'];
+            } elseif (isset($fileData['uri']['url'])) {
+                $fileUrl = $fileData['uri']['url'];
+            }
+
+            if (!$fileUrl) {
+                return response()->json(['error' => 'No file URL available'], 404);
+            }
+
+            // Construct full URL if relative
+            if (!str_starts_with($fileUrl, 'http')) {
+                $baseUrl = config('farmos.url', 'https://farmos.middleworldfarms.org');
+                $fileUrl = rtrim($baseUrl, '/') . $fileUrl;
+            }
+
+            // Make authenticated request to FarmOS
+            $authHeaders = $this->farmOSApi->getAuthHeaders();
+            $client = new \GuzzleHttp\Client();
+
+            $response = $client->get($fileUrl, [
+                'headers' => $authHeaders,
+                'timeout' => 30
+            ]);
+
+            if ($response->getStatusCode() === 200) {
+                // Get content type and return the image
+                $contentType = $response->getHeaderLine('content-type') ?: 'image/jpeg';
+                $imageData = $response->getBody()->getContents();
+
+                return response($imageData, 200, [
+                    'Content-Type' => $contentType,
+                    'Cache-Control' => 'public, max-age=3600' // Cache for 1 hour
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            Log::error("Failed to proxy variety image {$fileId}: " . $e->getMessage());
+            return response()->json(['error' => 'Failed to load image'], 500);
+        }
+
+        return response()->json(['error' => 'Unable to load image'], 404);
+    }
+
 }

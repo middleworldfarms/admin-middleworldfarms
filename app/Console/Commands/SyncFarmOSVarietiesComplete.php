@@ -186,6 +186,8 @@ class SyncFarmOSVarietiesComplete extends Command
             'farmos_tid' => $attributes['drupal_internal__tid'] ?? null,
             'name' => $attributes['name'] ?? 'Unknown',
             'description' => $attributes['description']['value'] ?? '',
+            'image_url' => $this->extractImageUrl($variety),
+            'image_alt_text' => $this->extractImageAltText($variety),
             'plant_type' => $plantTypeData ? ($plantTypeData['attributes']['name'] ?? null) : null,
             'plant_type_id' => $plantTypeData ? $plantTypeData['id'] : null,
             'farmos_data' => $variety,
@@ -502,5 +504,82 @@ class SyncFarmOSVarietiesComplete extends Command
 
         $this->info("🧹 Cleanup:");
         $this->info("   📦 Deactivated: {$cleanup['deactivated']}");
+    }
+
+    /**
+     * Extract image URL from FarmOS variety data
+     */
+    private function extractImageUrl(array $variety): ?string
+    {
+        $relationships = $variety['relationships'] ?? [];
+
+        // Check for image relationship
+        if (isset($relationships['image']['data']) && is_array($relationships['image']['data']) && !empty($relationships['image']['data'])) {
+            $imageData = $relationships['image']['data'][0]; // Take the first image
+
+            if (isset($imageData['id'])) {
+                return $imageData['id']; // Return the file ID for proxying
+            }
+        }
+
+        return null;
+    }
+
+
+
+    /**
+     * Extract image alt text from FarmOS variety data
+     */
+    private function extractImageAltText(array $variety): ?string
+    {
+        $relationships = $variety['relationships'] ?? [];
+
+        // Check for image relationship
+        if (isset($relationships['image']['data']) && is_array($relationships['image']['data']) && !empty($relationships['image']['data'])) {
+            $imageData = $relationships['image']['data'][0]; // Take the first image
+
+            if (isset($imageData['id'])) {
+                $fileId = $imageData['id'];
+
+                // First check if the file data is included
+                if (isset($variety['included']) && is_array($variety['included'])) {
+                    foreach ($variety['included'] as $included) {
+                        if (($included['id'] ?? null) === $fileId &&
+                            ($included['type'] ?? null) === 'file--file') {
+
+                            $attributes = $included['attributes'] ?? [];
+
+                            // Return alt text if available
+                            if (isset($attributes['alt'])) {
+                                return $attributes['alt'];
+                            }
+                        }
+                    }
+                }
+
+                // If not included, try to fetch the file data separately
+                return $this->fetchFileAltText($fileId);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Fetch file alt text from FarmOS API
+     */
+    private function fetchFileAltText(string $fileId): ?string
+    {
+        try {
+            $fileData = $this->farmOSApi->getFileData($fileId);
+
+            if ($fileData && isset($fileData['alt'])) {
+                return $fileData['alt'];
+            }
+        } catch (\Exception $e) {
+            $this->error("Failed to fetch file alt text for {$fileId}: " . $e->getMessage());
+        }
+
+        return null;
     }
 }

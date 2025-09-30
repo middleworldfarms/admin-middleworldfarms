@@ -1250,6 +1250,24 @@
                                 <input type="date" class="form-control" id="harvestEnd" name="harvestEnd" required>
                             </div>
                         </div>
+
+                        <!-- Step 2.5: Bed Dimensions for Seed Calculations -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="bedLength" class="form-label">
+                                    <i class="fas fa-ruler-horizontal text-info"></i>
+                                    Bed Length (meters)
+                                </label>
+                                <input type="number" class="form-control" id="bedLength" name="bedLength" placeholder="e.g., 30" min="1" step="0.1">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="bedWidth" class="form-label">
+                                    <i class="fas fa-ruler-vertical text-info"></i>
+                                    Bed Width (meters)
+                                </label>
+                                <input type="number" class="form-control" id="bedWidth" name="bedWidth" placeholder="e.g., 1.2" min="1" step="0.1">
+                            </div>
+                        </div>
                         
                         <!-- NEW: Visual Harvest Window Selector -->
                         <div class="mt-4">
@@ -1564,6 +1582,11 @@
                         </div>
                     </div>
                     
+                    <!-- Succession Preview -->
+                    <div id="successionPreviewContainer" class="succession-preview-section mt-4" style="display: none;">
+                        <!-- Preview content will be populated by JavaScript -->
+                    </div>
+                    
                     <!-- No Variety Selected State -->
                     <div id="noVarietySelected" class="text-center py-4 text-muted">
                         <i class="fas fa-seedling fa-2x mb-2"></i>
@@ -1811,13 +1834,42 @@
         const idEl = document.getElementById('varietyId');
         idEl.textContent = varietyData.farmos_id || varietyData.id || 'N/A';
 
-        // Handle photo - FarmOS varieties may not have photos in the API response
+        // Handle photo - check if variety has photo data
         const photoEl = document.getElementById('varietyPhoto');
         const noPhotoEl = document.getElementById('noPhotoMessage');
 
-        // For now, we'll show "no photo available" since FarmOS API may not include photos
-        photoEl.style.display = 'none';
-        noPhotoEl.style.display = 'block';
+        // Check for photo in variety data (could be from FarmOS or admin DB)
+        let photoUrl = null;
+        let photoAlt = '';
+
+        if (varietyData.image_url) {
+            // Check if it's a file ID (UUID format) or a direct URL
+            if (varietyData.image_url.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+                // It's a file ID, use proxy route
+                photoUrl = '/admin/farmos/variety-image/' + varietyData.image_url;
+            } else {
+                // It's a direct URL
+                photoUrl = varietyData.image_url;
+            }
+            photoAlt = varietyData.image_alt_text || varietyData.name || 'Variety image';
+        } else if (varietyData.photo) {
+            photoUrl = varietyData.photo;
+        } else if (varietyData.image) {
+            photoUrl = varietyData.image;
+        } else if (varietyData.farmos_data && varietyData.farmos_data.attributes && varietyData.farmos_data.attributes.image) {
+            photoUrl = varietyData.farmos_data.attributes.image;
+        }
+
+        if (photoUrl) {
+            photoEl.src = photoUrl;
+            photoEl.alt = photoAlt;
+            photoEl.style.display = 'block';
+            noPhotoEl.style.display = 'none';
+        } else {
+            // No photo available
+            photoEl.style.display = 'none';
+            noPhotoEl.style.display = 'block';
+        }
 
         console.log('✅ Variety information displayed');
     }
@@ -2018,6 +2070,49 @@
             console.log('🌱 Planning season changed to:', this.value);
             setDefaultDates();
         });
+    }
+
+    function setupCropVarietyHandlers() {
+        // Add event listener for crop type changes
+        document.getElementById('cropSelect').addEventListener('change', function() {
+            console.log('🌾 Crop type changed to:', this.value);
+            // Filter varieties based on selected crop type
+            filterVarietiesByCrop(this.value);
+            // Clear variety selection
+            const varietySelect = document.getElementById('varietySelect');
+            varietySelect.value = '';
+            handleVarietySelection(null);
+        });
+
+        // Add event listener for variety changes
+        document.getElementById('varietySelect').addEventListener('change', function() {
+            console.log('🥕 Variety changed to:', this.value);
+            handleVarietySelection(this.value);
+        });
+    }
+
+    function filterVarietiesByCrop(cropTypeId) {
+        const varietySelect = document.getElementById('varietySelect');
+        const options = varietySelect.querySelectorAll('option');
+
+        let visibleCount = 0;
+        options.forEach(option => {
+            if (!option.value) {
+                // Keep the "Select a variety..." option
+                option.style.display = 'block';
+                return;
+            }
+
+            const optionCropType = option.getAttribute('data-crop');
+            if (!cropTypeId || optionCropType === cropTypeId) {
+                option.style.display = 'block';
+                visibleCount++;
+            } else {
+                option.style.display = 'none';
+            }
+        });
+
+        console.log(`🔍 Filtered varieties for crop type: ${cropTypeId}, visible varieties: ${visibleCount}`);
     }
 
     function handleMouseDown(e) {
@@ -5594,8 +5689,50 @@ Plantings:`;
             sidebarCountBadge.textContent = `${successions} Succession${successions > 1 ? 's' : ''}`;
         }
 
+        // Calculate seed/transplant amounts based on bed dimensions
+        const bedLength = parseFloat(document.getElementById('bedLength')?.value) || 0;
+        const bedWidth = parseFloat(document.getElementById('bedWidth')?.value) || 0;
+        const bedArea = bedLength * bedWidth; // in square meters
+
+        let seedInfoHTML = '';
+        if (bedArea > 0) {
+            // Get seed/transplant requirements for this crop
+            const seedRequirements = getSeedRequirements(cropName, varietyName);
+
+            if (seedRequirements) {
+                const totalSeeds = Math.ceil(bedArea * seedRequirements.seedsPerSqFt * successions);
+                const totalTransplants = seedRequirements.transplantsPerSqFt ?
+                    Math.ceil(bedArea * seedRequirements.transplantsPerSqFt * successions) : 0;
+
+                seedInfoHTML = `
+                    <div class="seed-calculations mt-3 p-3 bg-light rounded">
+                        <h6 class="text-info mb-2">
+                            <i class="fas fa-seedling"></i>
+                            Seed & Transplant Requirements (${bedLength}m × ${bedWidth}m = ${bedArea} sq m)
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="seed-info">
+                                    <strong>Seeds needed:</strong> ${totalSeeds.toLocaleString()} ${seedRequirements.seedUnit || 'seeds'}
+                                    <br><small class="text-muted">(${seedRequirements.seedsPerSqFt} per sq m × ${successions} successions)</small>
+                                </div>
+                            </div>
+                            ${totalTransplants > 0 ? `
+                            <div class="col-md-6">
+                                <div class="seed-info">
+                                    <strong>Transplants needed:</strong> ${totalTransplants.toLocaleString()}
+                                    <br><small class="text-muted">(${seedRequirements.transplantsPerSqFt} per sq m × ${successions} successions)</small>
+                                </div>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
         // Generate detailed succession preview for both locations
-        let previewHTML = '';
+        let previewHTML = seedInfoHTML;
         let sidebarHTML = '';
 
         for (let i = 0; i < successions; i++) {
@@ -5728,6 +5865,49 @@ Plantings:`;
         }
 
         return 21; // Default 3 weeks
+    }
+
+    function getSeedRequirements(cropName, varietyName) {
+        // Seed and transplant requirements per square foot
+        const requirements = {
+            'carrot': { seedsPerSqFt: 80, seedUnit: 'seeds', transplantsPerSqFt: null },
+            'beetroot': { seedsPerSqFt: 16, seedUnit: 'seeds', transplantsPerSqFt: null },
+            'lettuce': { seedsPerSqFt: 4, seedUnit: 'seeds', transplantsPerSqFt: 4 },
+            'radish': { seedsPerSqFt: 16, seedUnit: 'seeds', transplantsPerSqFt: null },
+            'onion': { seedsPerSqFt: 32, seedUnit: 'seeds', transplantsPerSqFt: null },
+            'spinach': { seedsPerSqFt: 8, seedUnit: 'seeds', transplantsPerSqFt: null },
+            'kale': { seedsPerSqFt: 4, seedUnit: 'seeds', transplantsPerSqFt: 4 },
+            'chard': { seedsPerSqFt: 4, seedUnit: 'seeds', transplantsPerSqFt: 4 },
+            'pak choi': { seedsPerSqFt: 4, seedUnit: 'seeds', transplantsPerSqFt: 4 },
+            'cabbage': { seedsPerSqFt: 1, seedUnit: 'seeds', transplantsPerSqFt: 1 },
+            'broccoli': { seedsPerSqFt: 1, seedUnit: 'seeds', transplantsPerSqFt: 1 },
+            'cauliflower': { seedsPerSqFt: 1, seedUnit: 'seeds', transplantsPerSqFt: 1 },
+            'peas': { seedsPerSqFt: 8, seedUnit: 'seeds', transplantsPerSqFt: null },
+            'beans': { seedsPerSqFt: 6, seedUnit: 'seeds', transplantsPerSqFt: null },
+            'tomato': { seedsPerSqFt: 1, seedUnit: 'seeds', transplantsPerSqFt: 1 },
+            'pepper': { seedsPerSqFt: 1, seedUnit: 'seeds', transplantsPerSqFt: 1 },
+            'cucumber': { seedsPerSqFt: 1, seedUnit: 'seeds', transplantsPerSqFt: 1 },
+            'zucchini': { seedsPerSqFt: 1, seedUnit: 'seeds', transplantsPerSqFt: 1 },
+            'corn': { seedsPerSqFt: 4, seedUnit: 'seeds', transplantsPerSqFt: null },
+            'potato': { seedsPerSqFt: 1, seedUnit: 'seeds', transplantsPerSqFt: null },
+            'garlic': { seedsPerSqFt: 4, seedUnit: 'cloves', transplantsPerSqFt: null },
+            'leek': { seedsPerSqFt: 16, seedUnit: 'seeds', transplantsPerSqFt: 16 },
+            'celery': { seedsPerSqFt: 4, seedUnit: 'seeds', transplantsPerSqFt: 4 },
+            'fennel': { seedsPerSqFt: 4, seedUnit: 'seeds', transplantsPerSqFt: 4 },
+            'brussels sprouts': { seedsPerSqFt: 1, seedUnit: 'seeds', transplantsPerSqFt: 1 },
+            'brussel sprouts': { seedsPerSqFt: 1, seedUnit: 'seeds', transplantsPerSqFt: 1 },
+            'herbs': { seedsPerSqFt: 4, seedUnit: 'seeds', transplantsPerSqFt: null }
+        };
+
+        // Check for specific crop matches
+        for (const [crop, req] of Object.entries(requirements)) {
+            if (cropName.includes(crop) || varietyName.includes(crop)) {
+                return req;
+            }
+        }
+
+        // Default requirements
+        return { seedsPerSqFt: 4, seedUnit: 'seeds', transplantsPerSqFt: null };
     }
 
     // Calculate detailed succession dates including sowing and transplant
@@ -5902,7 +6082,36 @@ Plantings:`;
         const cropLower = cropName.toLowerCase();
         const varietyLower = varietyName.toLowerCase();
 
-        // Comprehensive crop timing database
+        // First, check if we have variety-specific data from FarmOS
+        if (window.cropData && window.cropData.varieties) {
+            const variety = window.cropData.varieties.find(v =>
+                v.name && v.name.toLowerCase().includes(varietyLower) &&
+                v.crop_type && v.crop_type.toLowerCase().includes(cropLower)
+            );
+
+            if (variety && variety.transplant_month_start && variety.transplant_month_end) {
+                console.log(`🌱 Using FarmOS transplant window for ${variety.name}: months ${variety.transplant_month_start}-${variety.transplant_month_end}`);
+
+                // Calculate transplant window from month numbers
+                const startMonth = variety.transplant_month_start - 1; // Convert to 0-indexed
+                const endMonth = variety.transplant_month_end - 1; // Convert to 0-indexed
+
+                return {
+                    daysToHarvest: variety.harvest_days || variety.maturity_days || 60,
+                    daysToTransplant: variety.transplant_days || 35,
+                    method: variety.transplant_days ? 'Transplant seedlings' : 'Direct sow',
+                    transplantWindow: {
+                        startMonth: startMonth,
+                        startDay: 1, // Default to 1st of the month
+                        endMonth: endMonth,
+                        endDay: 15, // Default to 15th of the month
+                        description: `Month ${variety.transplant_month_start} - Month ${variety.transplant_month_end} (FarmOS data)`
+                    }
+                };
+            }
+        }
+
+        // Fallback to hardcoded timing data if no FarmOS data available
         const timingData = {
             // Root vegetables
             'carrot': {
@@ -6040,11 +6249,11 @@ Plantings:`;
                 daysToTransplant: 35,
                 method: 'Transplant seedlings',
                 transplantWindow: {
-                    startMonth: 2,  // March (0-indexed)
-                    startDay: 15,
-                    endMonth: 4,    // May (0-indexed)
+                    startMonth: 4,  // May (0-indexed, FarmOS month 5)
+                    startDay: 1,
+                    endMonth: 5,    // June (0-indexed, FarmOS month 6)
                     endDay: 15,
-                    description: 'March 15 - May 15 (optimal spring transplanting)'
+                    description: 'May 1 - June 15 (FarmOS transplant window)'
                 }
             },
             'brussels': {
@@ -6052,11 +6261,11 @@ Plantings:`;
                 daysToTransplant: 35,
                 method: 'Transplant seedlings',
                 transplantWindow: {
-                    startMonth: 2,  // March
-                    startDay: 15,
-                    endMonth: 4,    // May
+                    startMonth: 4,  // May
+                    startDay: 1,
+                    endMonth: 5,    // June
                     endDay: 15,
-                    description: 'March 15 - May 15 (optimal spring transplanting)'
+                    description: 'May 1 - June 15 (FarmOS transplant window)'
                 }
             },
             'cabbage': {
@@ -6645,6 +6854,10 @@ Plantings:`;
 
         // Set up periodic status checking (every 30 seconds)
         setInterval(checkAIStatus, 30000);
+
+        // Set up event handlers - DISABLED: succession-planner.js handles this now
+        // setupSeasonYearHandlers();
+        // setupCropVarietyHandlers();
     });
 </script>
 @endsection
