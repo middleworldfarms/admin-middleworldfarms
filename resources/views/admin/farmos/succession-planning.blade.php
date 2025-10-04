@@ -1872,9 +1872,20 @@
                 console.log('✅ Displaying variety data');
                 displayVarietyInfo(varietyData);
                 
-                // Automatically calculate succession plan when variety is selected
-                console.log('🚀 Auto-calculating succession plan for variety');
-                await calculateSuccessionPlan();
+                // Wait for harvest window to be initialized before calculating
+                // The succession-planner.js sets harvest dates asynchronously
+                console.log('⏳ Waiting for harvest dates to be set...');
+                await new Promise(resolve => setTimeout(resolve, 300)); // 300ms delay
+                
+                // Check if harvest dates are now set
+                const hs = document.getElementById('harvestStart');
+                const he = document.getElementById('harvestEnd');
+                if (hs?.value && he?.value) {
+                    console.log('🚀 Auto-calculating succession plan with dates:', hs.value, '->', he.value);
+                    await calculateSuccessionPlan();
+                } else {
+                    console.log('⚠️ Harvest dates not set yet, skipping auto-calculation');
+                }
             } else {
                 // Show error state
                 console.log('❌ No variety data received, showing error');
