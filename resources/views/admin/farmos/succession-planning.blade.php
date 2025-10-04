@@ -1746,6 +1746,10 @@
 
     // Display variety information in the UI
     function displayVarietyInfo(varietyData) {
+        // Store globally for succession calculations
+        window.currentVarietyData = varietyData;
+        console.log('💾 Stored variety data globally:', varietyData);
+        
         const container = document.getElementById('varietyInfoContainer');
         const loading = document.getElementById('varietyLoading');
         const error = document.getElementById('varietyError');
@@ -3285,13 +3289,87 @@ Calculate for ${contextPayload.planning_year}.`;
         }
     }
 
+    /**
+     * Generate succession plan locally using variety data from database
+     * No API calls - uses data already loaded in JavaScript
+     */
+    function generateLocalSuccessionPlan(payload, cropName, varietyName) {
+        const harvestStart = new Date(payload.harvest_start);
+        const harvestEnd = new Date(payload.harvest_end);
+        const successionCount = payload.succession_count;
+        
+        const plantings = [];
+        
+        // Get maturity days from current variety info if available
+        const maturityDays = window.currentVarietyData?.maturity_days || 45;
+        const harvestDays = window.currentVarietyData?.harvest_days || maturityDays;
+        
+        console.log(`🌱 Using variety maturity: ${maturityDays} days, harvest window: ${harvestDays} days`);
+        
+        // Calculate spacing between harvests
+        const harvestDuration = Math.ceil((harvestEnd - harvestStart) / (1000 * 60 * 60 * 24));
+        const harvestSpacing = successionCount > 1 ? Math.floor(harvestDuration / (successionCount - 1)) : 0;
+        
+        for (let i = 0; i < successionCount; i++) {
+            // Calculate harvest date for this succession
+            const successionHarvestDate = new Date(harvestStart);
+            successionHarvestDate.setDate(successionHarvestDate.getDate() + (i * harvestSpacing));
+            
+            // Calculate seeding date (work backwards from harvest)
+            const seedingDate = new Date(successionHarvestDate);
+            seedingDate.setDate(seedingDate.getDate() - maturityDays);
+            
+            // For transplanted crops, calculate transplant date
+            let transplantDate = null;
+            if (cropName.includes('brussels') || cropName.includes('cabbage') || 
+                cropName.includes('broccoli') || cropName.includes('cauliflower')) {
+                transplantDate = new Date(seedingDate);
+                transplantDate.setDate(transplantDate.getDate() + 35); // ~5 weeks from seed to transplant
+            }
+            
+            // Calculate harvest end date
+            const harvestEndDate = new Date(successionHarvestDate);
+            harvestEndDate.setDate(harvestEndDate.getDate() + harvestDays);
+            
+            plantings.push({
+                succession_id: i + 1,
+                succession_number: i + 1,
+                seeding_date: seedingDate.toISOString().split('T')[0],
+                transplant_date: transplantDate ? transplantDate.toISOString().split('T')[0] : null,
+                harvest_date: successionHarvestDate.toISOString().split('T')[0],
+                harvest_end_date: harvestEndDate.toISOString().split('T')[0],
+                bed_name: 'Unassigned',
+                crop_name: cropName,
+                variety_name: varietyName
+            });
+        }
+        
+        return {
+            crop: { id: payload.crop_id, name: cropName },
+            variety: { id: payload.variety_id, name: varietyName },
+            harvest_start: payload.harvest_start,
+            harvest_end: payload.harvest_end,
+            plantings: plantings,
+            total_successions: successionCount
+        };
+    }
+
     async function calculateSuccessionPlan() {
+        console.log('🎯 calculateSuccessionPlan called');
         const cropSelect = document.getElementById('cropSelect');
         const varietySelect = document.getElementById('varietySelect');
         const hs = document.getElementById('harvestStart');
         const he = document.getElementById('harvestEnd');
 
+        console.log('📊 Form values:', {
+            crop: cropSelect?.value,
+            variety: varietySelect?.value,
+            harvestStart: hs?.value,
+            harvestEnd: he?.value
+        });
+
         if (!cropSelect?.value || !hs?.value || !he?.value) {
+            console.warn('⚠️ Missing required values for calculation');
             showToast('Select crop and harvest dates first', 'warning');
             return;
         }
@@ -3340,23 +3418,21 @@ Calculate for ${contextPayload.planning_year}.`;
             use_ai: true
         };
 
+        console.log('📦 Generating local succession plan (no API call):', payload);
+
         showLoading(true);
         try {
-            const resp = await fetch(`${API_BASE}/calculate?_cb=${Date.now()}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
-                },
-                body: JSON.stringify(payload)
-            });
-            const data = await resp.json();
-            if (!resp.ok || !data.success) throw new Error(data.message || `HTTP ${resp.status}`);
+            // Generate succession plan locally using variety data from database
+            const successionPlan = generateLocalSuccessionPlan(payload, cropName, varietyName);
+            console.log('✅ Local succession plan generated:', successionPlan);
 
-            currentSuccessionPlan = data.succession_plan;
+            currentSuccessionPlan = successionPlan;
+            console.log('✅ Succession plan received:', currentSuccessionPlan);
+            console.log('📋 Rendering succession summary...');
             renderSuccessionSummary(currentSuccessionPlan);
+            console.log('🗓️ Rendering FarmOS timeline...');
             await renderFarmOSTimeline(currentSuccessionPlan);
+            console.log('📝 Rendering quick form tabs...');
             renderQuickFormTabs(currentSuccessionPlan);
             
             // Populate succession sidebar with draggable cards
@@ -3385,9 +3461,15 @@ Calculate for ${contextPayload.planning_year}.`;
     }
 
     function renderSuccessionSummary(plan) {
+        console.log('🎨 renderSuccessionSummary called with plan:', plan);
         const container = document.getElementById('successionSummary');
-        if (!container) return;
-        const items = (plan.plantings || []).map((p, i) => {
+        if (!container) {
+            console.error('❌ successionSummary container not found!');
+            return;
+        }
+        const plantings = plan.plantings || [];
+        console.log(`📊 Rendering ${plantings.length} succession cards`);
+        const items = plantings.map((p, i) => {
             return `<div class="col-md-4">
                 <div class="succession-card" onclick="switchTab(${i})" role="button" aria-label="Open succession ${i+1}">
                     <div class="d-flex justify-content-between">
