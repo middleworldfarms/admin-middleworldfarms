@@ -1373,6 +1373,16 @@
 
             <!-- Results Section -->
             <div id="resultsSection" style="display: none;">
+                <!-- Succession Summary Cards -->
+                <div class="planning-card mb-3">
+                    <div class="planning-section">
+                        <h4><i class="fas fa-seedling text-success"></i> Succession Overview</h4>
+                        <div class="row" id="successionSummary">
+                            <!-- Succession cards will be populated here -->
+                        </div>
+                    </div>
+                </div>
+
                 <!-- FarmOS Timeline Chart -->
             <div class="farmos-timeline-container">
                 <h4><i class="fas fa-chart-gantt text-success"></i> FarmOS Succession Timeline</h4>
