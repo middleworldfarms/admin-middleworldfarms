@@ -1871,6 +1871,10 @@
             if (varietyData) {
                 console.log('✅ Displaying variety data');
                 displayVarietyInfo(varietyData);
+                
+                // Automatically calculate succession plan when variety is selected
+                console.log('🚀 Auto-calculating succession plan for variety');
+                await calculateSuccessionPlan();
             } else {
                 // Show error state
                 console.log('❌ No variety data received, showing error');
