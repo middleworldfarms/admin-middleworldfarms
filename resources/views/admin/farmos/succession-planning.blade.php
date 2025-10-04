@@ -1877,19 +1877,34 @@
                 displayVarietyInfo(varietyData);
                 
                 // Wait for harvest window to be initialized before calculating
-                // The succession-planner.js sets harvest dates asynchronously
+                // Poll for harvest dates to be ready (max 2 seconds)
                 console.log('⏳ Waiting for harvest dates to be set...');
-                await new Promise(resolve => setTimeout(resolve, 300)); // 300ms delay
+                let attempts = 0;
+                const maxAttempts = 20; // 20 attempts x 100ms = 2 seconds max
                 
-                // Check if harvest dates are now set
-                const hs = document.getElementById('harvestStart');
-                const he = document.getElementById('harvestEnd');
-                if (hs?.value && he?.value) {
-                    console.log('🚀 Auto-calculating succession plan with dates:', hs.value, '->', he.value);
-                    await calculateSuccessionPlan();
-                } else {
-                    console.log('⚠️ Harvest dates not set yet, skipping auto-calculation');
-                }
+                const waitForHarvestDates = async () => {
+                    const hs = document.getElementById('harvestStart');
+                    const he = document.getElementById('harvestEnd');
+                    
+                    if (hs?.value && he?.value) {
+                        console.log('✅ Harvest dates ready:', hs.value, '->', he.value);
+                        console.log('🚀 Auto-calculating succession plan');
+                        await calculateSuccessionPlan();
+                        return true;
+                    }
+                    
+                    attempts++;
+                    if (attempts >= maxAttempts) {
+                        console.warn('⚠️ Timeout waiting for harvest dates, skipping auto-calculation');
+                        return false;
+                    }
+                    
+                    // Wait 100ms and try again
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    return await waitForHarvestDates();
+                };
+                
+                await waitForHarvestDates();
             } else {
                 // Show error state
                 console.log('❌ No variety data received, showing error');
