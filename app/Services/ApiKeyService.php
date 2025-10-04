@@ -77,6 +77,10 @@ class ApiKeyService
     {
         return [
             'met_office' => self::get('met_office_api_key') ?: env('MET_OFFICE_API_KEY', ''),
+            'met_office_land_observations' => self::get('met_office_land_observations_key') ?: env('MET_OFFICE_LAND_OBSERVATIONS_KEY', ''),
+            'met_office_site_specific' => self::get('met_office_site_specific_key') ?: env('MET_OFFICE_SITE_SPECIFIC_KEY', ''),
+            'met_office_atmospheric' => self::get('met_office_atmospheric_key') ?: env('MET_OFFICE_ATMOSPHERIC_KEY', ''),
+            'met_office_map_images' => self::get('met_office_map_images_key') ?: env('MET_OFFICE_MAP_IMAGES_KEY', ''),
             'openweather' => self::get('openweather_api_key') ?: env('OPENWEATHER_API_KEY', ''),
             'latitude' => env('WEATHER_LATITUDE', env('FARM_LATITUDE', '51.4934')),
             'longitude' => env('WEATHER_LONGITUDE', env('FARM_LONGITUDE', '0.0098')),

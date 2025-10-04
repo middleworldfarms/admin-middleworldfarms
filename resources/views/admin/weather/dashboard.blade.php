@@ -79,6 +79,14 @@
 @section('content')
 <div class="container-fluid">
 
+    <!-- Update indicator -->
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="fas fa-check-circle me-2"></i>
+        <strong>WeatherAPI Integration Active!</strong> Now showing UV index, air quality, precipitation, cloud cover, and more.
+        <span class="badge bg-dark float-end">Updated: {{ now()->format('Y-m-d H:i:s') }}</span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+
     @if(isset($error))
         <div class="alert alert-danger">
             <i class="fas fa-exclamation-triangle me-2"></i>
@@ -88,39 +96,112 @@
 
     <!-- Current Weather Row -->
     <div class="row mb-4">
-        <div class="col-lg-4">
+        <div class="col-lg-6">
             <div class="card weather-card h-100">
                 <div class="card-header bg-primary text-white">
                     <h5 class="card-title mb-0">
-                        <i class="fas fa-thermometer-half me-2"></i>
+                        <i class="fas fa-cloud-sun me-2"></i>
                         Current Weather
+                        @if($currentWeather)
+                            <span class="badge bg-light text-dark float-end">{{ ucfirst($currentWeather['source'] ?? 'Unknown') }}</span>
+                        @endif
                     </h5>
                 </div>
-                <div class="card-body text-center">
+                <div class="card-body">
                     @if($currentWeather)
-                        <div class="temperature-display">
-                            {{ round($currentWeather['temperature'] ?? 0) }}°C
-                        </div>
-                        <p class="text-muted mb-3">
-                            Feels like {{ round($currentWeather['feels_like'] ?? 0) }}°C
-                        </p>
-                        <div class="row text-center">
-                            <div class="col-6">
-                                <small class="text-muted d-block">Humidity</small>
-                                <strong>{{ $currentWeather['humidity'] ?? 'N/A' }}%</strong>
+                        <div class="row">
+                            <!-- Left column: Main weather -->
+                            <div class="col-md-6 text-center border-end">
+                                <div class="temperature-display">
+                                    {{ round($currentWeather['temperature'] ?? 0) }}°C
+                                </div>
+                                <h5 class="text-primary mb-2">{{ $currentWeather['description'] ?? 'N/A' }}</h5>
+                                <p class="text-muted mb-1">
+                                    <i class="fas fa-temperature-low me-1"></i>
+                                    Feels like {{ round($currentWeather['feels_like'] ?? 0) }}°C
+                                </p>
+                                @if(isset($currentWeather['location']))
+                                    <p class="text-muted small mb-0">
+                                        <i class="fas fa-map-marker-alt me-1"></i>
+                                        {{ $currentWeather['location'] }}, {{ $currentWeather['region'] ?? '' }}
+                                    </p>
+                                @endif
                             </div>
-                            <div class="col-6">
-                                <small class="text-muted d-block">Wind</small>
-                                <strong>{{ round($currentWeather['wind_speed'] ?? 0) }} mph</strong>
+                            
+                            <!-- Right column: Details -->
+                            <div class="col-md-6">
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <small class="text-muted d-block"><i class="fas fa-tint me-1"></i>Humidity</small>
+                                        <strong>{{ $currentWeather['humidity'] ?? 'N/A' }}%</strong>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted d-block"><i class="fas fa-wind me-1"></i>Wind</small>
+                                        <strong>{{ round($currentWeather['wind_speed_mph'] ?? $currentWeather['wind_speed'] ?? 0) }} mph {{ $currentWeather['wind_dir'] ?? '' }}</strong>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted d-block"><i class="fas fa-compress-arrows-alt me-1"></i>Pressure</small>
+                                        <strong>{{ round($currentWeather['pressure'] ?? 0) }} mb</strong>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted d-block"><i class="fas fa-eye me-1"></i>Visibility</small>
+                                        <strong>{{ round($currentWeather['visibility'] ?? 0) }} km</strong>
+                                    </div>
+                                    @if(isset($currentWeather['uv_index']))
+                                    <div class="col-6">
+                                        <small class="text-muted d-block"><i class="fas fa-sun me-1"></i>UV Index</small>
+                                        <strong class="{{ $currentWeather['uv_index'] > 6 ? 'text-danger' : ($currentWeather['uv_index'] > 3 ? 'text-warning' : 'text-success') }}">
+                                            {{ $currentWeather['uv_index'] }}
+                                        </strong>
+                                    </div>
+                                    @endif
+                                    @if(isset($currentWeather['precipitation_mm']))
+                                    <div class="col-6">
+                                        <small class="text-muted d-block"><i class="fas fa-cloud-rain me-1"></i>Rain</small>
+                                        <strong>{{ $currentWeather['precipitation_mm'] }} mm</strong>
+                                    </div>
+                                    @endif
+                                    @if(isset($currentWeather['cloud_cover']))
+                                    <div class="col-6">
+                                        <small class="text-muted d-block"><i class="fas fa-cloud me-1"></i>Cloud</small>
+                                        <strong>{{ $currentWeather['cloud_cover'] }}%</strong>
+                                    </div>
+                                    @endif
+                                </div>
                             </div>
                         </div>
-                        <div class="mt-3">
-                            <small class="text-muted">
-                                Source: {{ ucfirst($currentWeather['source'] ?? 'Unknown') }}
-                            </small>
+                        
+                        <!-- Air Quality Section -->
+                        @if(isset($currentWeather['air_quality']))
+                        <hr class="my-3">
+                        <div class="row">
+                            <div class="col-12">
+                                <h6 class="mb-2"><i class="fas fa-smog me-2"></i>Air Quality</h6>
+                                <div class="row g-2">
+                                    <div class="col-6 col-md-3">
+                                        <small class="text-muted d-block">GB DEFRA</small>
+                                        <strong class="text-{{ $currentWeather['air_quality']['gb_defra_index'] <= 3 ? 'success' : ($currentWeather['air_quality']['gb_defra_index'] <= 6 ? 'warning' : 'danger') }}">
+                                            {{ $currentWeather['air_quality']['gb_defra_index'] }}/10
+                                        </strong>
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <small class="text-muted d-block">PM2.5</small>
+                                        <strong>{{ round($currentWeather['air_quality']['pm2_5'] ?? 0, 1) }}</strong>
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <small class="text-muted d-block">PM10</small>
+                                        <strong>{{ round($currentWeather['air_quality']['pm10'] ?? 0, 1) }}</strong>
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <small class="text-muted d-block">O₃</small>
+                                        <strong>{{ round($currentWeather['air_quality']['o3'] ?? 0, 1) }}</strong>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
+                        @endif
                     @else
-                        <div class="text-muted">
+                        <div class="text-center text-muted py-4">
                             <i class="fas fa-exclamation-circle fa-3x mb-3"></i>
                             <p>Unable to load current weather</p>
                         </div>
@@ -129,7 +210,7 @@
             </div>
         </div>
 
-        <div class="col-lg-4">
+        <div class="col-lg-3">
             <div class="card weather-card h-100">
                 <div class="card-header bg-success text-white">
                     <h5 class="card-title mb-0">
@@ -147,7 +228,7 @@
             </div>
         </div>
 
-        <div class="col-lg-4">
+        <div class="col-lg-3">
             <div class="card weather-card h-100">
                 <div class="card-header bg-info text-white">
                     <h5 class="card-title mb-0">
@@ -407,22 +488,10 @@
                             </ul>
                         </div>
                     </div>
-                    <div class="text-center mt-3">
-                        <a href="{{ route('admin.weather.historical') }}" class="btn btn-outline-primary btn-sm me-2">
-                            <i class="fas fa-chart-line me-1"></i>Historical Data
-                        </a>
-                        <a href="{{ route('admin.weather.planting-analysis') }}" class="btn btn-outline-success btn-sm me-2">
-                            <i class="fas fa-seedling me-1"></i>Planting Analysis
-                        </a>
-                        <a href="{{ route('admin.weather.alerts') }}" class="btn btn-outline-warning btn-sm">
-                            <i class="fas fa-bell me-1"></i>Weather Alerts
-                        </a>
-                    </div>
                 </div>
             </div>
         </div>
     </div>
-
 </div>
 @endsection
 

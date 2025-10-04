@@ -27,11 +27,22 @@ class WeatherController extends Controller
             $frostRisk = $this->weatherService->getFrostRisk(7);
             $fieldConditions = $this->weatherService->getFieldWorkConditions(5);
             
+            // Calculate today's GDD from current temperature
+            $todayGDD = 0;
+            if ($currentWeather && isset($currentWeather['temperature'])) {
+                $temp = $currentWeather['temperature'];
+                $baseTemp = 10; // Base temperature for GDD calculation
+                if ($temp > $baseTemp) {
+                    $todayGDD = $temp - $baseTemp;
+                }
+            }
+            
             return view('admin.weather.dashboard', compact(
                 'currentWeather',
                 'forecast', 
                 'frostRisk',
-                'fieldConditions'
+                'fieldConditions',
+                'todayGDD'
             ));
             
         } catch (\Exception $e) {

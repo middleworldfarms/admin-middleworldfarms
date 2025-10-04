@@ -90,12 +90,13 @@ function handleCropTypeChange(event) {
 
 // Apply crop preset
 function applyPreset(cropType) {
-    if (!cropPresets[cropType]) {
+    const normalizedCrop = (cropType || '').toLowerCase();
+    const preset = cropPresets[cropType] || cropPresets[normalizedCrop];
+
+    if (!preset) {
         debugLog(`No preset available for ${cropType}`, 'warning');
         return;
     }
-    
-    const preset = cropPresets[cropType];
     debugLog(`Applying preset: ${JSON.stringify(preset)}`);
     
     // Set timing values
@@ -117,7 +118,14 @@ function applyPreset(cropType) {
     }
     
     // Handle direct sow
-    const isDirectSow = (preset.transplant_days || 0) === 0;
+    let isDirectSow = (preset.transplant_days || 0) === 0;
+    if (normalizedCrop.includes('broad bean')) {
+        isDirectSow = true;
+        if (seedingToTransplant) {
+            seedingToTransplant.value = 0;
+        }
+        debugLog('Broad beans detected — defaulting to direct sow (estimated >200 plants/row)', 'info');
+    }
     if (directSowCheckbox) {
         directSowCheckbox.checked = isDirectSow;
         toggleDirectSowMode(isDirectSow);

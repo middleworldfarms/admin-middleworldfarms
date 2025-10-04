@@ -33,8 +33,10 @@ class SuccessionPlanningController extends Controller
     {
         // Note: AI service wake-up removed - service warms up on first use
         try {
-            // Get available crop types and varieties from farmOS
-            $cropData = $this->farmOSApi->getAvailableCropTypes();
+            // Get crop types and varieties from local database (synced from FarmOS)
+            // This is MUCH faster than calling the API on every page load
+            $cropData = $this->getCropDataFromLocalDB();
+            
             $geometryAssets = $this->farmOSApi->getGeometryAssets();
             $availableBeds = $this->extractAvailableBeds($geometryAssets);
             
@@ -730,6 +732,53 @@ class SuccessionPlanningController extends Controller
     }
 
     /**
+     * Get crop data from local database (synced from FarmOS)
+     * This is much faster than calling the API on every page load
+     */
+    private function getCropDataFromLocalDB()
+    {
+        // Get all distinct plant types (crop types)
+        $plantTypes = PlantVariety::select('plant_type', 'plant_type_id')
+            ->where('is_active', true)
+            ->whereNotNull('plant_type')
+            ->distinct()
+            ->orderBy('plant_type')
+            ->get();
+        
+        $types = [];
+        foreach ($plantTypes as $type) {
+            $types[] = [
+                'id' => $type->plant_type_id ?? strtolower(str_replace(' ', '_', $type->plant_type)),
+                'name' => $type->plant_type,
+                'label' => $type->plant_type
+            ];
+        }
+        
+        // Get all varieties with their parent plant type
+        $plantVarieties = PlantVariety::select('id', 'name', 'farmos_id', 'plant_type', 'plant_type_id')
+            ->where('is_active', true)
+            ->orderBy('plant_type')
+            ->orderBy('name')
+            ->get();
+        
+        $varieties = [];
+        foreach ($plantVarieties as $variety) {
+            $parentId = $variety->plant_type_id ?? strtolower(str_replace(' ', '_', $variety->plant_type));
+            $varieties[] = [
+                'id' => $variety->farmos_id,
+                'name' => $variety->name,
+                'parent_id' => $parentId,
+                'crop_type' => $variety->plant_type
+            ];
+        }
+        
+        return [
+            'types' => $types,
+            'varieties' => $varieties
+        ];
+    }
+
+    /**
      * Get crop timing presets for common market garden crops
      */
     private function getCropTimingPresets()
@@ -1406,7 +1455,11 @@ class SuccessionPlanningController extends Controller
     public function chat(Request $request): JsonResponse
     {
         try {
-            Log::info("🔥 CHAT METHOD CALLED - Start of processing");
+            Log::info("🔥 CHAT METHOD CALLED - Start of processing", [
+                'has_question' => $request->has('question'),
+                'question_value' => $request->input('question'),
+                'all_input' => $request->all()
+            ]);
             
             $validated = $request->validate([
                 'question' => 'required|string|max:5000', // Increased limit for detailed harvest window prompts
@@ -1496,16 +1549,16 @@ class SuccessionPlanningController extends Controller
                 
                 Log::info('SymbiosisAI chat response received', [
                     'user_message' => $validated['question'],
-                    'model' => 'phi3:mini'
+                    'model' => 'stablelm2:1.6b'
                 ]);
 
                 return response()->json([
                     'success' => true,
                     'answer' => $answer,
-                    'wisdom' => 'Agricultural expertise from Phi-3 Mini AI',
+                    'wisdom' => 'Agricultural expertise from StableLM2 1.6B AI',
                     'moon_phase' => 'unknown',
                     'context' => $validated['context'] ?? null,
-                    'source' => 'Phi-3 Mini via Ollama',
+                    'source' => 'StableLM2 1.6B via Ollama',
                     'timestamp' => now()->toISOString()
                 ]);
             } else {
@@ -2300,7 +2353,7 @@ class SuccessionPlanningController extends Controller
             return response()->json([
                 'success' => true,
                 'ai_available' => $aiAvailable,
-                'service' => 'Phi-3 Mini via Ollama',
+                'service' => 'StableLM2 1.6B via Ollama',
                 'status' => $aiAvailable ? 'online' : 'offline',
                 'timestamp' => now()->toISOString()
             ]);
@@ -2309,7 +2362,7 @@ class SuccessionPlanningController extends Controller
             return response()->json([
                 'success' => true,
                 'ai_available' => false,
-                'service' => 'Phi-3 Mini via Ollama',
+                'service' => 'StableLM2 1.6B via Ollama',
                 'status' => 'error',
                 'error' => $e->getMessage(),
                 'timestamp' => now()->toISOString()

@@ -19,16 +19,13 @@ class FarmOSQuickFormService
         $this->authToken = session('farmos_token'); // Get from session
     }
 
-    /**
+        /**
      * Build Quick Form URL for a succession planting
      */
     public function buildSuccessionFormUrl(array $successionData, string $logType = 'seeding'): string
     {
-        $baseUrl = $this->getQuickFormBaseUrl($logType);
-
-        $parameters = $this->formatParametersForFarmOS($successionData, $logType);
-
-        return $baseUrl . '?' . http_build_query($parameters);
+        // Simplified: just return FarmOS URL with parameters
+        return $this->buildUnifiedQuickFormUrl($successionData);
     }
 
     /**
@@ -36,8 +33,9 @@ class FarmOSQuickFormService
      */
     protected function getQuickFormBaseUrl(string $logType): string
     {
-        // Always use our Laravel quick forms since they're available and working
-        return url('/admin/farmos/quick/' . $logType);
+        // Simplified: always use FarmOS native forms
+        $farmOSBase = config('services.farmos.url', 'https://farmos.middleworldfarms.org');
+        return $farmOSBase . '/quick/' . $logType;
     }
 
     /**
@@ -45,55 +43,8 @@ class FarmOSQuickFormService
      */
     protected function formatParametersForFarmOS(array $successionData, string $logType): array
     {
-        $parameters = [];
-
-        // Common parameters for all log types
-        if (isset($successionData['crop_name'])) {
-            $parameters['crop'] = $successionData['crop_name'];
-        }
-
-        if (isset($successionData['variety_name'])) {
-            $parameters['variety'] = $successionData['variety_name'];
-        }
-
-        if (isset($successionData['bed_name'])) {
-            $parameters['location'] = $successionData['bed_name'];
-        }
-
-        if (isset($successionData['quantity'])) {
-            $parameters['quantity'] = $successionData['quantity'];
-        }
-
-        // Log type specific parameters
-        switch ($logType) {
-            case 'seeding':
-                if (isset($successionData['seeding_date'])) {
-                    $parameters['date'] = $successionData['seeding_date'];
-                }
-                $parameters['notes'] = "AI-calculated seeding for succession #" . ($successionData['succession_number'] ?? '1');
-                break;
-
-            case 'transplant':
-                if (isset($successionData['transplant_date'])) {
-                    $parameters['date'] = $successionData['transplant_date'];
-                }
-                $parameters['notes'] = "AI-calculated transplant for succession #" . ($successionData['succession_number'] ?? '1');
-                break;
-
-            case 'harvest':
-                if (isset($successionData['harvest_date'])) {
-                    $parameters['date'] = $successionData['harvest_date'];
-                }
-                $parameters['notes'] = "AI-calculated harvest for succession #" . ($successionData['succession_number'] ?? '1');
-                break;
-        }
-
-        // Add authentication token if available
-        if ($this->authToken) {
-            $parameters['token'] = $this->authToken;
-        }
-
-        return $parameters;
+        // Simplified: use the unified parameter format
+        return $this->formatParametersForUnifiedForm($successionData);
     }
 
     /**
@@ -101,10 +52,25 @@ class FarmOSQuickFormService
      */
     public function generateAllFormUrls(array $successionData): array
     {
+        // Generate URLs for our Laravel quick forms with pre-filled parameters
+        $baseUrl = config('app.url', 'https://admin.middleworldfarms.org:8444') . '/admin/farmos';
+
+        $params = [
+            'crop_name' => $successionData['crop_name'] ?? '',
+            'variety_name' => $successionData['variety_name'] ?? '',
+            'bed_name' => $successionData['bed_name'] ?? '',
+            'quantity' => $successionData['quantity'] ?? '',
+            'succession_number' => $successionData['succession_number'] ?? 1,
+            'seeding_date' => $successionData['seeding_date'] ?? '',
+            'transplant_date' => $successionData['transplant_date'] ?? '',
+            'harvest_date' => $successionData['harvest_date'] ?? '',
+            'season' => $successionData['season'] ?? date('Y') . ' Succession'
+        ];
+
         return [
-            'seeding' => $this->buildSuccessionFormUrl($successionData, 'seeding'),
-            'transplant' => $this->buildSuccessionFormUrl($successionData, 'transplant'),
-            'harvest' => $this->buildSuccessionFormUrl($successionData, 'harvest'),
+            'seeding' => $baseUrl . '/quick/seeding?' . http_build_query($params),
+            'transplanting' => $baseUrl . '/quick/transplant?' . http_build_query($params),
+            'harvest' => $baseUrl . '/quick/harvest?' . http_build_query($params)
         ];
     }
 

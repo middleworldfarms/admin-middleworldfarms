@@ -120,7 +120,7 @@ class SuccessionPlanner {
             return;
         }
 
-        const filteredVarieties = this.cropVarieties.filter(v => v.crop_type === this.cropId);
+        const filteredVarieties = this.cropVarieties.filter(v => v.parent_id === this.cropId);
         varietySelect.innerHTML = '<option value="">Select variety...</option>' +
             filteredVarieties.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
     }

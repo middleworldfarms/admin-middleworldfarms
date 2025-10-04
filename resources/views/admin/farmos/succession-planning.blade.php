@@ -1443,91 +1443,35 @@
                 <div class="planning-section">
                     <h3>
                         <i class="fas fa-robot section-icon"></i>
-                        Holistic AI Crop Advisor
+                        AI Succession Advisor
                     </h3>
                     
-                    <div class="ai-chat-section">
-                        <div class="mb-3">
-                            <label for="aiChatInput" class="form-label">
-                                <i class="fas fa-comments text-warning"></i>
-                                Ask about succession planning, crop timing, or growing wisdom
-                                <br><small class="text-muted">💡 The AI now has context about your current harvest window and succession plan</small>
-                            </label>
-                            <textarea class="form-control ai-chat-input" id="aiChatInput" name="aiChatInput" rows="3" 
-                                placeholder="e.g., 'What's the best succession interval for lettuce in August?'"></textarea>
-                        </div>
-                        
-                        <div class="d-flex gap-2 mb-3">
-                            <button class="btn btn-warning" onclick="askHolisticAI()" aria-label="Ask AI">
-                                <i class="fas fa-paper-plane"></i>
-                                Ask AI
-                            </button>
-                            <button class="btn btn-outline-warning" onclick="getQuickAdvice()" aria-label="Get quick tips">
-                                <i class="fas fa-lightbulb"></i>
-                                Quick Tips
-                            </button>
-                            <button class="btn btn-outline-info" onclick="askAIAboutPlan()" id="analyzePlanBtn" style="display: none;" aria-label="Analyze current plan">
-                                <i class="fas fa-chart-line"></i>
-                                Analyze Plan
-                            </button>
-                        </div>
-                        
-                        <!-- AI Status Indicator -->
-                        <div class="mb-3">
-                            <div class="d-flex align-items-center justify-content-between">
-                                <div class="d-flex align-items-center">
-                                    <div id="aiStatusLight" class="status-light me-2" title="AI Service Status"></div>
-                                    <small class="text-muted">
-                                        <span id="aiStatusText">Checking AI service...</span>
-                                        <span id="aiStatusDetails" class="ms-2"></span>
-                                    </small>
-                                </div>
-                                <button id="refreshAIStatus" class="btn btn-sm btn-outline-secondary" style="padding: 2px 8px;" aria-label="Refresh AI status">
-                                    <i class="fas fa-sync-alt"></i>
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <div id="aiResponseArea">
-                        <!-- Current Plan Context for AI -->
-                        <div id="aiPlanContext" class="mt-3 p-3 bg-light rounded" style="display: none;">
-                            <h6 class="text-primary mb-2">
-                                <i class="fas fa-seedling"></i> Current Succession Plan Context
-                            </h6>
-                            <div id="planContextDetails" class="small text-muted"></div>
-                            <button class="btn btn-sm btn-primary mt-2" onclick="askAIAboutPlan()">
-                                <i class="fas fa-brain"></i> AI Analyze This Plan
-                            </button>
-                        </div>
-                            <div class="ai-response" id="welcomeMessage">
-                                <strong>🌱 farmOS AI Ready</strong><br>
-                                @if(isset($initialAIAdvice))
-                                    {!! nl2br(e($initialAIAdvice)) !!}
-                                @else
-                                    I have access to your farmOS database with 3600+ varieties and bed specifications. I can provide specific succession planning advice for your crops, including F1 Doric Brussels Sprouts winter timing, plant spacing for your 76cm beds, and variety-specific growing advice.
-                                @endif
-                            </div>
+                    <!-- AI Status -->
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <div id="aiStatusLight" class="status-light" title="AI Service Status"></div>
+                            <small id="aiStatusText" class="text-muted">Checking AI...</small>
                         </div>
                     </div>
 
-                    <!-- Quick AI Presets -->
-                    <div class="mt-3">
-                        <label class="form-label"><strong>Quick Questions:</strong></label>
-                        <div class="d-grid gap-2">
-                            <button class="btn btn-outline-warning btn-sm" onclick="askQuickQuestion('succession-timing')">
-                                <i class="fas fa-clock"></i> Optimal succession timing
-                            </button>
-                            <button class="btn btn-outline-warning btn-sm" onclick="askQuickQuestion('companion-plants')">
-                                <i class="fas fa-leaf"></i> Companion plants
-                            </button>
-                            <button class="btn btn-outline-warning btn-sm" onclick="askQuickQuestion('lunar-timing')">
-                                <i class="fas fa-moon"></i> Lunar cycle timing
-                            </button>
-                            <button class="btn btn-outline-warning btn-sm" onclick="askQuickQuestion('harvest-optimization')">
-                                <i class="fas fa-chart-line"></i> Harvest optimization
-                            </button>
+                    <!-- Chat Messages Area -->
+                    <div id="chatMessages" class="mb-3" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px; padding: 15px; background: #f8f9fa;">
+                        <div class="text-muted text-center">
+                            <i class="fas fa-robot fa-2x mb-2 text-success"></i>
+                            <p><strong>AI Advisor Ready</strong></p>
+                            <p class="small">Ask me about succession planning, crop timing, or growing advice!</p>
                         </div>
                     </div>
+
+                    <!-- Chat Input -->
+                    <div class="mb-2">
+                        <textarea class="form-control" id="chatInput" rows="2" 
+                            placeholder="Ask a question... (e.g., 'What's the best succession interval for lettuce?')"></textarea>
+                    </div>
+                    
+                    <button class="btn btn-success w-100" id="sendChatBtn">
+                        <i class="fas fa-paper-plane"></i> Send Message
+                    </button>
                 </div>
             </div>
 
@@ -1643,6 +1587,21 @@
     } catch (e) {
         console.warn('Failed to parse availableBeds JSON, using fallback:', e);
         availableBeds = [];
+    }
+
+    // Debug: Log crop data counts
+    console.log('🌾 Loaded crop types:', cropTypes.length);
+    console.log('🥕 Loaded varieties:', cropVarieties.length);
+    if (cropTypes.length > 0) {
+        console.log('📊 First crop type:', cropTypes[0]);
+    }
+    if (cropVarieties.length > 0) {
+        console.log('📊 First variety:', cropVarieties[0]);
+        const carrotVarieties = cropVarieties.filter(v => v.crop_type === 'Carrot');
+        console.log('🥕 Carrot varieties found:', carrotVarieties.length);
+        if (carrotVarieties.length > 0) {
+            console.log('📊 First Carrot variety:', carrotVarieties[0]);
+        }
     }
 
     // Global API base (always use same origin/protocol to avoid mixed-content)
@@ -3223,6 +3182,9 @@ Calculate for ${contextPayload.planning_year}.`;
         const chatTimeoutId = setTimeout(() => { try { __aiChatController.abort(); } catch(_){} }, 10000);
 
         try {
+            const requestBody = { question: message };
+            console.log('📤 Sending chat request:', requestBody);
+            
             const response = await fetch(window.location.origin + '/admin/farmos/succession-planning/chat', {
                 method: 'POST',
                 headers: {
@@ -3230,21 +3192,27 @@ Calculate for ${contextPayload.planning_year}.`;
                     'X-Requested-With': 'XMLHttpRequest',
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
                 },
-                body: JSON.stringify({ question: message }),
+                body: JSON.stringify(requestBody),
                 signal: __aiChatController.signal
             });
             
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                const errorData = await response.json().catch(() => ({}));
+                console.error('❌ Server error:', response.status, errorData);
+                throw new Error(`HTTP ${response.status}: ${errorData.message || response.statusText}`);
             }
             
             const data = await response.json();
-            console.log('🤖 AI response:', data);
+            console.log('🤖 AI response received:', data);
+            console.log('📝 Answer field:', data.answer);
+            console.log('✅ Has answer?', !!data.answer);
             
             // Display the AI response in the chat area
             if (data.answer) {
+                console.log('💬 Displaying AI answer in chat area');
                 const aiResponseArea = document.getElementById('aiResponseArea');
                 if (aiResponseArea) {
+                    console.log('✅ Found aiResponseArea element');
                     // Create a new response element
                     const responseDiv = document.createElement('div');
                     responseDiv.className = 'ai-response mt-3';
@@ -3260,6 +3228,7 @@ Calculate for ${contextPayload.planning_year}.`;
                         </div>
                     `;
                     
+                    console.log('📦 Created response div, inserting into DOM');
                     // Insert the AI response right after the user message (second position)
                     const firstChild = aiResponseArea.firstChild;
                     if (firstChild) {
@@ -3268,9 +3237,14 @@ Calculate for ${contextPayload.planning_year}.`;
                         aiResponseArea.appendChild(responseDiv);
                     }
                     
+                    console.log('✅ AI response inserted into DOM');
                     // Scroll to the new response
                     responseDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                } else {
+                    console.error('❌ Could not find aiResponseArea element');
                 }
+            } else {
+                console.warn('⚠️ No answer field in response data');
             }
             
         } catch (error) {
@@ -6634,63 +6608,7 @@ Plantings:`;
         });
     });
 
-    // AI Chat Functions
-    async function askHolisticAI(customPrompt, contextType) {
-        const input = document.getElementById('aiChatInput');
-        const message = customPrompt || (input ? input.value.trim() : '');
-
-        if (!message) {
-            showToast('Please enter a question for the AI', 'warning');
-            return;
-        }
-
-        // Show loading state
-        const responseArea = document.getElementById('aiResponseArea');
-        if (responseArea) {
-            responseArea.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Thinking...</div>';
-        }
-
-        try {
-            // Build context from current succession plan
-            const context = getCurrentPlanContext();
-
-            const response = await fetch('/admin/farmos/succession-planning/chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                },
-                body: JSON.stringify({
-                    message: message,
-                    context: context
-                })
-            });
-
-            const result = await response.json();
-
-            if (response.ok && result.success) {
-                // Display the AI response
-                displayAIResponse(result.response);
-                
-                // Clear input if it was from the textarea
-                if (input && !customPrompt) {
-                    input.value = '';
-                }
-            } else {
-                const errorMsg = result.message || 'Failed to get AI response';
-                showToast(errorMsg, 'error');
-                if (responseArea) {
-                    responseArea.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> ${errorMsg}</div>`;
-                }
-            }
-        } catch (error) {
-            console.error('AI chat error:', error);
-            showToast('Failed to communicate with AI service', 'error');
-            if (responseArea) {
-                responseArea.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> Failed to communicate with AI service</div>';
-            }
-        }
-    }
+    // AI Chat Functions - REMOVED DUPLICATE, using version at line 3170 instead
 
     function getCurrentPlanContext() {
         // Build context from current succession planning state
@@ -6859,5 +6777,93 @@ Plantings:`;
         // setupSeasonYearHandlers();
         // setupCropVarietyHandlers();
     });
+
+    // ========================================================================
+    // CLEAN REBUILT AI CHAT - Simple and reliable
+    // ========================================================================
+    
+    const chatMessages = document.getElementById('chatMessages');
+    const chatInput = document.getElementById('chatInput');
+    const sendChatBtn = document.getElementById('sendChatBtn');
+    
+    // Send message on button click
+    sendChatBtn.addEventListener('click', sendChatMessage);
+    
+    // Send message on Enter (but allow Shift+Enter for new lines)
+    chatInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendChatMessage();
+        }
+    });
+    
+    async function sendChatMessage() {
+        const message = chatInput.value.trim();
+        if (!message) return;
+        
+        // Clear input
+        chatInput.value = '';
+        
+        // Add user message to chat
+        addMessageToChat('user', message);
+        
+        // Show loading message
+        const loadingId = addMessageToChat('ai', '💭 Thinking...');
+        
+        try {
+            const response = await fetch('/admin/farmos/succession-planning/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({ question: message })
+            });
+            
+            const data = await response.json();
+            
+            // Remove loading message
+            document.getElementById(loadingId)?.remove();
+            
+            if (data.success && data.answer) {
+                addMessageToChat('ai', data.answer);
+            } else {
+                addMessageToChat('ai', '❌ Sorry, I couldn\'t generate a response. Please try again.');
+            }
+            
+        } catch (error) {
+            console.error('Chat error:', error);
+            document.getElementById(loadingId)?.remove();
+            addMessageToChat('ai', '❌ Error: ' + error.message);
+        }
+    }
+    
+    function addMessageToChat(sender, message) {
+        const msgId = 'msg-' + Date.now();
+        const isUser = sender === 'user';
+        
+        const msgDiv = document.createElement('div');
+        msgDiv.id = msgId;
+        msgDiv.className = `mb-3 ${isUser ? 'text-end' : ''}`;
+        msgDiv.innerHTML = `
+            <div class="d-inline-block text-start" style="max-width: 85%;">
+                <div class="d-flex align-items-start gap-2 ${isUser ? 'flex-row-reverse' : ''}">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-${isUser ? 'user' : 'robot'} text-${isUser ? 'primary' : 'success'}"></i>
+                    </div>
+                    <div class="flex-grow-1 p-2 rounded" style="background: ${isUser ? '#e3f2fd' : '#f1f8e9'};">
+                        <small class="fw-bold">${isUser ? 'You' : 'AI Advisor'}</small><br>
+                        ${message.replace(/\n/g, '<br>')}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        chatMessages.appendChild(msgDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        return msgId;
+    }
+    
 </script>
 @endsection

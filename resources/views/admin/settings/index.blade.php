@@ -469,10 +469,31 @@
                                 </div>
                                 
                                 <div class="mb-3">
-                                    <label for="met_office_api_key" class="form-label">Met Office API Key</label>
-                                    <input type="text" class="form-control" id="met_office_api_key" name="met_office_api_key" 
-                                           value="{{ $settings['met_office_api_key'] ?? '' }}" placeholder="API key">
-                                    <div class="form-text">UK Met Office Weather API key</div>
+                                    <label for="met_office_land_observations_key" class="form-label">Met Office Land Observations API Key</label>
+                                    <input type="text" class="form-control" id="met_office_land_observations_key" name="met_office_land_observations_key" 
+                                           value="{{ $settings['met_office_land_observations_key'] ?? '' }}" placeholder="API key">
+                                    <div class="form-text">Met Office Land Observations API key for soil moisture and temperature data</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="met_office_site_specific_key" class="form-label">Met Office Site-Specific Forecast API Key</label>
+                                    <input type="text" class="form-control" id="met_office_site_specific_key" name="met_office_site_specific_key" 
+                                           value="{{ $settings['met_office_site_specific_key'] ?? '' }}" placeholder="API key">
+                                    <div class="form-text">Met Office Site-Specific Forecast API key for detailed local weather</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="met_office_atmospheric_key" class="form-label">Met Office Atmospheric Models API Key</label>
+                                    <input type="text" class="form-control" id="met_office_atmospheric_key" name="met_office_atmospheric_key" 
+                                           value="{{ $settings['met_office_atmospheric_key'] ?? '' }}" placeholder="API key">
+                                    <div class="form-text">Met Office Atmospheric Models API key for weather model data</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="met_office_map_images_key" class="form-label">Met Office Map Images API Key</label>
+                                    <input type="text" class="form-control" id="met_office_map_images_key" name="met_office_map_images_key" 
+                                           value="{{ $settings['met_office_map_images_key'] ?? '' }}" placeholder="API key">
+                                    <div class="form-text">Met Office Map Images API key for weather radar and satellite imagery</div>
                                 </div>
                                 
                                 <div class="mb-3">

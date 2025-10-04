@@ -26,7 +26,7 @@ class SymbiosisAIService
             $prompt = $this->convertMessagesToPrompt($messages);
             
             $response = Http::timeout(60)->post($this->baseUrl . '/generate', [
-                'model' => 'phi3:mini',
+                'model' => 'stablelm2:1.6b',
                 'prompt' => $prompt,
                 'stream' => false,
                 'options' => [
@@ -37,7 +37,7 @@ class SymbiosisAIService
 
             Log::info('Ollama API request', [
                 'url' => $this->baseUrl . '/generate',
-                'model' => 'phi3:mini',
+                'model' => 'stablelm2:1.6b',
                 'prompt_length' => strlen($prompt)
             ]);
 

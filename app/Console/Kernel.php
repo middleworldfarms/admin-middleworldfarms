@@ -14,7 +14,6 @@ class Kernel extends ConsoleKernel
      */
     protected $commands = [
         Commands\ManageSubscription::class,
-        Commands\SyncFarmOSVarieties::class,
     ];
 
     /**
@@ -25,12 +24,7 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        // Sync plant varieties from FarmOS daily
-        $schedule->command('farmos:sync-varieties')
-                 ->daily()
-                 ->at('02:00')
-                 ->withoutOverlapping()
-                 ->runInBackground();
+        // Schedule can be added here as needed
     }
 
     /**

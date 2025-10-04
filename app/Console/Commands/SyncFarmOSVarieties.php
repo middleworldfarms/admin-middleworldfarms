@@ -14,7 +14,7 @@ class SyncFarmOSVarieties extends Command
      *
      * @var string
      */
-    protected $signature = 'farmos:sync-varieties {--force : Force sync all varieties}';
+    protected $signature = 'farmos:sync-varieties:legacy {--force : Force sync all varieties}';
 
     /**
      * The console command description.
@@ -32,6 +32,15 @@ class SyncFarmOSVarieties extends Command
 
         try {
             $farmOSApi = app(FarmOSApi::class);
+
+            // Get plant types to map parent relationships
+            $this->info('📋 Fetching plant types from FarmOS...');
+            $plantTypes = $farmOSApi->getPlantTypes();
+            $plantTypeLookup = [];
+
+            foreach ($plantTypes as $plantType) {
+                $plantTypeLookup[$plantType['id']] = $plantType;
+            }
 
             // Get all varieties from FarmOS
             $this->info('📡 Fetching varieties from FarmOS...');
@@ -61,14 +70,8 @@ class SyncFarmOSVarieties extends Command
                     $parentId = $relationships['parent']['data'][0]['id'] ?? null;
                     $plantType = null;
 
-                    if ($parentId) {
-                        // Try to get plant type name from FarmOS
-                        try {
-                            $plantTypeData = $farmOSApi->getPlantTypeById($parentId);
-                            $plantType = $plantTypeData['attributes']['name'] ?? null;
-                        } catch (\Exception $e) {
-                            Log::warning("Could not get plant type for {$parentId}: " . $e->getMessage());
-                        }
+                    if ($parentId && isset($plantTypeLookup[$parentId])) {
+                        $plantType = $plantTypeLookup[$parentId]['attributes']['name'] ?? null;
                     }
 
                     // Update or create variety
