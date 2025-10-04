@@ -1128,5 +1128,36 @@ class FarmOSDataController extends Controller
         
         return $activities;
     }
-    
+
+    /**
+     * Proxy variety images from FarmOS with authentication
+     */
+    public function proxyVarietyImage(string $fileId)
+    {
+        try {
+            Log::info('📸 Proxying variety image', ['file_id' => $fileId]);
+            
+            // Get the image from FarmOS API
+            $imageResponse = $this->farmOSApi->getFileById($fileId);
+            
+            if (!$imageResponse) {
+                Log::warning('⚠️ No image data returned from FarmOS', ['file_id' => $fileId]);
+                return response()->file(public_path('images/no-variety-image.png'));
+            }
+            
+            // Return the image with proper headers
+            return response($imageResponse['content'])
+                ->header('Content-Type', $imageResponse['mime_type'] ?? 'image/jpeg')
+                ->header('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+                
+        } catch (\Exception $e) {
+            Log::error('Failed to proxy variety image: ' . $e->getMessage(), [
+                'file_id' => $fileId,
+                'error' => $e->getMessage()
+            ]);
+            
+            // Return a placeholder image
+            return response()->file(public_path('images/no-variety-image.png'));
+        }
+    }
 }

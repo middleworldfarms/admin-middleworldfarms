@@ -581,4 +581,53 @@ class FarmOSApi
             return [];
         }
     }
+
+    /**
+     * Get file from FarmOS by file ID
+     */
+    public function getFileById(string $fileId)
+    {
+        try {
+            $this->authenticate();
+            $headers = $this->getAuthHeaders();
+            
+            // First, get the file entity to get the actual file URL
+            $response = $this->client->get("/api/file/file/{$fileId}", [
+                'headers' => $headers
+            ]);
+
+            $data = json_decode($response->getBody(), true);
+            
+            if (!isset($data['data'])) {
+                Log::warning('File entity not found', ['file_id' => $fileId]);
+                return null;
+            }
+
+            $fileData = $data['data'];
+            $fileUrl = $fileData['attributes']['uri']['url'] ?? null;
+            
+            if (!$fileUrl) {
+                Log::warning('No file URL in response', ['file_id' => $fileId, 'data' => $fileData]);
+                return null;
+            }
+
+            // Download the actual image file
+            $imageResponse = $this->client->get($fileUrl, [
+                'headers' => $headers
+            ]);
+
+            return [
+                'content' => $imageResponse->getBody()->getContents(),
+                'mime_type' => $fileData['attributes']['filemime'] ?? 'image/jpeg',
+                'filename' => $fileData['attributes']['filename'] ?? 'variety-image.jpg'
+            ];
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch file from FarmOS: ' . $e->getMessage(), [
+                'file_id' => $fileId,
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
+    }
 }

@@ -98,7 +98,11 @@ class SuccessionPlanner {
         console.log('🔄 Variety selected:', varietyId);
         this.savePlannerState();
         this.updateSuccessionImpact();
-        await this.fetchVarietyInformation(varietyId);
+        
+        // Call the global handleVarietySelection function to display variety info
+        if (typeof window.handleVarietySelection === 'function') {
+            await window.handleVarietySelection(varietyId);
+        }
 
         // Initialize harvest window now that we have crop + variety (or just crop)
         if (this.cropId) {
@@ -123,31 +127,6 @@ class SuccessionPlanner {
         const filteredVarieties = this.cropVarieties.filter(v => v.parent_id === this.cropId);
         varietySelect.innerHTML = '<option value="">Select variety...</option>' +
             filteredVarieties.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
-    }
-
-    /**
-     * Fetch variety information from FarmOS
-     */
-    async fetchVarietyInformation(varietyId) {
-        if (!varietyId) return;
-
-        try {
-            const response = await fetch(`${this.apiBase}/varieties/${varietyId}?_=${this.cacheBuster}`);
-            if (response.ok) {
-                const data = await response.json();
-                this.displayVarietyInfo(data);
-            }
-        } catch (error) {
-            console.warn('Failed to fetch variety info:', error);
-        }
-    }
-
-    /**
-     * Display variety information
-     */
-    displayVarietyInfo(data) {
-        // Implementation for displaying variety info
-        console.log('📊 Variety info:', data);
     }
 
     /**

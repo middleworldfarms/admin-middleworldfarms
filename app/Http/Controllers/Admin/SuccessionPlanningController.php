@@ -2271,6 +2271,7 @@ class SuccessionPlanningController extends Controller
                     'harvest_notes' => $plantVariety->harvest_notes,
                     'harvest_method' => $plantVariety->harvest_method,
                     'expected_yield_per_plant' => $plantVariety->expected_yield_per_plant,
+                    'image_url' => $plantVariety->image_url,
                     'source' => 'Admin Database'
                 ];
 
@@ -2303,33 +2304,16 @@ class SuccessionPlanningController extends Controller
                 return response()->json([
                     'success' => true,
                     'variety' => $variety,
-                    'source' => 'FarmOS API'
+                    'source' => 'FarmOS API (fallback - consider running sync)'
                 ]);
             }
 
-            // Last resort: search in local crop data
-            $cropData = $this->farmOSApi->getAvailableCropTypes();
-            $foundVariety = null;
-
-            foreach ($cropData['varieties'] as $variety) {
-                if ($variety['id'] === $varietyId) {
-                    $foundVariety = $variety;
-                    break;
-                }
-            }
-
-            if ($foundVariety) {
-                return response()->json([
-                    'success' => true,
-                    'variety' => $foundVariety,
-                    'source' => 'Local Fallback'
-                ]);
-            }
-
+            // Variety not found anywhere
             return response()->json([
                 'success' => false,
-                'error' => 'Variety not found',
-                'variety_id' => $varietyId
+                'error' => 'Variety not found in local database or FarmOS',
+                'variety_id' => $varietyId,
+                'suggestion' => 'Run plant variety sync to update local database'
             ], 404);
 
         } catch (\Exception $e) {
