@@ -1373,16 +1373,6 @@
 
             <!-- Results Section -->
             <div id="resultsSection" style="display: none;">
-                <!-- Succession Summary Cards -->
-                <div class="planning-card mb-3">
-                    <div class="planning-section">
-                        <h4><i class="fas fa-seedling text-success"></i> Succession Overview</h4>
-                        <div class="row" id="successionSummary">
-                            <!-- Succession cards will be populated here -->
-                        </div>
-                    </div>
-                </div>
-
                 <!-- FarmOS Timeline Chart -->
             <div class="farmos-timeline-container">
                 <h4><i class="fas fa-chart-gantt text-success"></i> FarmOS Succession Timeline</h4>
@@ -3453,15 +3443,15 @@ Calculate for ${contextPayload.planning_year}.`;
 
             currentSuccessionPlan = successionPlan;
             console.log('✅ Succession plan received:', currentSuccessionPlan);
-            console.log('📋 Rendering succession summary...');
-            renderSuccessionSummary(currentSuccessionPlan);
+            
+            // Populate succession sidebar with draggable cards
+            console.log('� Populating succession sidebar...');
+            populateSuccessionSidebar(currentSuccessionPlan);
+            
             console.log('🗓️ Rendering FarmOS timeline...');
             await renderFarmOSTimeline(currentSuccessionPlan);
             console.log('📝 Rendering quick form tabs...');
             renderQuickFormTabs(currentSuccessionPlan);
-            
-            // Populate succession sidebar with draggable cards
-            populateSuccessionSidebar(currentSuccessionPlan);
             
             // Initialize drag and drop after both timeline and sidebar are ready
             requestAnimationFrame(() => {
@@ -5715,6 +5705,12 @@ Plantings:`;
             successionList.innerHTML = sidebarHTML;
             successionSidebar.style.display = 'block';
             aiChatSection.style.display = 'none';
+            
+            // Update succession count badge
+            const countBadge = document.getElementById('sidebarSuccessionCount');
+            if (countBadge) {
+                countBadge.textContent = `${plantings.length} Succession${plantings.length !== 1 ? 's' : ''}`;
+            }
 
             console.log('📝 Succession sidebar populated with', plantings.length, 'successions');
 
