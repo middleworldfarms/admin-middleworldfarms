@@ -3778,8 +3778,8 @@ Calculate for ${contextPayload.planning_year}.`;
 
             // Determine default checkbox states based on planting method
             const hasTransplant = !!p.transplant_date;
-            const seedingChecked = !hasTransplant; // Direct seeding: check seeding and harvest
-            const transplantChecked = hasTransplant; // Transplant: check all three
+            const seedingChecked = true; // Always check seeding (needed for both direct and transplant)
+            const transplantChecked = hasTransplant; // Transplant: check transplanting
             const harvestChecked = true; // Always check harvest by default
 
             // Display quick form buttons that toggle form sections
@@ -4002,17 +4002,14 @@ Calculate for ${contextPayload.planning_year}.`;
         (plan.plantings || []).forEach((p, i) => {
             const hasTransplant = !!p.transplant_date;
             
-            // Show forms based on defaults
-            if (!hasTransplant) {
-                // Direct seeding: show seeding and harvest forms
-                toggleQuickForm(i, 'seeding', true);
-            } else {
-                // Transplant: show all three forms
-                toggleQuickForm(i, 'seeding', true);
+            // Always show seeding and harvest forms
+            toggleQuickForm(i, 'seeding', true);
+            toggleQuickForm(i, 'harvest', true);
+            
+            // Show transplanting form only if there's a transplant date
+            if (hasTransplant) {
                 toggleQuickForm(i, 'transplanting', true);
             }
-            // Always show harvest
-            toggleQuickForm(i, 'harvest', true);
         });
     }
 
