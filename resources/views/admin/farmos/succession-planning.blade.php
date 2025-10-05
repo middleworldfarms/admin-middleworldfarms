@@ -119,10 +119,14 @@
     .timeline-axis {
         display: flex;
         justify-content: space-between;
-        margin-bottom: 20px;
-        padding: 0 20px;
+        margin-bottom: 0;
+        padding: 10px 20px;
         border-bottom: 2px solid #dee2e6;
-        position: relative;
+        position: sticky;
+        top: 0;
+        background: white;
+        z-index: 100;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
     .timeline-axis::after {
@@ -654,7 +658,8 @@
 
     .beds-container {
         position: relative;
-        margin: 20px 0;
+        margin-top: 10px;
+        padding-top: 10px;
     }
 
     .bed-row {
@@ -861,25 +866,22 @@
     }
 
     .hedgerow-divider {
-        margin: 20px 0;
-        text-align: center;
+        margin: 25px 0;
+        padding: 0;
+        height: 80px;
+        background-image: url('/hedgerow.png');
+        background-repeat: repeat-x;
+        background-position: center center;
+        background-size: auto 80px;
+        position: relative;
+        overflow: hidden;
+        border-top: 2px solid #c3e6cb;
+        border-bottom: 2px solid #c3e6cb;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
 
     .hedgerow-visual {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        padding: 8px 16px;
-        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
-        border: 1px solid #c3e6cb;
-        border-radius: 20px;
-        font-size: 0.85em;
-        color: #155724;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        flex-wrap: nowrap;
-        white-space: nowrap;
-        min-width: fit-content;
+        display: none; /* Hide the icon-based visual, we're using the image now */
     }
 
     .hedgerow-tree {
