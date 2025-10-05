@@ -630,4 +630,114 @@ class FarmOSApi
             return null;
         }
     }
+
+    /**
+     * Get bed occupancy data for timeline visualization
+     * Returns beds and plantings within the specified date range
+     */
+    public function getBedOccupancy($startDate, $endDate)
+    {
+        try {
+            $this->authenticate();
+            $headers = $this->getAuthHeaders();
+
+            // Fetch all beds (land assets) using pagination
+            $bedsData = $this->jsonApiPaginatedFetch('/api/asset/land', ['filter[status]' => 'active']);
+            $beds = [];
+
+            foreach ($bedsData as $bed) {
+                $bedName = $bed['attributes']['name'] ?? 'Unnamed Bed';
+
+                // Skip beds that are just block names without specific bed numbers
+                if (preg_match('/^block\s+\d+$/i', $bedName)) {
+                    continue;
+                }
+
+                // Try to extract block information from bed name
+                $block = 'Block Unknown';
+                if (preg_match('/block\s*(\d+)/i', $bedName, $matches)) {
+                    $block = 'Block ' . $matches[1];
+                } elseif (preg_match('/(\d+)\s*\/\s*\d+/', $bedName, $matches)) {
+                    $block = 'Block ' . $matches[1];
+                } elseif (preg_match('/^(\d+)/', $bedName, $matches)) {
+                    $block = 'Block ' . $matches[1];
+                }
+
+                $beds[] = [
+                    'id' => $bed['id'],
+                    'name' => $bedName,
+                    'block' => $block,
+                    'status' => $bed['attributes']['status'] ?? 'active',
+                    'land_type' => $bed['attributes']['land_type'] ?? 'bed',
+                    'geometry' => $bed['attributes']['geometry'] ?? null,
+                    'archived' => $bed['attributes']['status'] === 'archived'
+                ];
+            }
+
+            // Fetch plantings (activities) within date range using pagination
+            $plantingsQuery = [
+                'filter[status]' => 'active',
+                'filter[timestamp][value]' => $startDate,
+                'filter[timestamp][operator]' => '>=',
+                'include' => 'asset,plant_type'
+            ];
+
+            $plantingsData = $this->jsonApiPaginatedFetch('/api/log/activity', $plantingsQuery);
+            $plantings = [];
+
+            foreach ($plantingsData as $planting) {
+                $attributes = $planting['attributes'] ?? [];
+
+                // Extract bed relationships
+                $bedIds = [];
+                if (isset($planting['relationships']['asset']['data'])) {
+                    $assets = $planting['relationships']['asset']['data'];
+                    if (is_array($assets)) {
+                        foreach ($assets as $asset) {
+                            if (isset($asset['type']) && $asset['type'] === 'asset--land') {
+                                $bedIds[] = $asset['id'];
+                            }
+                        }
+                    }
+                }
+
+                $plantings[] = [
+                    'id' => $planting['id'],
+                    'name' => $attributes['name'] ?? 'Unnamed Planting',
+                    'status' => $attributes['status'] ?? 'active',
+                    'timestamp' => $attributes['timestamp'] ?? null,
+                    'start_date' => $attributes['timestamp'] ?? null,
+                    'end_date' => $attributes['end_date'] ?? null,
+                    'bed_ids' => $bedIds,
+                    'crop_type' => $attributes['plant_type'] ?? null,
+                    'quantity' => $attributes['quantity'] ?? null,
+                    'notes' => $attributes['notes'] ?? null
+                ];
+            }
+
+            Log::info('Fetched bed occupancy data', [
+                'beds_count' => count($beds),
+                'plantings_count' => count($plantings),
+                'date_range' => [$startDate, $endDate]
+            ]);
+
+            return [
+                'beds' => $beds,
+                'plantings' => $plantings
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch bed occupancy data: ' . $e->getMessage(), [
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'error' => $e->getMessage()
+            ]);
+
+            // Return empty data structure on error
+            return [
+                'beds' => [],
+                'plantings' => []
+            ];
+        }
+    }
 }
