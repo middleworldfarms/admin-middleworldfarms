@@ -98,6 +98,9 @@ sensitive_exports/
 *.sql
 *.dump
 database_dumps/
+
+# Development and testing files
+dev-testing/
 db_backups/
 
 # OAuth2 keys and certificates
