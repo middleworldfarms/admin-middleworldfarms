@@ -4075,10 +4075,7 @@ Calculate for ${contextPayload.planning_year}.`;
             const timelineHtml = createBedOccupancyTimeline(plan, bedData);
             console.log('✅ Timeline HTML created, length:', timelineHtml.length);
 
-            // Add a visible test indicator
-            const testHtml = '<div style="background: yellow; padding: 10px; margin: 10px 0; border: 2px solid red;">🚀 BED OCCUPANCY TIMELINE TEST - If you see this, the function is working!</div>' + timelineHtml;
-
-            container.innerHTML = testHtml;
+            container.innerHTML = timelineHtml;
             console.log('🎯 Bed occupancy timeline rendered successfully!');
 
             // Drag and drop will be initialized centrally after both timeline and sidebar are ready
