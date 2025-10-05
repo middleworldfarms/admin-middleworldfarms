@@ -3965,13 +3965,13 @@ Calculate for ${contextPayload.planning_year}.`;
                             <div class="row">
                                 <div class="col-md-4">
                                     <input type="number" class="form-control" name="plantings[${i}][harvest][quantity][value]"
-                                           value="${p.quantity || 100}" step="0.01" min="0" required>
+                                           value="0" step="0.01" min="0" required placeholder="Enter on harvest day">
                                 </div>
                                 <div class="col-md-4">
                                     <select class="form-select" name="plantings[${i}][harvest][quantity][units]">
-                                        <option value="grams" selected>Grams</option>
+                                        <option value="grams">Grams</option>
                                         <option value="pounds">Pounds</option>
-                                        <option value="kilograms">Kilograms</option>
+                                        <option value="kilograms" selected>Kilograms</option>
                                     </select>
                                 </div>
                                 <div class="col-md-4">
@@ -3981,6 +3981,7 @@ Calculate for ${contextPayload.planning_year}.`;
                                     </select>
                                 </div>
                             </div>
+                            <small class="text-muted">Weight will be recorded on harvest day</small>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Notes</label>
