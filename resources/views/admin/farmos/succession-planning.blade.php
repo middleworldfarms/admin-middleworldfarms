@@ -3961,11 +3961,6 @@ Calculate for ${contextPayload.planning_year}.`;
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Location *</label>
-                            <input type="text" class="form-control" name="plantings[${i}][harvest][location]"
-                                   value="${p.bed_name || ''}" required>
-                        </div>
-                        <div class="mb-3">
                             <label class="form-label">Quantity *</label>
                             <div class="row">
                                 <div class="col-md-4">
@@ -4740,6 +4735,20 @@ Calculate for ${contextPayload.planning_year}.`;
                     if (badge) {
                         badge.textContent = `Allocated to ${bedName}`;
                     }
+                    
+                    // Update the Details section in the tab pane
+                    const tabPane = document.querySelector(`#tab-${allocationData.successionIndex - 1}`);
+                    if (tabPane) {
+                        const successionInfo = tabPane.querySelector('.succession-info');
+                        if (successionInfo) {
+                            // Find the bed paragraph (first paragraph in the info section)
+                            const paragraphs = successionInfo.querySelectorAll('p');
+                            if (paragraphs.length > 0) {
+                                paragraphs[0].innerHTML = `<strong>Bed:</strong> ${bedName}`;
+                                console.log('✅ Updated Details section bed to:', bedName, 'for succession', allocationData.successionIndex);
+                            }
+                        }
+                    }
                 }
 
                 // Remove old block and create new one
@@ -4813,6 +4822,20 @@ Calculate for ${contextPayload.planning_year}.`;
                 const badge = document.createElement('span');
                 badge.className = 'bed-allocation-badge badge bg-success';
                 badge.innerHTML = `<i class="fas fa-map-marker-alt"></i> ${bedName}`;
+                
+                // Update the Details section in the tab pane
+                const tabPane = document.querySelector(`#tab-${successionIndex}`);
+                if (tabPane) {
+                    const successionInfo = tabPane.querySelector('.succession-info');
+                    if (successionInfo) {
+                        // Find the bed paragraph (first paragraph in the info section)
+                        const paragraphs = successionInfo.querySelectorAll('p');
+                        if (paragraphs.length > 0) {
+                            paragraphs[0].innerHTML = `<strong>Bed:</strong> ${bedName}`;
+                            console.log('✅ Updated Details section bed to:', bedName);
+                        }
+                    }
+                }
                 badge.title = 'Click to remove allocation';
                 badge.style.cursor = 'pointer';
                 badge.onclick = (e) => {
