@@ -3965,7 +3965,7 @@ Calculate for ${contextPayload.planning_year}.`;
                             <div class="row">
                                 <div class="col-md-4">
                                     <input type="number" class="form-control" name="plantings[${i}][harvest][quantity][value]"
-                                           value="0" step="0.01" min="0" required placeholder="Enter on harvest day">
+                                           value="0" step="1" min="0" required>
                                 </div>
                                 <div class="col-md-4">
                                     <select class="form-select" name="plantings[${i}][harvest][quantity][units]">
