@@ -3980,6 +3980,33 @@ Calculate for ${contextPayload.planning_year}.`;
         tabsWrap.style.display = 'block';
     }
 
+    /**
+     * Switch between quick form tabs
+     */
+    function switchTab(index) {
+        console.log('🔄 Switching to tab:', index);
+        
+        // Update tab buttons
+        const buttons = document.querySelectorAll('#tabNavigation .tab-button');
+        buttons.forEach((btn, i) => {
+            if (i === index) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+        
+        // Update tab panes
+        const panes = document.querySelectorAll('#tabContent .tab-pane');
+        panes.forEach((pane, i) => {
+            if (i === index) {
+                pane.classList.add('active');
+            } else {
+                pane.classList.remove('active');
+            }
+        });
+    }
+
     async function renderFarmOSTimeline(plan) {
         console.log('� renderFarmOSTimeline called with plan:', plan);
         console.log('�🔧 Rendering FarmOS timeline for plan:', plan);
