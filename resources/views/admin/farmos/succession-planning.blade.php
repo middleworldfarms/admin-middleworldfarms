@@ -9,6 +9,20 @@
 @endsection
 
 @section('styles')
+<!-- Force page to start at top -->
+<style>
+    html, body {
+        scroll-behavior: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* Ensure page always starts at top */
+    html {
+        scroll-restoration: manual;
+    }
+</style>
+
 <!-- Timeline Visualization Styles -->
 
 <!-- Sortable.js for drag and drop -->
@@ -677,27 +691,7 @@
         box-shadow: 0 2px 4px rgba(0,0,0,0.15);
     }
 
-    .block-timeline-header {
-        margin-bottom: 15px;
-        padding: 0 20px;
-    }
 
-    .block-timeline-header .timeline-axis {
-        margin-bottom: 10px;
-        padding: 0;
-        border-bottom: 2px solid #dee2e6;
-        position: relative;
-    }
-
-    .block-timeline-header .timeline-axis::after {
-        content: '';
-        position: absolute;
-        bottom: -2px;
-        left: 0;
-        right: 0;
-        height: 2px;
-        background: linear-gradient(90deg, #28a745, #ffc107, #dc3545);
-    }
 
     .block-timeline-header .timeline-month {
         font-size: 0.8rem;
@@ -823,6 +817,9 @@
     }
 
     .bed-block-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         background: linear-gradient(135deg, #f8f9fa, #e9ecef);
         padding: 12px 15px;
         border-bottom: 1px solid #dee2e6;
@@ -833,11 +830,117 @@
         color: #495057;
         font-weight: 600;
         font-size: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-wrap: nowrap;
+        white-space: nowrap;
+    }
+
+    .hedgerow-icon {
+        color: #28a745;
+        font-size: 1.1em;
+        margin: 0 2px;
     }
 
     .bed-block-header i {
         color: #6c757d;
         margin-right: 8px;
+    }
+
+    .hedgerow-indicator {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 0.8em;
+        color: #6c757d;
+    }
+
+    .hedgerow-indicator i {
+        font-size: 0.9em;
+    }
+
+    .hedgerow-divider {
+        margin: 20px 0;
+        text-align: center;
+    }
+
+    .hedgerow-visual {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 8px 16px;
+        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        border: 1px solid #c3e6cb;
+        border-radius: 20px;
+        font-size: 0.85em;
+        color: #155724;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        flex-wrap: nowrap;
+        white-space: nowrap;
+        min-width: fit-content;
+    }
+
+    .hedgerow-tree {
+        color: #28a745;
+        font-size: 1.2em;
+        margin: 0 3px;
+    }
+
+    /* Responsive adjustments for hedgerow icons */
+    @media (max-width: 768px) {
+        .hedgerow-icon {
+            font-size: 1em;
+            margin: 0 1px;
+        }
+
+        .hedgerow-tree {
+            font-size: 1.1em;
+            margin: 0 2px;
+        }
+
+        .bed-block-header h6 {
+            gap: 2px;
+            font-size: 0.9rem;
+        }
+
+        .hedgerow-visual {
+            gap: 6px;
+            padding: 6px 12px;
+            font-size: 0.8em;
+        }
+    }
+
+    @media (min-width: 1200px) {
+        .hedgerow-icon {
+            font-size: 1.3em;
+            margin: 0 3px;
+        }
+
+        .hedgerow-tree {
+            font-size: 1.4em;
+            margin: 0 4px;
+        }
+
+        .bed-block-header h6 {
+            gap: 6px;
+        }
+
+        .hedgerow-visual {
+            gap: 12px;
+            padding: 10px 20px;
+        }
+    }
+
+    .hedgerow-visual i {
+        color: #28a745;
+        font-size: 1em;
+    }
+
+    .hedgerow-text {
+        font-weight: 500;
+        letter-spacing: 0.5px;
     }
 
     .bed-block-content {
@@ -876,34 +979,49 @@
     }
 
     .succession-item.dragging {
-        opacity: 0.3;
-        transform: rotate(2deg);
+        opacity: 0.2 !important;
+        transform: rotate(3deg) scale(0.95);
         cursor: grabbing;
-        background: #f8f9fa !important;
-        border: 2px dashed #6c757d !important;
+        background: #6c757d !important;
+        border: 2px dashed #495057 !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+        filter: grayscale(100%) brightness(0.8);
     }
 
     .succession-item.dragging .succession-title {
-        color: #6c757d !important;
+        color: #adb5bd !important;
+        text-decoration: line-through;
+    }
+
+    .succession-item.dragging .succession-dates {
+        opacity: 0.5;
     }
 
     .succession-item.allocated {
-        opacity: 0.5;
-        background: #e9ecef !important;
-        border: 1px solid #dee2e6 !important;
+        opacity: 0.6 !important;
+        background: #d6d8db !important;
+        border: 2px dashed #adb5bd !important;
+        pointer-events: none !important;
     }
 
     .succession-item.allocated .succession-title {
         color: #6c757d !important;
         text-decoration: line-through;
     }
+    
+    .succession-item.allocated .succession-dates {
+        opacity: 0.6;
+    }
 
     .bed-allocation-badge {
-        font-size: 0.7rem;
+        font-size: 0.75rem !important;
+        font-weight: 600 !important;
         margin-left: 8px;
-        padding: 2px 6px;
-        border-radius: 10px;
+        padding: 4px 10px !important;
+        border-radius: 12px;
         transition: all 0.2s ease;
+        pointer-events: auto !important;
+        white-space: nowrap;
     }
 
     .bed-allocation-badge:hover {
@@ -950,15 +1068,68 @@
 
     /* Bed drop zones */
     .bed-timeline.drop-target {
-        background: linear-gradient(45deg, #d4edda, #f8f9fa);
-        border: 2px dashed #28a745 !important;
+        background: linear-gradient(45deg, #d4edda, #f8f9fa) !important;
+        border: 3px dashed #28a745 !important;
         cursor: copy;
+        box-shadow: inset 0 0 10px rgba(40, 167, 69, 0.3);
+        transform: scale(1.02);
+        transition: all 0.2s ease;
     }
 
     .bed-timeline.drop-active {
-        background: linear-gradient(45deg, #28a745, #20c997);
-        border: 2px solid #28a745 !important;
+        background: linear-gradient(45deg, #28a745, #20c997) !important;
+        border: 3px solid #28a745 !important;
         cursor: copy;
+        box-shadow: inset 0 0 15px rgba(40, 167, 69, 0.5), 0 0 20px rgba(40, 167, 69, 0.3);
+        transform: scale(1.05);
+        animation: pulse 1.5s infinite;
+    }
+
+    .bed-timeline.drop-conflict {
+        background: linear-gradient(45deg, #f8d7da, #f5c6cb) !important;
+        border: 3px solid #dc3545 !important;
+        cursor: not-allowed;
+        box-shadow: inset 0 0 15px rgba(220, 53, 69, 0.5);
+        transform: scale(1.02);
+    }
+
+    @keyframes pulse {
+        0% { box-shadow: inset 0 0 15px rgba(40, 167, 69, 0.5), 0 0 20px rgba(40, 167, 69, 0.3); }
+        50% { box-shadow: inset 0 0 20px rgba(40, 167, 69, 0.7), 0 0 30px rgba(40, 167, 69, 0.5); }
+        100% { box-shadow: inset 0 0 15px rgba(40, 167, 69, 0.5), 0 0 20px rgba(40, 167, 69, 0.3); }
+    }
+
+    /* Drag preview indicator */
+    .drag-preview {
+        position: absolute;
+        top: 0;
+        height: 100%;
+        background: rgba(40, 167, 69, 0.3);
+        border: 2px solid #28a745;
+        border-radius: 4px;
+        pointer-events: none;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: preview-pulse 1s infinite;
+    }
+
+    .drag-preview-content {
+        background: rgba(255, 255, 255, 0.9);
+        padding: 4px 8px;
+        border-radius: 3px;
+        font-size: 0.75rem;
+        color: #28a745;
+        font-weight: 600;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    @keyframes preview-pulse {
+        0% { background: rgba(40, 167, 69, 0.3); }
+        50% { background: rgba(40, 167, 69, 0.5); }
+        100% { background: rgba(40, 167, 69, 0.3); }
     }
 
     /* Succession allocation blocks */
@@ -3408,6 +3579,10 @@ Calculate for ${contextPayload.planning_year}.`;
 
         console.log('📦 Generating local succession plan (no API call):', payload);
 
+        // Clear any previous allocations when generating a new plan
+        localStorage.removeItem('bedAllocations');
+        console.log('🗑️ Cleared previous allocations for new succession plan');
+
         showLoading(true);
         try {
             // Generate succession plan locally using variety data from database
@@ -4133,17 +4308,25 @@ Calculate for ${contextPayload.planning_year}.`;
             bedsByBlock[block].push(bed);
         });
 
-        // Sort blocks numerically and filter out "Block Unknown"
+        // Sort blocks numerically, keeping "Block Unknown" if no other blocks exist
         const sortedBlocks = Object.keys(bedsByBlock)
-            .filter(blockName => blockName !== 'Block Unknown')
             .sort((a, b) => {
+                // Put "Block Unknown" at the end
+                if (a === 'Block Unknown') return 1;
+                if (b === 'Block Unknown') return -1;
+
                 const aNum = parseInt(a.replace('Block ', '')) || 999;
                 const bNum = parseInt(b.replace('Block ', '')) || 999;
                 return aNum - bNum;
             });
 
+        // If we only have "Block Unknown", show it; otherwise filter it out
+        const finalBlocks = sortedBlocks.length > 1
+            ? sortedBlocks.filter(blockName => blockName !== 'Block Unknown')
+            : sortedBlocks;
+
         // Create bed rows grouped by block
-        const bedRows = sortedBlocks.map(blockName => {
+        const bedRows = finalBlocks.map(blockName => {
             const blockBeds = bedsByBlock[blockName];
 
             // Sort beds within block by bed number
@@ -4187,15 +4370,28 @@ Calculate for ${contextPayload.planning_year}.`;
             return `
                 <div class="bed-block">
                     <div class="bed-block-header">
-                        <h6><i class="fas fa-th-large"></i> ${blockName}</h6>
-                    </div>
-                    <div class="block-timeline-header">
-                        <div class="timeline-axis">
-                            ${months.map(month => `<div class="timeline-month">${month.label}</div>`).join('')}
+                        <h6>
+                            <i class="fas fa-tree hedgerow-icon"></i>
+                            <i class="fas fa-tree hedgerow-icon"></i>
+                            ${blockName}
+                            <i class="fas fa-tree hedgerow-icon"></i>
+                            <i class="fas fa-tree hedgerow-icon"></i>
+                        </h6>
+                        <div class="hedgerow-indicator">
+                            <small class="text-muted">Hedgerow Boundary</small>
                         </div>
                     </div>
                     <div class="bed-block-content">
                         ${blockBedRows}
+                    </div>
+                </div>
+                <div class="hedgerow-divider">
+                    <div class="hedgerow-visual">
+                        <i class="fas fa-tree hedgerow-tree"></i>
+                        <i class="fas fa-tree hedgerow-tree"></i>
+                        <span class="hedgerow-text">Hedgerow Boundary</span>
+                        <i class="fas fa-tree hedgerow-tree"></i>
+                        <i class="fas fa-tree hedgerow-tree"></i>
                     </div>
                 </div>
             `;
@@ -4319,7 +4515,8 @@ Calculate for ${contextPayload.planning_year}.`;
 
         // Remove visual feedback from drop targets
         document.querySelectorAll('.bed-timeline').forEach(timeline => {
-            timeline.classList.remove('drop-target', 'drop-active');
+            timeline.classList.remove('drop-target', 'drop-active', 'drop-conflict');
+            removeDragPreview(timeline);
         });
     }
 
@@ -4365,15 +4562,57 @@ Calculate for ${contextPayload.planning_year}.`;
             // Show conflict state
             bedTimeline.classList.remove('drop-active');
             bedTimeline.classList.add('drop-conflict');
+            removeDragPreview(bedTimeline);
         } else {
             // Show valid drop state
             bedTimeline.classList.remove('drop-conflict');
             bedTimeline.classList.add('drop-active');
+            showDragPreview(bedTimeline, successionData, bedId);
         }
     }
 
     function handleDragLeave(e) {
         e.currentTarget.classList.remove('drop-active', 'drop-conflict');
+        removeDragPreview(e.currentTarget);
+    }
+
+    function showDragPreview(bedTimeline, successionData, bedId) {
+        // Remove any existing preview
+        removeDragPreview(bedTimeline);
+
+        // Calculate position based on succession dates
+        const timelineStart = new Date(bedTimeline.dataset.startDate);
+        const timelineEnd = new Date(bedTimeline.dataset.endDate);
+        const totalDays = (timelineEnd - timelineStart) / (1000 * 60 * 60 * 24);
+
+        const startDate = successionData.sowDate;
+        const endDate = successionData.harvestDate;
+
+        const startOffset = (startDate - timelineStart) / (1000 * 60 * 60 * 24);
+        const duration = (endDate - startDate) / (1000 * 60 * 60 * 24);
+
+        const leftPercent = (startOffset / totalDays) * 100;
+        const widthPercent = (duration / totalDays) * 100;
+
+        // Create preview element
+        const preview = document.createElement('div');
+        preview.className = 'drag-preview';
+        preview.style.left = `${Math.max(0, leftPercent)}%`;
+        preview.style.width = `${Math.min(100 - leftPercent, widthPercent)}%`;
+        preview.innerHTML = `
+            <div class="drag-preview-content">
+                <small>Drop here</small>
+            </div>
+        `;
+
+        bedTimeline.appendChild(preview);
+    }
+
+    function removeDragPreview(bedTimeline) {
+        const existingPreview = bedTimeline.querySelector('.drag-preview');
+        if (existingPreview) {
+            existingPreview.remove();
+        }
     }
 
     function handleDrop(e) {
@@ -4485,6 +4724,38 @@ Calculate for ${contextPayload.planning_year}.`;
 
             // Allocate succession to bed with proper positioning
             allocateSuccessionToBed(bedName, bedId, successionData, successionIndex, bedTimeline);
+
+            // Immediately update the succession card UI
+            successionItem.classList.add('allocated');
+            successionItem.dataset.allocationData = JSON.stringify({
+                bedName: bedName,
+                bedId: bedId,
+                successionIndex: parseInt(successionIndex) + 1
+            });
+            
+            // Add bed badge immediately
+            const header = successionItem.querySelector('.succession-header');
+            if (header) {
+                // Remove existing badge if present
+                const existingBadge = header.querySelector('.bed-allocation-badge');
+                if (existingBadge) {
+                    existingBadge.remove();
+                }
+                
+                // Add new badge
+                const badge = document.createElement('span');
+                badge.className = 'bed-allocation-badge badge bg-success';
+                badge.innerHTML = `<i class="fas fa-map-marker-alt"></i> ${bedName}`;
+                badge.title = 'Click to remove allocation';
+                badge.style.cursor = 'pointer';
+                badge.onclick = (e) => {
+                    e.stopPropagation();
+                    removeSuccessionAllocation(successionIndex);
+                };
+                header.appendChild(badge);
+                
+                console.log('✅ Added bed badge to succession card:', bedName);
+            }
 
             // Visual feedback
             showAllocationFeedback(bedRow, successionData);
@@ -4841,83 +5112,7 @@ Calculate for ${contextPayload.planning_year}.`;
         }
     }
 
-    async function submitAllQuickForms() {
-        // Collect all form data
-        const formData = new FormData();
-        formData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
 
-        // Get all planting data
-        const plantings = [];
-        const tabPanes = document.querySelectorAll('#tabContent .tab-pane');
-
-        tabPanes.forEach((pane, index) => {
-            const planting = {
-                succession_index: index,
-                logs: {}
-            };
-
-            // Check each form type
-            ['seeding', 'transplanting', 'harvest'].forEach(formType => {
-                const formElement = document.getElementById(`quick-form-${formType}-${index}`);
-                if (formElement && formElement.style.display !== 'none') {
-                    // Form is visible, collect its data
-                    const formDataObj = {};
-                    const inputs = formElement.querySelectorAll('input, select, textarea');
-                    inputs.forEach(input => {
-                        if (input.name && input.value) {
-                            const nameParts = input.name.replace(`plantings[${index}][${formType}][`, '').replace(']', '').split('][');
-                            let current = formDataObj;
-                            for (let i = 0; i < nameParts.length - 1; i++) {
-                                if (!current[nameParts[i]]) current[nameParts[i]] = {};
-                                current = current[nameParts[i]];
-                            }
-                            current[nameParts[nameParts.length - 1]] = input.value;
-                        }
-                    });
-                    planting.logs[formType] = formDataObj;
-                }
-            });
-
-            if (Object.keys(planting.logs).length > 0) {
-                plantings.push(planting);
-            }
-        });
-
-        if (plantings.length === 0) {
-            alert('No forms have been filled out. Please fill out at least one form before submitting.');
-            return;
-        }
-
-        // Submit to backend
-        try {
-            showLoading(true);
-            const response = await fetch('/admin/farmos/succession-planning/submit-all-logs', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                },
-                body: JSON.stringify({ plantings })
-            });
-
-            const result = await response.json();
-
-            if (response.ok && result.success) {
-                showToast('All planting records submitted successfully!', 'success');
-                // Hide all forms and show success message
-                document.querySelectorAll('.embedded-quick-form').forEach(form => {
-                    form.style.display = 'none';
-                });
-            } else {
-                showToast('Failed to submit planting records: ' + (result.message || 'Unknown error'), 'error');
-            }
-        } catch (error) {
-            console.error('Submit error:', error);
-            showToast('Error submitting planting records', 'error');
-        } finally {
-            showLoading(false);
-        }
-    }
 
     async function toggleForm(formId, url) {
         const formContainer = document.getElementById(formId);
@@ -5635,6 +5830,20 @@ Plantings:`;
         const plantings = plan.plantings || [];
         
         if (plantings.length > 0) {
+            // Get existing allocations BEFORE generating HTML
+            const allocations = JSON.parse(localStorage.getItem('bedAllocations') || '[]');
+            console.log('📦 Found existing allocations:', allocations);
+            console.log('📦 Number of allocations:', allocations.length);
+            
+            // Debug: log each allocation
+            allocations.forEach((alloc, idx) => {
+                console.log(`  Allocation ${idx}:`, {
+                    successionIndex: alloc.successionIndex,
+                    bedName: alloc.bedName,
+                    bedId: alloc.bedId
+                });
+            });
+            
             let sidebarHTML = '';
 
             plantings.forEach((planting, i) => {
@@ -5650,13 +5859,24 @@ Plantings:`;
                     method: planting.method || 'Direct Sow'
                 };
 
+                // Check if this succession is allocated
+                const allocation = allocations.find(a => a.successionIndex === i + 1);
+                const isAllocated = !!allocation;
+                
+                console.log(`Succession ${i + 1}: allocated=${isAllocated}`, allocation);
+
                 sidebarHTML += `
-                    <div class="succession-item" draggable="true" data-succession-index="${i}" data-succession-data='${JSON.stringify(successionDataForJson)}'>
+                    <div class="succession-item ${isAllocated ? 'allocated' : ''}" draggable="true" data-succession-index="${i}" data-succession-data='${JSON.stringify(successionDataForJson)}' ${isAllocated ? `data-allocation-data='${JSON.stringify(allocation)}'` : ''}>
                         <div class="succession-header">
                             <div class="succession-title-section">
                                 <span class="succession-title">Succession ${i + 1}</span>
                                 <small class="text-muted">${planting.method || 'Direct Sow'}</small>
                             </div>
+                            ${isAllocated ? `
+                            <span class="bed-allocation-badge badge bg-success" onclick="removeSuccessionAllocation(${i})" style="cursor: pointer;" title="Click to remove allocation">
+                                <i class="fas fa-map-marker-alt"></i> ${allocation.bedName}
+                            </span>
+                            ` : ''}
                         </div>
                         <div class="succession-dates">
                             ${sowDate ? `
@@ -6684,6 +6904,24 @@ Plantings:`;
 
     // Initialize Succession Planner when DOM is ready
     document.addEventListener('DOMContentLoaded', function() {
+        // Force scroll to top of page on refresh - multiple attempts to override browser behavior
+        window.scrollTo(0, 0);
+
+        // Additional scroll after a short delay to ensure it overrides any other scroll behavior
+        setTimeout(function() {
+            window.scrollTo(0, 0);
+            // Also try scrolling the document element
+            document.documentElement.scrollTop = 0;
+            document.body.scrollTop = 0;
+        }, 10);
+
+        // Final check after page fully loads
+        window.addEventListener('load', function() {
+            window.scrollTo(0, 0);
+            document.documentElement.scrollTop = 0;
+            document.body.scrollTop = 0;
+        });
+
         console.log('🌱 Initializing Succession Planning Interface...');
 
         // Create SuccessionPlanner instance with configuration
