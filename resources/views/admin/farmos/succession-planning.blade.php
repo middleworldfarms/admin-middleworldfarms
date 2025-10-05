@@ -23,6 +23,17 @@
     }
 </style>
 
+<!-- Immediate scroll to top - runs before anything else -->
+<script>
+    // Force scroll to top IMMEDIATELY - before DOMContentLoaded
+    if (history.scrollRestoration) {
+        history.scrollRestoration = 'manual';
+    }
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+</script>
+
 <!-- Timeline Visualization Styles -->
 
 <!-- Sortable.js for drag and drop -->
@@ -6906,23 +6917,31 @@ Plantings:`;
 
     // Initialize Succession Planner when DOM is ready
     document.addEventListener('DOMContentLoaded', function() {
-        // Force scroll to top of page on refresh - multiple attempts to override browser behavior
+        // AGGRESSIVE scroll to top - prevent browser auto-scroll restoration
+        // Run immediately on DOMContentLoaded
         window.scrollTo(0, 0);
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
 
-        // Additional scroll after a short delay to ensure it overrides any other scroll behavior
-        setTimeout(function() {
-            window.scrollTo(0, 0);
-            // Also try scrolling the document element
-            document.documentElement.scrollTop = 0;
-            document.body.scrollTop = 0;
-        }, 10);
+        // Prevent any scroll events during initial page load
+        let scrollLocked = true;
+        const preventScroll = (e) => {
+            if (scrollLocked) {
+                window.scrollTo(0, 0);
+            }
+        };
+        window.addEventListener('scroll', preventScroll, { passive: false });
 
-        // Final check after page fully loads
-        window.addEventListener('load', function() {
+        // Additional scroll resets at intervals
+        setTimeout(() => { window.scrollTo(0, 0); }, 10);
+        setTimeout(() => { window.scrollTo(0, 0); }, 50);
+        setTimeout(() => { window.scrollTo(0, 0); }, 100);
+        setTimeout(() => { 
             window.scrollTo(0, 0);
-            document.documentElement.scrollTop = 0;
-            document.body.scrollTop = 0;
-        });
+            // Unlock scrolling after page is fully loaded
+            scrollLocked = false;
+            window.removeEventListener('scroll', preventScroll);
+        }, 500);
 
         console.log('🌱 Initializing Succession Planning Interface...');
 
