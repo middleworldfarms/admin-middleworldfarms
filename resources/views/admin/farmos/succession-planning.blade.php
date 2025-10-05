@@ -3961,6 +3961,11 @@ Calculate for ${contextPayload.planning_year}.`;
                             </div>
                         </div>
                         <div class="mb-3">
+                            <label class="form-label">Location *</label>
+                            <input type="text" class="form-control" name="plantings[${i}][harvest][location]"
+                                   value="${p.bed_name || ''}" required>
+                        </div>
+                        <div class="mb-3">
                             <label class="form-label">Quantity *</label>
                             <div class="row">
                                 <div class="col-md-4">
