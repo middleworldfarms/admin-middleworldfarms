@@ -1548,23 +1548,6 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- Step 3: Calculate Button -->
-                <div class="planning-section">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h3>
-                                <i class="fas fa-magic section-icon"></i>
-                                Generate AI-Powered Succession Plan
-                            </h3>
-                            <p class="text-muted mb-0">Backward planning with Holistic AI crop intelligence</p>
-                        </div>
-                        <button class="btn btn-success btn-lg" id="calculateButton" onclick="calculateSuccessionPlan()" aria-label="Calculate succession plan">
-                            <i class="fas fa-brain me-2"></i>
-                            Calculate Plan
-                        </button>
-                    </div>
-                </div>
             </div>
 
             <!-- Results Section -->
