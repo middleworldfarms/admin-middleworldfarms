@@ -1740,6 +1740,19 @@
                             <small>Submit all planting records to FarmOS</small>
                         </p>
                     </div>
+
+                    <!-- Page Navigation Buttons -->
+                    <div class="mt-3 pt-3 border-top">
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="scrollToQuickForms()">
+                                <i class="fas fa-arrow-down"></i> Jump to Quick Forms
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="scrollToTop()">
+                                <i class="fas fa-arrow-up"></i> Back to Top
+                            </button>
+                        </div>
+                        <small class="text-muted text-center d-block mt-2">Quick navigation for long pages</small>
+                    </div>
                 </div>
             </div>
         </div>
@@ -6887,6 +6900,23 @@ Plantings:`;
                 formElement.style.display = 'none';
             }
         }
+    }
+
+    /**
+     * Scroll to the quick forms section
+     */
+    function scrollToQuickForms() {
+        const quickFormsContainer = document.getElementById('quickFormTabsContainer');
+        if (quickFormsContainer) {
+            quickFormsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    /**
+     * Scroll to the top of the page
+     */
+    function scrollToTop() {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     async function submitAllQuickForms() {
