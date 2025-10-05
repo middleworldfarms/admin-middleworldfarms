@@ -1743,15 +1743,19 @@
 
                     <!-- Page Navigation Buttons -->
                     <div class="mt-3 pt-3 border-top">
-                        <div class="d-grid gap-2">
-                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="scrollToQuickForms()">
-                                <i class="fas fa-arrow-down"></i> Jump to Quick Forms
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="scrollToTop()">
-                                <i class="fas fa-arrow-up"></i> Back to Top
-                            </button>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <button type="button" class="btn btn-success btn-sm w-100" onclick="scrollToQuickForms()">
+                                    <i class="fas fa-arrow-down"></i> Quick Forms
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button type="button" class="btn btn-success btn-sm w-100" onclick="scrollToTop()">
+                                    <i class="fas fa-arrow-up"></i> Back to Top
+                                </button>
+                            </div>
                         </div>
-                        <small class="text-muted text-center d-block mt-2">Quick navigation for long pages</small>
+                        <small class="text-muted text-center d-block mt-2">Quick navigation</small>
                     </div>
                 </div>
             </div>
