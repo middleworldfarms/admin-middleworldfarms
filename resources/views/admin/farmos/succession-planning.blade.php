@@ -3764,25 +3764,31 @@ Calculate for ${contextPayload.planning_year}.`;
                 }).toString()
             };
 
+            // Determine default checkbox states based on planting method
+            const hasTransplant = !!p.transplant_date;
+            const seedingChecked = !hasTransplant; // Direct seeding: check seeding and harvest
+            const transplantChecked = hasTransplant; // Transplant: check all three
+            const harvestChecked = true; // Always check harvest by default
+
             // Display quick form buttons that toggle form sections
             pane.innerHTML += `
                 <div class="quick-form-container">
                     <h6>Quick Forms</h6>
                     <div class="mb-3">
                         <div class="form-check">
-                            <input class="form-check-input log-type-checkbox" type="checkbox" id="seeding-enabled-${i}" onchange="toggleQuickForm(${i}, 'seeding')">
+                            <input class="form-check-input log-type-checkbox" type="checkbox" id="seeding-enabled-${i}" ${seedingChecked ? 'checked' : ''} onchange="toggleQuickForm(${i}, 'seeding')">
                             <label class="form-check-label" for="seeding-enabled-${i}">
                                 <strong>Seeding</strong> - Record when seeds are planted
                             </label>
                         </div>
                         ${p.transplant_date ? `<div class="form-check">
-                            <input class="form-check-input log-type-checkbox" type="checkbox" id="transplanting-enabled-${i}" onchange="toggleQuickForm(${i}, 'transplanting')">
+                            <input class="form-check-input log-type-checkbox" type="checkbox" id="transplanting-enabled-${i}" ${transplantChecked ? 'checked' : ''} onchange="toggleQuickForm(${i}, 'transplanting')">
                             <label class="form-check-label" for="transplanting-enabled-${i}">
                                 <strong>Transplanting</strong> - Record when seedlings are transplanted
                             </label>
                         </div>` : ''}
                         <div class="form-check">
-                            <input class="form-check-input log-type-checkbox" type="checkbox" id="harvest-enabled-${i}" onchange="toggleQuickForm(${i}, 'harvest')">
+                            <input class="form-check-input log-type-checkbox" type="checkbox" id="harvest-enabled-${i}" ${harvestChecked ? 'checked' : ''} onchange="toggleQuickForm(${i}, 'harvest')">
                             <label class="form-check-label" for="harvest-enabled-${i}">
                                 <strong>Harvest</strong> - Record harvest dates and quantities
                             </label>
@@ -3978,6 +3984,23 @@ Calculate for ${contextPayload.planning_year}.`;
         // Show the tabs container
         console.log('✅ Showing tabs container');
         tabsWrap.style.display = 'block';
+
+        // Initialize form visibility based on default checkbox states
+        (plan.plantings || []).forEach((p, i) => {
+            const hasTransplant = !!p.transplant_date;
+            
+            // Show forms based on defaults
+            if (!hasTransplant) {
+                // Direct seeding: show seeding and harvest forms
+                toggleQuickForm(i, 'seeding', true);
+            } else {
+                // Transplant: show all three forms
+                toggleQuickForm(i, 'seeding', true);
+                toggleQuickForm(i, 'transplanting', true);
+            }
+            // Always show harvest
+            toggleQuickForm(i, 'harvest', true);
+        });
     }
 
     /**
@@ -5131,12 +5154,15 @@ Calculate for ${contextPayload.planning_year}.`;
         }, 3000);
     }
 
-    function toggleQuickForm(successionIndex, formType) {
+    function toggleQuickForm(successionIndex, formType, forceShow = null) {
         const checkbox = document.getElementById(`${formType}-enabled-${successionIndex}`);
         const formElement = document.getElementById(`quick-form-${formType}-${successionIndex}`);
 
         if (checkbox && formElement) {
-            if (checkbox.checked) {
+            // If forceShow is specified, use it; otherwise check the checkbox state
+            const shouldShow = forceShow !== null ? forceShow : checkbox.checked;
+            
+            if (shouldShow) {
                 formElement.style.display = 'block';
             } else {
                 formElement.style.display = 'none';
@@ -6829,12 +6855,15 @@ Plantings:`;
         updateHarvestWindowDisplay();
     }
 
-    function toggleQuickForm(successionIndex, formType) {
+    function toggleQuickForm(successionIndex, formType, forceShow = null) {
         const checkbox = document.getElementById(`${formType}-enabled-${successionIndex}`);
         const formElement = document.getElementById(`quick-form-${formType}-${successionIndex}`);
 
         if (checkbox && formElement) {
-            if (checkbox.checked) {
+            // If forceShow is specified, use it; otherwise check the checkbox state
+            const shouldShow = forceShow !== null ? forceShow : checkbox.checked;
+            
+            if (shouldShow) {
                 formElement.style.display = 'block';
             } else {
                 formElement.style.display = 'none';
