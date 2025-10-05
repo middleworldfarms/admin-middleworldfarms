@@ -1408,40 +1408,7 @@
 
         <!-- Right Column: Succession Planning Sidebar -->
         <div class="col-lg-4">
-            <!-- Succession Planning Impact Sidebar -->
-            <div id="successionSidebar" class="planning-card sticky-top" style="display: none; top: 20px;">
-                <div class="planning-section">
-                    <div class="d-flex align-items-center justify-content-between mb-3">
-                        <h4 class="mb-0">
-                            <i class="fas fa-tasks text-success"></i>
-                            Succession Planning
-                        </h4>
-                        <span id="sidebarSuccessionCount" class="badge bg-primary">0 Successions</span>
-                    </div>
-
-                    <div class="succession-list" id="successionList">
-                        <!-- Successions will be populated here as draggable items -->
-                        <div class="text-center text-muted py-4">
-                            <i class="fas fa-seedling fa-2x mb-2"></i>
-                            <p>Calculate a succession plan to see successions here</p>
-                        </div>
-                    </div>
-
-                    <div class="mt-3">
-                        <div class="d-grid gap-2 mb-2">
-                            <button class="btn btn-outline-danger btn-sm" onclick="clearAllAllocations()" title="Clear all bed allocations to start fresh">
-                                <i class="fas fa-trash"></i> Clear All Allocations
-                            </button>
-                        </div>
-                        <small class="text-muted">
-                            <i class="fas fa-info-circle me-1"></i>
-                            Drag successions onto beds in the timeline to allocate them
-                        </small>
-                    </div>
-                </div>
-            </div>
-
-            <!-- AI Chat Integration (shown when no succession plan) -->
+            <!-- AI Chat Integration -->
             <div id="aiChatSection" class="planning-card">
                 <div class="planning-section">
                     <h3>
@@ -1538,6 +1505,39 @@
                     <div id="noVarietySelected" class="text-center py-4 text-muted">
                         <i class="fas fa-seedling fa-2x mb-2"></i>
                         <div>Select a variety to see detailed information from FarmOS</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Succession Planning Sidebar (below variety, sticky on scroll) -->
+            <div id="successionSidebar" class="planning-card mt-3 sticky-top" style="display: none; top: 20px;">
+                <div class="planning-section">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h4 class="mb-0">
+                            <i class="fas fa-tasks text-success"></i>
+                            Succession Planning
+                        </h4>
+                        <span id="sidebarSuccessionCount" class="badge bg-primary">0 Successions</span>
+                    </div>
+
+                    <div class="succession-list" id="successionList">
+                        <!-- Successions will be populated here as draggable items -->
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-seedling fa-2x mb-2"></i>
+                            <p>Calculate a succession plan to see successions here</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <div class="d-grid gap-2 mb-2">
+                            <button class="btn btn-outline-danger btn-sm" onclick="clearAllAllocations()" title="Clear all bed allocations to start fresh">
+                                <i class="fas fa-trash"></i> Clear All Allocations
+                            </button>
+                        </div>
+                <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Drag successions onto beds in the timeline to allocate them
+                        </small>
                     </div>
                 </div>
             </div>
@@ -5684,7 +5684,7 @@ Plantings:`;
 
             successionList.innerHTML = sidebarHTML;
             successionSidebar.style.display = 'block';
-            aiChatSection.style.display = 'none';
+            // Keep AI chat visible - it's now above succession sidebar
             
             // Update succession count badge
             const countBadge = document.getElementById('sidebarSuccessionCount');
@@ -5697,7 +5697,7 @@ Plantings:`;
             // Drag and drop will be initialized centrally after both timeline and sidebar are ready
         } else {
             successionSidebar.style.display = 'none';
-            aiChatSection.style.display = 'block';
+            // AI chat stays visible
         }
     }
 
