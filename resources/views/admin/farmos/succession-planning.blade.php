@@ -1516,6 +1516,18 @@
                                 </button>
                             </div>
 
+                            <!-- Dynamic Succession Count Display -->
+                            <div id="dynamicSuccessionDisplay" class="mt-3 p-3 bg-success bg-opacity-10 border border-success rounded text-center" style="display: none;">
+                                <div class="d-flex align-items-center justify-content-center gap-2">
+                                    <i class="fas fa-seedling text-success"></i>
+                                    <strong class="text-success">Successions Needed:</strong>
+                                    <span id="successionCount" class="badge bg-success fs-6">0</span>
+                                </div>
+                                <small class="text-muted d-block mt-1">
+                                    Drag the handles above to adjust your harvest window and see how it affects the number of successions
+                                </small>
+                            </div>
+
                             <!-- Calendar Grid View -->
                             <div id="harvestCalendar" class="mt-4" style="display: none;">
                                 <h6 class="text-center mb-3">
@@ -6041,6 +6053,14 @@ Plantings:`;
         if (sidebarCountBadge) {
             sidebarCountBadge.textContent = `${successions} Succession${successions > 1 ? 's' : ''}`;
         }
+
+        // Show and update the dynamic succession display
+        const dynamicDisplay = document.getElementById('dynamicSuccessionDisplay');
+        if (dynamicDisplay) {
+            dynamicDisplay.style.display = 'block';
+        }
+
+        console.log(`📊 Updated succession count: ${successions} based on ${duration} day harvest window`);
 
         // Calculate seed/transplant amounts based on bed dimensions
         const bedLength = parseFloat(document.getElementById('bedLength')?.value) || 0;
