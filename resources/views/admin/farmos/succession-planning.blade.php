@@ -1580,13 +1580,6 @@
                         <!-- Tab panes will be populated here -->
                     </div>
                 </div>
-
-                <!-- Submit All Forms Button -->
-                <div class="mt-4 text-center">
-                    <button type="button" class="btn btn-success btn-lg" onclick="submitAllQuickForms()">
-                        <i class="fas fa-save"></i> Submit All Planting Records
-                    </button>
-                </div>
             </div>
         </div>
 
@@ -1718,10 +1711,22 @@
                                 <i class="fas fa-trash"></i> Clear All Allocations
                             </button>
                         </div>
-                <small class="text-muted">
+                        <small class="text-muted">
                             <i class="fas fa-info-circle me-1"></i>
                             Drag successions onto beds in the timeline to allocate them
                         </small>
+                    </div>
+
+                    <!-- Submit All Records Button -->
+                    <div class="mt-4 pt-3 border-top">
+                        <div class="d-grid">
+                            <button type="button" class="btn btn-success btn-lg" onclick="submitAllQuickForms()">
+                                <i class="fas fa-save"></i> Submit All Records
+                            </button>
+                        </div>
+                        <p class="text-muted text-center mt-2 mb-0">
+                            <small>Submit all planting records to FarmOS</small>
+                        </p>
                     </div>
                 </div>
             </div>
@@ -3973,19 +3978,6 @@ Calculate for ${contextPayload.planning_year}.`;
         // Show the tabs container
         console.log('✅ Showing tabs container');
         tabsWrap.style.display = 'block';
-
-        // Add submit all button at the bottom
-        const submitAllContainer = document.createElement('div');
-        submitAllContainer.className = 'text-center mt-4 p-3 bg-light rounded';
-        submitAllContainer.innerHTML = `
-            <button type="button" class="btn btn-success btn-lg" onclick="submitAllQuickForms()">
-                <i class="fas fa-save"></i> Submit All Planting Records to FarmOS
-            </button>
-            <p class="text-muted mt-2 mb-0">
-                <small>This will create plant assets and log all the planting events you've filled out above</small>
-            </p>
-        `;
-        tabsWrap.appendChild(submitAllContainer);
     }
 
     async function renderFarmOSTimeline(plan) {
