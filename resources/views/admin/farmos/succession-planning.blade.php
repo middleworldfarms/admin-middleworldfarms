@@ -1876,35 +1876,8 @@
                 console.log('✅ Displaying variety data');
                 displayVarietyInfo(varietyData);
                 
-                // Wait for harvest window to be initialized before calculating
-                // Poll for harvest dates to be ready (max 2 seconds)
-                console.log('⏳ Waiting for harvest dates to be set...');
-                let attempts = 0;
-                const maxAttempts = 20; // 20 attempts x 100ms = 2 seconds max
-                
-                const waitForHarvestDates = async () => {
-                    const hs = document.getElementById('harvestStart');
-                    const he = document.getElementById('harvestEnd');
-                    
-                    if (hs?.value && he?.value) {
-                        console.log('✅ Harvest dates ready:', hs.value, '->', he.value);
-                        console.log('🚀 Auto-calculating succession plan');
-                        await calculateSuccessionPlan();
-                        return true;
-                    }
-                    
-                    attempts++;
-                    if (attempts >= maxAttempts) {
-                        console.warn('⚠️ Timeout waiting for harvest dates, skipping auto-calculation');
-                        return false;
-                    }
-                    
-                    // Wait 100ms and try again
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    return await waitForHarvestDates();
-                };
-                
-                await waitForHarvestDates();
+                // Succession calculation will be triggered automatically by harvest window initialization
+                console.log('ℹ️ Harvest window will trigger succession calculation when ready');
             } else {
                 // Show error state
                 console.log('❌ No variety data received, showing error');
@@ -3446,7 +3419,14 @@ Calculate for ${contextPayload.planning_year}.`;
             
             // Populate succession sidebar with draggable cards
             console.log('� Populating succession sidebar...');
-            populateSuccessionSidebar(currentSuccessionPlan);
+            console.log('📊 Plantings in plan:', currentSuccessionPlan.plantings?.length);
+            if (typeof populateSuccessionSidebar === 'function') {
+                console.log('✅ Calling populateSuccessionSidebar...');
+                populateSuccessionSidebar(currentSuccessionPlan);
+                console.log('✅ populateSuccessionSidebar completed');
+            } else {
+                console.error('❌ populateSuccessionSidebar function not found!');
+            }
             
             console.log('🗓️ Rendering FarmOS timeline...');
             await renderFarmOSTimeline(currentSuccessionPlan);

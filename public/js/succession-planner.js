@@ -269,6 +269,12 @@ class SuccessionPlanner {
         this.updateHarvestWindowDisplayWithRetry();
 
         console.log('🌾 Initialized basic harvest window for:', cropName, varietyName || 'no variety', { maxStart, maxEnd, userStart, userEnd });
+        
+        // Trigger succession calculation now that harvest dates are set
+        if (typeof calculateSuccessionPlan === 'function') {
+            console.log('🚀 Triggering auto succession calculation...');
+            setTimeout(() => calculateSuccessionPlan(), 100);
+        }
     }
 
     /**
