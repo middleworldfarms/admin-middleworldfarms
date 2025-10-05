@@ -186,10 +186,11 @@ class FarmOSApi
 
     /**
      * Get varieties with proper pagination
+     * Note: FarmOS uses 'plant_type' vocabulary (not plant_variety) for all 2,959+ varieties
      */
     public function getVarieties()
     {
-        return $this->jsonApiPaginatedFetch('/api/taxonomy_term/plant_variety');
+        return $this->jsonApiPaginatedFetch('/api/taxonomy_term/plant_type');
     }
 
     /**
