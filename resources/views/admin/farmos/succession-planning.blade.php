@@ -1455,7 +1455,27 @@
                                 <input type="number" class="form-control" id="bedWidth" name="bedWidth" placeholder="e.g., 1.2" min="1" step="0.1">
                             </div>
                         </div>
-                        
+
+                        <!-- Step 2.6: Plant Spacing for Quantity Calculations -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="inRowSpacing" class="form-label">
+                                    <i class="fas fa-arrows-alt-h text-success"></i>
+                                    In-Row Spacing (cm)
+                                    <small class="text-muted">Distance between plants in a row</small>
+                                </label>
+                                <input type="number" class="form-control" id="inRowSpacing" name="inRowSpacing" placeholder="e.g., 15" min="1" step="1" value="15">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="betweenRowSpacing" class="form-label">
+                                    <i class="fas fa-arrows-alt-v text-success"></i>
+                                    Between-Row Spacing (cm)
+                                    <small class="text-muted">Distance between rows</small>
+                                </label>
+                                <input type="number" class="form-control" id="betweenRowSpacing" name="betweenRowSpacing" placeholder="e.g., 20" min="1" step="1" value="20">
+                            </div>
+                        </div>
+
                         <!-- NEW: Visual Harvest Window Selector -->
                         <div class="mt-4">
                             <label class="form-label"><strong>Harvest Window Planning:</strong></label>
@@ -3479,6 +3499,50 @@ Calculate for ${contextPayload.planning_year}.`;
     }
 
     /**
+     * Calculate plant quantities based on bed dimensions and spacing
+     * @param {number} bedLength - Bed length in meters
+     * @param {number} bedWidth - Bed width in meters
+     * @param {number} inRowSpacing - In-row spacing in cm
+     * @param {number} betweenRowSpacing - Between-row spacing in cm
+     * @param {string} method - Planting method: 'direct' or 'transplant'
+     * @returns {object} Calculated quantities for seeding and transplanting
+     */
+    function calculatePlantQuantity(bedLength, bedWidth, inRowSpacing, betweenRowSpacing, method = 'direct') {
+        // Convert measurements to consistent units (cm)
+        const lengthCm = bedLength * 100;
+        const widthCm = bedWidth * 100;
+        
+        // Calculate number of rows that fit in the bed width
+        const numberOfRows = Math.floor(widthCm / betweenRowSpacing);
+        
+        // Calculate number of plants per row
+        const plantsPerRow = Math.floor(lengthCm / inRowSpacing);
+        
+        // Total plants in bed
+        const totalPlants = numberOfRows * plantsPerRow;
+        
+        // For direct seeding, we overseed by 20-50% to account for germination rate
+        // For transplanting, we use the actual plant count
+        let seedingQuantity = totalPlants;
+        let transplantQuantity = totalPlants;
+        
+        if (method === 'direct') {
+            seedingQuantity = Math.ceil(totalPlants * 1.3); // 30% overseeding
+        } else if (method === 'transplant') {
+            seedingQuantity = Math.ceil(totalPlants * 1.2); // 20% extra for transplant trays
+        }
+        
+        return {
+            totalPlants: totalPlants,
+            seedingQuantity: seedingQuantity,
+            transplantQuantity: transplantQuantity,
+            numberOfRows: numberOfRows,
+            plantsPerRow: plantsPerRow,
+            bedArea: (bedLength * bedWidth).toFixed(2) // m²
+        };
+    }
+
+    /**
      * Generate succession plan locally using variety data from database
      * No API calls - uses data already loaded in JavaScript
      */
@@ -3495,6 +3559,22 @@ Calculate for ${contextPayload.planning_year}.`;
         
         console.log(`🌱 Using variety maturity: ${maturityDays} days, harvest window: ${harvestDays} days`);
         
+        // Get bed dimensions and spacing for quantity calculations
+        const bedLength = parseFloat(document.getElementById('bedLength')?.value) || 30; // default 30m
+        const bedWidth = parseFloat(document.getElementById('bedWidth')?.value) || 1.2; // default 1.2m
+        const inRowSpacing = parseFloat(document.getElementById('inRowSpacing')?.value) || 15; // default 15cm
+        const betweenRowSpacing = parseFloat(document.getElementById('betweenRowSpacing')?.value) || 20; // default 20cm
+        
+        // Determine planting method (transplant vs direct seed)
+        const isTransplant = cropName.includes('brussels') || cropName.includes('cabbage') || 
+                            cropName.includes('broccoli') || cropName.includes('cauliflower');
+        const plantingMethod = isTransplant ? 'transplant' : 'direct';
+        
+        // Calculate quantities based on bed dimensions
+        const quantities = calculatePlantQuantity(bedLength, bedWidth, inRowSpacing, betweenRowSpacing, plantingMethod);
+        
+        console.log(`📏 Calculated quantities for ${bedLength}m x ${bedWidth}m bed:`, quantities);
+        
         // Calculate spacing between harvests
         const harvestDuration = Math.ceil((harvestEnd - harvestStart) / (1000 * 60 * 60 * 24));
         const harvestSpacing = successionCount > 1 ? Math.floor(harvestDuration / (successionCount - 1)) : 0;
@@ -3510,8 +3590,7 @@ Calculate for ${contextPayload.planning_year}.`;
             
             // For transplanted crops, calculate transplant date
             let transplantDate = null;
-            if (cropName.includes('brussels') || cropName.includes('cabbage') || 
-                cropName.includes('broccoli') || cropName.includes('cauliflower')) {
+            if (isTransplant) {
                 transplantDate = new Date(seedingDate);
                 transplantDate.setDate(transplantDate.getDate() + 35); // ~5 weeks from seed to transplant
             }
@@ -3529,7 +3608,12 @@ Calculate for ${contextPayload.planning_year}.`;
                 harvest_end_date: harvestEndDate.toISOString().split('T')[0],
                 bed_name: 'Unassigned',
                 crop_name: cropName,
-                variety_name: varietyName
+                variety_name: varietyName,
+                // Add calculated quantities
+                seeding_quantity: quantities.seedingQuantity,
+                transplant_quantity: quantities.transplantQuantity,
+                total_plants: quantities.totalPlants,
+                planting_method: plantingMethod
             });
         }
         
@@ -3866,7 +3950,7 @@ Calculate for ${contextPayload.planning_year}.`;
                             <div class="row">
                                 <div class="col-md-4">
                                     <input type="number" class="form-control" name="plantings[${i}][seeding][quantity][value]"
-                                           value="${p.quantity || 100}" step="0.01" min="0" required>
+                                           value="${p.seeding_quantity || 100}" step="1" min="0" required>
                                 </div>
                                 <div class="col-md-4">
                                     <select class="form-select" name="plantings[${i}][seeding][quantity][units]">
@@ -3882,6 +3966,7 @@ Calculate for ${contextPayload.planning_year}.`;
                                     </select>
                                 </div>
                             </div>
+                            ${p.seeding_quantity ? `<small class="text-muted">Calculated for ${p.total_plants || ''} plants with ${p.planting_method === 'direct' ? '30%' : '20%'} overseeding</small>` : ''}
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Notes</label>
@@ -3918,7 +4003,7 @@ Calculate for ${contextPayload.planning_year}.`;
                             <div class="row">
                                 <div class="col-md-4">
                                     <input type="number" class="form-control" name="plantings[${i}][transplanting][quantity][value]"
-                                           value="${p.quantity || 100}" step="0.01" min="0" required>
+                                           value="${p.transplant_quantity || p.total_plants || 100}" step="1" min="0" required>
                                 </div>
                                 <div class="col-md-4">
                                     <select class="form-select" name="plantings[${i}][transplanting][quantity][units]">
@@ -3934,6 +4019,7 @@ Calculate for ${contextPayload.planning_year}.`;
                                     </select>
                                 </div>
                             </div>
+                            ${p.transplant_quantity ? `<small class="text-muted">Calculated for ${p.total_plants || ''} plants</small>` : ''}
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Notes</label>
