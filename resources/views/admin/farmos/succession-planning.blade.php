@@ -1487,27 +1487,32 @@
                         <div id="brassicaDensityPreset" class="alert alert-info mb-3" style="display: none;">
                             <h6 class="mb-2">
                                 <i class="fas fa-layer-group"></i> 
-                                Planting Density Options (<span id="densityBedWidth">75</span>cm bed):
+                                Row Density Presets (<span id="densityBedWidth">75</span>cm bed):
                             </h6>
                             <div class="btn-group w-100" role="group">
                                 <button type="button" class="btn btn-outline-primary density-preset" data-between-row="40">
                                     <strong id="preset2rowsLabel">2 Rows</strong><br>
-                                    <small>Conservative (40cm spacing)</small>
+                                    <small>40cm between rows</small>
                                 </button>
                                 <button type="button" class="btn btn-outline-primary density-preset" data-between-row="30">
                                     <strong id="preset3rowsLabel">3 Rows</strong><br>
-                                    <small>Dense (30cm spacing)</small>
+                                    <small>30cm between rows</small>
                                 </button>
                             </div>
                             <small class="text-muted mt-2 d-block">
                                 <i class="fas fa-lightbulb"></i> 
-                                Database default is 2 rows (safer). Choose 3 rows for higher yield if conditions allow.
+                                These buttons set the "Between-Row Spacing" below. 40cm = conservative (default), 30cm = dense.
                             </small>
                         </div>
 
-                        <!-- NEW: Visual Harvest Window Selector -->
-                        <div class="mt-4">
-                            <label class="form-label"><strong>Harvest Window Planning:</strong></label>
+                        <!-- Harvest Window Section - Hidden until variety selected -->
+                        <div id="harvestWindowSection" style="display: none;">
+                            <!-- Visual Break -->
+                            <hr class="my-4">
+
+                            <!-- NEW: Visual Harvest Window Selector -->
+                            <div class="mt-4">
+                                <label class="form-label"><strong>Harvest Window Planning:</strong></label>
 
                             <!-- Maximum Possible Range Indicator -->
                             <div id="maxHarvestRange" class="mb-3 p-3 bg-light rounded" style="display: none;">
@@ -1595,6 +1600,7 @@
                                 </div>
                             </div>
                         </div>
+                        </div> <!-- End harvestWindowSection -->
                     </div>
                 </div>
             </div>
@@ -2148,6 +2154,7 @@
         const loading = document.getElementById('varietyLoading');
         const error = document.getElementById('varietyError');
         const noSelection = document.getElementById('noVarietySelected');
+        const harvestWindowSection = document.getElementById('harvestWindowSection');
 
         if (!varietyId) {
             // No variety selected
@@ -2156,6 +2163,7 @@
             loading.style.display = 'none';
             error.style.display = 'none';
             noSelection.style.display = 'block';
+            if (harvestWindowSection) harvestWindowSection.style.display = 'none';
             return;
         }
 
@@ -2165,6 +2173,7 @@
         loading.style.display = 'block';
         error.style.display = 'none';
         noSelection.style.display = 'none';
+        if (harvestWindowSection) harvestWindowSection.style.display = 'block';
 
         try {
             console.log('🔍 Calling fetchVarietyInfo...');
@@ -6467,7 +6476,7 @@ Plantings:`;
             if (successions > 0) {
                 successionList.innerHTML = sidebarHTML;
                 successionSidebar.style.display = 'block';
-                aiChatSection.style.display = 'none';
+                aiChatSection.style.display = 'block'; // Keep AI chat visible
 
                 console.log('📝 Sidebar HTML created:', sidebarHTML.substring(0, 200) + '...');
 
