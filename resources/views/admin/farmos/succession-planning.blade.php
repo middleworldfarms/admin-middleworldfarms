@@ -6204,8 +6204,11 @@ Plantings:`;
     function updateSuccessionImpact() {
         console.log('🔄 updateSuccessionImpact called');
         
+        const impactDiv = document.getElementById('successionImpact');
         const countBadge = document.getElementById('successionCount');
+        const previewDiv = document.getElementById('successionPreview');
 
+        // Only require countBadge, others are optional for enhanced display
         if (!countBadge) {
             console.warn('⚠️ Missing succession count badge element');
             return;
@@ -6393,8 +6396,15 @@ Plantings:`;
             `;
         }
 
-        previewDiv.innerHTML = previewHTML;
-        impactDiv.style.display = 'block';
+        // Update preview div if it exists
+        if (previewDiv) {
+            previewDiv.innerHTML = previewHTML;
+        }
+        
+        // Show impact div if it exists
+        if (impactDiv) {
+            impactDiv.style.display = 'block';
+        }
 
         // Update sidebar
         const successionList = document.getElementById('successionList');
