@@ -7366,12 +7366,60 @@ Plantings:`;
         // Add event listeners to save bed dimensions when changed
         const bedLengthInput = document.getElementById('bedLength');
         const bedWidthInput = document.getElementById('bedWidth');
+        const inRowSpacingInput = document.getElementById('inRowSpacing');
+        const betweenRowSpacingInput = document.getElementById('betweenRowSpacing');
+        
+        // Function to recalculate and update displayed quantities when inputs change
+        function updateDisplayedQuantities() {
+            if (!currentSuccessionPlan || !currentSuccessionPlan.plantings) {
+                return; // No plan to update
+            }
+
+            console.log('🔄 Recalculating plant quantities with updated bed dimensions/spacing...');
+
+            const bedLength = parseFloat(bedLengthInput?.value) || 10;
+            const bedWidthCm = parseFloat(bedWidthInput?.value) || 75;
+            const bedWidth = bedWidthCm / 100; // Convert to meters
+            const inRowSpacing = parseFloat(inRowSpacingInput?.value) || 15;
+            const betweenRowSpacing = parseFloat(betweenRowSpacingInput?.value) || 20;
+
+            // Recalculate quantities for all plantings
+            currentSuccessionPlan.plantings.forEach(planting => {
+                const quantities = calculatePlantQuantity(bedLength, bedWidth, inRowSpacing, betweenRowSpacing, planting.planting_method);
+                
+                // Update the planting object
+                planting.bed_length = bedLength;
+                planting.bed_width = bedWidthCm;
+                planting.in_row_spacing = inRowSpacing;
+                planting.between_row_spacing = betweenRowSpacing;
+                planting.number_of_rows = quantities.numberOfRows;
+                planting.plants_per_row = quantities.plantsPerRow;
+                planting.total_plants = quantities.totalPlants;
+            });
+
+            // Redisplay the succession list
+            displaySuccessionList(currentSuccessionPlan);
+
+            console.log('✅ Plant quantities updated with new dimensions');
+        }
         
         if (bedLengthInput) {
-            bedLengthInput.addEventListener('change', saveBedDimensions);
+            bedLengthInput.addEventListener('change', () => {
+                saveBedDimensions();
+                updateDisplayedQuantities();
+            });
         }
         if (bedWidthInput) {
-            bedWidthInput.addEventListener('change', saveBedDimensions);
+            bedWidthInput.addEventListener('change', () => {
+                saveBedDimensions();
+                updateDisplayedQuantities();
+            });
+        }
+        if (inRowSpacingInput) {
+            inRowSpacingInput.addEventListener('change', updateDisplayedQuantities);
+        }
+        if (betweenRowSpacingInput) {
+            betweenRowSpacingInput.addEventListener('change', updateDisplayedQuantities);
         }
 
         // Add event listeners for density preset buttons
