@@ -7,7 +7,7 @@
 @section('page-header')
     <div class="d-flex justify-content-between align-items-center w-100">
         <div>
-            <button id="syncVarietiesBtn" class="btn btn-sm btn-outline-primary" onclick="syncFarmOSVarieties()" title="Sync varieties from FarmOS - Only needed if FarmOS varieties have changed">
+            <button id="syncVarietiesBtn" class="btn btn-sm btn-light" onclick="syncFarmOSVarieties()" title="Sync varieties from FarmOS - Only needed if FarmOS varieties have changed">
                 <i class="fas fa-sync-alt"></i> Sync Varieties
             </button>
         </div>
