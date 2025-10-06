@@ -66,12 +66,19 @@ class SyncFarmOSVarieties extends Command
                         continue;
                     }
 
-                    // Get parent plant type
+                    // Get parent plant type (may not exist in flat plant_type structure)
                     $parentId = $relationships['parent']['data'][0]['id'] ?? null;
                     $plantType = null;
 
                     if ($parentId && isset($plantTypeLookup[$parentId])) {
                         $plantType = $plantTypeLookup[$parentId]['attributes']['name'] ?? null;
+                    }
+
+                    // Extract crop family from relationships if available
+                    $cropFamily = null;
+                    if (isset($relationships['crop_family']['data'][0]['id'])) {
+                        $cropFamilyId = $relationships['crop_family']['data'][0]['id'];
+                        // You could fetch the actual family name here if needed
                     }
 
                     // Update or create variety
@@ -84,6 +91,17 @@ class SyncFarmOSVarieties extends Command
                             'plant_type' => $plantType,
                             'plant_type_id' => $parentId,
                             'farmos_tid' => $attributes['drupal_internal__tid'] ?? null,
+                            
+                            // Timing fields
+                            'maturity_days' => $attributes['maturity_days'] ?? null,
+                            'transplant_days' => $attributes['transplant_days'] ?? null,
+                            'harvest_days' => $attributes['harvest_days'] ?? null,
+                            
+                            // NEW: Spacing fields
+                            'in_row_spacing_cm' => $attributes['in_row_spacing_cm'] ?? null,
+                            'between_row_spacing_cm' => $attributes['between_row_spacing_cm'] ?? null,
+                            'planting_method' => $attributes['planting_method'] ?? null,
+                            
                             'farmos_data' => $farmOSVariety,
                             'is_active' => true,
                             'last_synced_at' => now(),
