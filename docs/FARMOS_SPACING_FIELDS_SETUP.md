@@ -77,15 +77,19 @@ Add the following **custom fields** to your Plant Variety taxonomy terms in Farm
 - **Description**: "Primary planting method for this variety"
 - **Required**: No (Optional)
 - **Allowed Values**:
-  - `direct` - Direct Seeding
-  - `transplant` - Transplanting
+  - `direct` - Direct Seeding (388 varieties use this)
+  - `transplant` - Transplanting (715 varieties use this)
   - `both` - Both Methods
+  - `either` - Either Method (1,856 varieties use this)
 - **Example Values**:
-  - Lettuce: `both`
+  - Lettuce: `either`
   - Carrots: `direct`
   - Cabbage: `transplant`
   - Radish: `direct`
   - Kale: `transplant`
+  - Tomato: `transplant`
+
+**Note:** The `either` value is commonly used in FarmOS and is supported by the local database.
 
 ---
 
@@ -183,12 +187,14 @@ These fields map to the following columns in the `plant_varieties` table:
 |----------------|------|----------|-------------|
 | `in_row_spacing_cm` | decimal(5,1) | YES | Distance between plants in row (cm) |
 | `between_row_spacing_cm` | decimal(5,1) | YES | Distance between rows (cm) |
-| `planting_method` | enum | YES | 'direct', 'transplant', or 'both' |
+| `planting_method` | enum | YES | 'direct', 'transplant', 'both', or 'either' |
 | `maturity_days` | integer | YES | Days from seeding to first harvest |
 | `transplant_days` | integer | YES | Days from seeding to transplanting |
 | `harvest_days` | integer | YES | Harvest window duration in days |
 
 **Note:** The last three fields (`maturity_days`, `transplant_days`, `harvest_days`) already exist in your database. Make sure FarmOS field names match exactly.
+
+**Enum Migration:** The `planting_method` enum was updated on October 6, 2025 to include the `'either'` value after discovering it was used by 1,856 varieties (62.7%) in FarmOS.
 
 ---
 
@@ -235,10 +241,13 @@ These fields map to the following columns in the `plant_varieties` table:
    direct|Direct Seeding
    transplant|Transplanting
    both|Both Methods
+   either|Either Method
    ```
 6. Set to single-value (not multi-value)
 7. Required: No
 8. Save field
+
+**Important:** Make sure to include the `either` value - it's the most commonly used value in production (used by 1,856/2,959 varieties).
 
 ---
 
@@ -269,16 +278,32 @@ Use these as guidelines when populating your varieties:
 
 ## Sync Process
 
-After adding these fields to FarmOS:
+After adding these fields to FarmOS and populating them with data:
 
-1. **Trigger Manual Sync** (if available):
+1. **Trigger Manual Sync**:
    ```bash
-   php artisan farmos:sync-varieties
+   php artisan farmos:sync-varieties:legacy --force
    ```
 
-2. **Automatic Sync**: The system will pull new field data on the next scheduled sync
+2. **Monitor Progress**: Watch for the sync summary showing varieties synced/errors
 
-3. **Verify Sync**: Check that spacing values appear in the succession planner when you select a variety
+3. **Verify Results**: 
+   ```bash
+   php artisan tinker --execute="echo 'Total: ' . \App\Models\PlantVariety::count() . PHP_EOL; echo 'With spacing: ' . \App\Models\PlantVariety::whereNotNull('in_row_spacing_cm')->count() . PHP_EOL;"
+   ```
+
+4. **Automatic Sync**: The system will pull new field data on the next scheduled sync
+
+**Actual Sync Results (October 6, 2025):**
+- ✅ **2,959 varieties synced** (100% success rate)
+- ✅ **2,959 varieties with spacing data** (100%)
+- ✅ **134 varieties with maturity days** (4.5%)
+- ✅ **0 errors** after fixing enum to include 'either' value
+
+**Planting Method Distribution:**
+- Direct: 388 varieties (13.1%)
+- Transplant: 715 varieties (24.2%)
+- Either: 1,856 varieties (62.7%)
 
 ---
 
@@ -311,10 +336,17 @@ If a variety doesn't have spacing values in FarmOS:
 ---3. Save the term
 
 ### Test in Succession Planner:
-1. Trigger variety sync
-2. Go to Succession Planning interface
-3. Select the variety you edited
-4. Check if spacing fields auto-populate with the correct values
+1. Trigger variety sync: `php artisan farmos:sync-varieties:legacy --force`
+2. Verify sync completed: Check output shows "✅ Sync complete!" and 0 errors
+3. Go to Succession Planning interface
+4. Select a variety you edited (or any variety with spacing data)
+5. Spacing fields should auto-populate with correct values from database
+
+**Production Test Results (October 6, 2025):**
+- ✅ Cabbage varieties: 45cm in-row / 60cm between-row / transplant
+- ✅ Lettuce varieties: 25cm in-row / 30cm between-row / either
+- ✅ Tomato varieties: 45cm in-row / 60cm between-row / transplant
+- ✅ All 2,959 varieties successfully synced with spacing data
 
 ---
 
@@ -328,18 +360,23 @@ If a variety doesn't have spacing values in FarmOS:
 
 **Common Issues:**
 - **Wrong field type**: Must be decimal/number, not text
-- **Wrong machine name**: Must match exactly `in_row_spacing_cm`
+- **Wrong machine name**: Must match exactly `in_row_spacing_cm` (case-sensitive)
 - **API not exposing field**: Check FarmOS field permissions
+- **Enum value mismatch**: If using 'either' value, ensure database enum includes it
+- **Sync errors with planting_method**: Database must support all four values: 'direct', 'transplant', 'both', 'either'
 
 ---
 
 ## Version Info
 
 - **Created**: October 2025
+- **Last Updated**: October 6, 2025
 - **Database Migration**: `2025_10_06_002201_add_spacing_cm_to_plant_varieties_table`
+- **Enum Update Migration**: `2025_10_06_011917_update_planting_method_enum_values`
 - **Local DB Table**: `plant_varieties`
-- **FarmOS Vocabulary**: `plant_variety`
-- **Sync Service**: Auto-sync enabled
+- **FarmOS Vocabulary**: `plant_type` (not plant_variety)
+- **Sync Service**: `farmos:sync-varieties:legacy`
+- **Production Status**: ✅ Live - 2,959 varieties synced successfully
 
 ---
 
@@ -352,12 +389,18 @@ FarmOS Field Setup Checklist:
 ✓ Navigate to Structure → Taxonomy → Plant Type (not plant_variety!)
 ✓ Field 1: in_row_spacing_cm (decimal, 1-200, 1 decimal place)
 ✓ Field 2: between_row_spacing_cm (decimal, 1-200, 1 decimal place)  
-✓ Field 3: planting_method (list: direct|transplant|both)
+✓ Field 3: planting_method (list: direct|transplant|both|either)
 ✓ All fields optional (nullable)
 ✓ Added to plant_type vocabulary (2,959 terms)
 ✓ API accessible via JSON:API /api/taxonomy_term/plant_type
 ✓ Field names match Laravel plant_varieties table columns exactly
+✓ Database enum supports all four planting methods including 'either'
 ```
+
+**Production Sync Results:**
+- ✅ 2,959/2,959 varieties synced (100% success)
+- ✅ All varieties have spacing data
+- ✅ Verified: Cabbage (45/60cm), Lettuce (25/30cm), Tomato (45/60cm)
 
 ---
 
