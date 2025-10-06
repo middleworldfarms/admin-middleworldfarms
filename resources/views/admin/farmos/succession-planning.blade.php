@@ -3555,10 +3555,15 @@ Calculate for ${contextPayload.planning_year}.`;
         const widthCm = bedWidth * 100;
         
         // Calculate number of rows that fit in the bed width
-        const numberOfRows = Math.floor(widthCm / betweenRowSpacing);
+        // Between-row spacing is the GAP between rows (center-to-center distance)
+        // Think in terms of gaps: 3 rows = 2 gaps, 2 rows = 1 gap
+        // So: number of gaps that fit + 1 = number of rows
+        const numberOfGaps = Math.floor(widthCm / betweenRowSpacing);
+        const numberOfRows = numberOfGaps + 1;
         
         // Calculate number of plants per row
-        const plantsPerRow = Math.floor(lengthCm / inRowSpacing);
+        // Similarly, in-row spacing is plant-to-plant gap distance
+        const plantsPerRow = Math.floor(lengthCm / inRowSpacing) + 1;
         
         // Total plants in bed
         const totalPlants = numberOfRows * plantsPerRow;
