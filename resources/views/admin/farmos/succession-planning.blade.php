@@ -2556,6 +2556,11 @@
         harvestWindowData.userStart = startDate.toISOString().split('T')[0];
         harvestWindowData.userEnd = endDate.toISOString().split('T')[0];
         
+        console.log('📊 Harvest bar moved - updating succession count:', {
+            start: harvestWindowData.userStart,
+            end: harvestWindowData.userEnd
+        });
+        
         // Recalculate succession count based on new harvest window
         updateSuccessionImpact();
     }
@@ -6197,16 +6202,27 @@ Plantings:`;
 
     // Update succession impact preview
     function updateSuccessionImpact() {
+        console.log('🔄 updateSuccessionImpact called');
+        
         const impactDiv = document.getElementById('successionImpact');
         const countBadge = document.getElementById('successionCount');
         const previewDiv = document.getElementById('successionPreview');
 
-        if (!impactDiv || !countBadge || !previewDiv) return;
-        if (!harvestWindowData.userStart || !harvestWindowData.userEnd) return;
+        if (!impactDiv || !countBadge || !previewDiv) {
+            console.warn('⚠️ Missing DOM elements:', { impactDiv: !!impactDiv, countBadge: !!countBadge, previewDiv: !!previewDiv });
+            return;
+        }
+        
+        if (!harvestWindowData.userStart || !harvestWindowData.userEnd) {
+            console.warn('⚠️ Missing harvest window data:', harvestWindowData);
+            return;
+        }
 
         const start = new Date(harvestWindowData.userStart);
         const end = new Date(harvestWindowData.userEnd);
         const duration = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+
+        console.log('📊 Calculating succession impact - duration:', duration, 'days');
 
         // Get crop information for better calculations
         const cropSelect = document.getElementById('cropSelect');
