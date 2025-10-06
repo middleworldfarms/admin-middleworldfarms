@@ -1504,15 +1504,19 @@
                                 These buttons set the "Between-Row Spacing" below. 40cm = conservative (default), 30cm = dense.
                             </small>
                         </div>
+                    </div>
+                </div>
 
-                        <!-- Harvest Window Section - Hidden until variety selected -->
-                        <div id="harvestWindowSection" style="display: none;">
-                            <!-- Visual Break -->
-                            <hr class="my-4">
-
-                            <!-- NEW: Visual Harvest Window Selector -->
-                            <div class="mt-4">
-                                <label class="form-label"><strong>Harvest Window Planning:</strong></label>
+                <!-- Harvest Window Section - Hidden until variety selected -->
+                <div id="harvestWindowSection" class="card shadow-sm mt-4" style="display: none;">
+                    <div class="card-body bg-light">
+                        <h5 class="card-title mb-3">
+                            <i class="fas fa-calendar-check text-success"></i>
+                            Harvest Window Planning
+                        </h5>
+                        
+                        <!-- NEW: Visual Harvest Window Selector -->
+                        <div class="mt-3">
 
                             <!-- Maximum Possible Range Indicator -->
                             <div id="maxHarvestRange" class="mb-3 p-3 bg-light rounded" style="display: none;">
@@ -1600,9 +1604,8 @@
                                 </div>
                             </div>
                         </div>
-                        </div> <!-- End harvestWindowSection -->
                     </div>
-                </div>
+                </div> <!-- End harvestWindowSection card -->
             </div>
 
             <!-- Results Section -->
