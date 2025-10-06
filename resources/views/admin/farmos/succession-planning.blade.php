@@ -2551,6 +2551,13 @@
         
         if (startInput) startInput.value = startDate.toISOString().split('T')[0];
         if (endInput) endInput.value = endDate.toISOString().split('T')[0];
+        
+        // Update harvestWindowData so succession count recalculates
+        harvestWindowData.userStart = startDate.toISOString().split('T')[0];
+        harvestWindowData.userEnd = endDate.toISOString().split('T')[0];
+        
+        // Recalculate succession count based on new harvest window
+        updateSuccessionImpact();
     }
 
     // Extend harvest window by maximum 20%
