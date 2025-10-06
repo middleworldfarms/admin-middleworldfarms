@@ -2272,6 +2272,10 @@ class SuccessionPlanningController extends Controller
                     'harvest_method' => $plantVariety->harvest_method,
                     'expected_yield_per_plant' => $plantVariety->expected_yield_per_plant,
                     'image_url' => $plantVariety->image_url,
+                    // Spacing data for quantity calculations
+                    'in_row_spacing_cm' => $plantVariety->in_row_spacing_cm,
+                    'between_row_spacing_cm' => $plantVariety->between_row_spacing_cm,
+                    'planting_method' => $plantVariety->planting_method,
                     'source' => 'Admin Database'
                 ];
 

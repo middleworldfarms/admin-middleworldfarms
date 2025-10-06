@@ -1474,6 +1474,13 @@
                                 </label>
                                 <input type="number" class="form-control" id="betweenRowSpacing" name="betweenRowSpacing" placeholder="e.g., 20" min="1" step="1" value="20">
                             </div>
+                            <div class="col-12 mt-2">
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle"></i>
+                                    <span class="border border-success px-2 py-1" style="display: inline-block;">Green border</span> 
+                                    indicates spacing auto-filled from database. You can adjust these values as needed.
+                                </small>
+                            </div>
                         </div>
 
                         <!-- NEW: Visual Harvest Window Selector -->
@@ -2056,6 +2063,41 @@
             // No photo available
             photoEl.style.display = 'none';
             noPhotoEl.style.display = 'block';
+        }
+
+        // Auto-populate spacing fields from database
+        const inRowSpacingInput = document.getElementById('inRowSpacing');
+        const betweenRowSpacingInput = document.getElementById('betweenRowSpacing');
+        
+        if (varietyData.in_row_spacing_cm && varietyData.in_row_spacing_cm > 0) {
+            inRowSpacingInput.value = varietyData.in_row_spacing_cm;
+            // Add visual indicator that value is from database
+            inRowSpacingInput.classList.add('border-success');
+            inRowSpacingInput.title = `Auto-filled from database: ${varietyData.in_row_spacing_cm} cm`;
+            console.log('✅ Auto-populated in-row spacing:', varietyData.in_row_spacing_cm, 'cm');
+        } else {
+            // Keep default value, remove database indicator
+            inRowSpacingInput.classList.remove('border-success');
+            inRowSpacingInput.title = 'Default spacing - adjust as needed';
+            console.log('ℹ️ No in-row spacing in database, using default');
+        }
+        
+        if (varietyData.between_row_spacing_cm && varietyData.between_row_spacing_cm > 0) {
+            betweenRowSpacingInput.value = varietyData.between_row_spacing_cm;
+            // Add visual indicator that value is from database
+            betweenRowSpacingInput.classList.add('border-success');
+            betweenRowSpacingInput.title = `Auto-filled from database: ${varietyData.between_row_spacing_cm} cm`;
+            console.log('✅ Auto-populated between-row spacing:', varietyData.between_row_spacing_cm, 'cm');
+        } else {
+            // Keep default value, remove database indicator
+            betweenRowSpacingInput.classList.remove('border-success');
+            betweenRowSpacingInput.title = 'Default spacing - adjust as needed';
+            console.log('ℹ️ No between-row spacing in database, using default');
+        }
+        
+        // Log planting method for reference (could be used for overseeding calculations later)
+        if (varietyData.planting_method) {
+            console.log('🌱 Planting method:', varietyData.planting_method);
         }
 
         console.log('✅ Variety information displayed');
