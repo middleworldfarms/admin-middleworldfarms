@@ -4079,7 +4079,7 @@ Calculate for ${contextPayload.planning_year}.`;
                         <div class="mb-3">
                             <label class="form-label">Location *</label>
                             <input type="text" class="form-control" name="plantings[${i}][seeding][location]"
-                                   value="${p.bed_name || ''}" required>
+                                   value="${p.transplant_date ? 'Propagation' : (p.bed_name || '')}" required>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Quantity *</label>
@@ -4999,14 +4999,18 @@ Calculate for ${contextPayload.planning_year}.`;
                             }
                         }
                         
+                        // Check if this is a transplant method
+                        const isTransplant = allocationData.transplantDate || allocationData.method?.toLowerCase().includes('transplant');
+                        
                         // Update location in seeding form
                         const seedingLocationInput = tabPane.querySelector(`input[name="plantings[${allocationData.successionIndex - 1}][seeding][location]"]`);
                         if (seedingLocationInput) {
-                            seedingLocationInput.value = bedName;
-                            console.log('✅ Updated seeding location to:', bedName);
+                            // If transplant, seeding location should be "Propagation", otherwise use bed name
+                            seedingLocationInput.value = isTransplant ? 'Propagation' : bedName;
+                            console.log('✅ Updated seeding location to:', isTransplant ? 'Propagation' : bedName);
                         }
                         
-                        // Update location in transplant form
+                        // Update location in transplant form (only if it's a transplant)
                         const transplantLocationInput = tabPane.querySelector(`input[name="plantings[${allocationData.successionIndex - 1}][transplanting][location]"]`);
                         if (transplantLocationInput) {
                             transplantLocationInput.value = bedName;
@@ -5100,14 +5104,18 @@ Calculate for ${contextPayload.planning_year}.`;
                         }
                     }
                     
+                    // Check if this is a transplant method
+                    const isTransplant = successionData.transplantDate || successionData.method?.toLowerCase().includes('transplant');
+                    
                     // Update location in seeding form
                     const seedingLocationInput = tabPane.querySelector(`input[name="plantings[${successionIndex}][seeding][location]"]`);
                     if (seedingLocationInput) {
-                        seedingLocationInput.value = bedName;
-                        console.log('✅ Updated seeding location to:', bedName);
+                        // If transplant, seeding location should be "Propagation", otherwise use bed name
+                        seedingLocationInput.value = isTransplant ? 'Propagation' : bedName;
+                        console.log('✅ Updated seeding location to:', isTransplant ? 'Propagation' : bedName);
                     }
                     
-                    // Update location in transplant form
+                    // Update location in transplant form (only if it's a transplant)
                     const transplantLocationInput = tabPane.querySelector(`input[name="plantings[${successionIndex}][transplanting][location]"]`);
                     if (transplantLocationInput) {
                         transplantLocationInput.value = bedName;
