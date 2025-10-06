@@ -1490,15 +1490,13 @@
                                 Planting Density Options (<span id="densityBedWidth">75</span>cm bed):
                             </h6>
                             <div class="btn-group w-100" role="group">
-                                <button type="button" class="btn btn-outline-primary density-preset" data-rows="2" data-between-row="40">
-                                    <strong>2 Rows</strong><br>
-                                    <small>Conservative (40cm spacing)</small><br>
-                                    <small class="text-success" id="preset2rows">≈2 rows on 75cm</small>
+                                <button type="button" class="btn btn-outline-primary density-preset" data-between-row="40">
+                                    <strong id="preset2rowsLabel">2 Rows</strong><br>
+                                    <small>Conservative (40cm spacing)</small>
                                 </button>
-                                <button type="button" class="btn btn-outline-primary density-preset" data-rows="3" data-between-row="30">
-                                    <strong>3 Rows</strong><br>
-                                    <small>Dense (30cm spacing)</small><br>
-                                    <small class="text-success" id="preset3rows">≈3 rows on 75cm</small>
+                                <button type="button" class="btn btn-outline-primary density-preset" data-between-row="30">
+                                    <strong id="preset3rowsLabel">3 Rows</strong><br>
+                                    <small>Dense (30cm spacing)</small>
                                 </button>
                             </div>
                             <small class="text-muted mt-2 d-block">
@@ -7376,8 +7374,8 @@ Plantings:`;
         function updateDensityPresetDisplay() {
             const bedWidthCm = parseFloat(bedWidthInput?.value) || 75;
             const densityBedWidthSpan = document.getElementById('densityBedWidth');
-            const preset2rowsText = document.getElementById('preset2rows');
-            const preset3rowsText = document.getElementById('preset3rows');
+            const preset2rowsLabel = document.getElementById('preset2rowsLabel');
+            const preset3rowsLabel = document.getElementById('preset3rowsLabel');
             
             if (densityBedWidthSpan) {
                 densityBedWidthSpan.textContent = bedWidthCm;
@@ -7387,11 +7385,12 @@ Plantings:`;
             const rows2 = Math.floor(bedWidthCm / 40) + 1;
             const rows3 = Math.floor(bedWidthCm / 30) + 1;
             
-            if (preset2rowsText) {
-                preset2rowsText.textContent = `≈${rows2} rows on ${bedWidthCm}cm`;
+            // Update button labels with calculated row counts
+            if (preset2rowsLabel) {
+                preset2rowsLabel.textContent = `${rows2} Rows`;
             }
-            if (preset3rowsText) {
-                preset3rowsText.textContent = `≈${rows3} rows on ${bedWidthCm}cm`;
+            if (preset3rowsLabel) {
+                preset3rowsLabel.textContent = `${rows3} Rows`;
             }
         }
         
