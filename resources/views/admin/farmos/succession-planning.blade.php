@@ -6204,12 +6204,10 @@ Plantings:`;
     function updateSuccessionImpact() {
         console.log('🔄 updateSuccessionImpact called');
         
-        const impactDiv = document.getElementById('successionImpact');
         const countBadge = document.getElementById('successionCount');
-        const previewDiv = document.getElementById('successionPreview');
 
-        if (!impactDiv || !countBadge || !previewDiv) {
-            console.warn('⚠️ Missing DOM elements:', { impactDiv: !!impactDiv, countBadge: !!countBadge, previewDiv: !!previewDiv });
+        if (!countBadge) {
+            console.warn('⚠️ Missing succession count badge element');
             return;
         }
         
