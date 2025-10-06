@@ -1450,9 +1450,9 @@
                             <div class="col-md-6">
                                 <label for="bedWidth" class="form-label">
                                     <i class="fas fa-ruler-vertical text-info"></i>
-                                    Bed Width (meters)
+                                    Bed Width (cm)
                                 </label>
-                                <input type="number" class="form-control" id="bedWidth" name="bedWidth" placeholder="e.g., 1.2" min="1" step="0.1">
+                                <input type="number" class="form-control" id="bedWidth" name="bedWidth" placeholder="e.g., 75" min="10" step="1">
                             </div>
                         </div>
 
@@ -3615,7 +3615,8 @@ Calculate for ${contextPayload.planning_year}.`;
         
         // Get bed dimensions and spacing for quantity calculations
         const bedLength = parseFloat(document.getElementById('bedLength')?.value) || 30; // default 30m
-        const bedWidth = parseFloat(document.getElementById('bedWidth')?.value) || 1.2; // default 1.2m
+        const bedWidthCm = parseFloat(document.getElementById('bedWidth')?.value) || 75; // default 75cm
+        const bedWidth = bedWidthCm / 100; // Convert cm to meters for calculations
         const inRowSpacing = parseFloat(document.getElementById('inRowSpacing')?.value) || 15; // default 15cm
         const betweenRowSpacing = parseFloat(document.getElementById('betweenRowSpacing')?.value) || 20; // default 20cm
         
@@ -3627,7 +3628,7 @@ Calculate for ${contextPayload.planning_year}.`;
         // Calculate quantities based on bed dimensions
         const quantities = calculatePlantQuantity(bedLength, bedWidth, inRowSpacing, betweenRowSpacing, plantingMethod);
         
-        console.log(`📏 Calculated quantities for ${bedLength}m x ${bedWidth}m bed:`, quantities);
+        console.log(`📏 Calculated quantities for ${bedLength}m x ${bedWidthCm}cm bed:`, quantities);
         
         // Calculate spacing between harvests
         const harvestDuration = Math.ceil((harvestEnd - harvestStart) / (1000 * 60 * 60 * 24));
@@ -3749,7 +3750,12 @@ Calculate for ${contextPayload.planning_year}.`;
             harvest_end: he.value,
             bed_ids: [], // Beds will be assigned via drag-and-drop on timeline
             succession_count: successionCount,
-            use_ai: true
+            use_ai: true,
+            // Add bed dimensions and spacing for calculations
+            bed_length: parseFloat(document.getElementById('bedLength')?.value) || 30,
+            bed_width: parseFloat(document.getElementById('bedWidth')?.value) || 75, // in cm
+            in_row_spacing: parseFloat(document.getElementById('inRowSpacing')?.value) || 15,
+            between_row_spacing: parseFloat(document.getElementById('betweenRowSpacing')?.value) || 20
         };
 
         console.log('📦 Generating local succession plan (no API call):', payload);
@@ -4034,7 +4040,7 @@ Calculate for ${contextPayload.planning_year}.`;
                                     </small>
                                     <small class="text-muted d-block">
                                         <i class="fas fa-calculator"></i> 
-                                        ${p.bed_length || '?'}m × ${p.bed_width || '?'}m bed: 
+                                        ${p.bed_length || '?'}m × ${p.bed_width || '?'}cm bed: 
                                         <strong>${p.plants_per_row || '?'} plants/row</strong> × <strong>${p.number_of_rows || '?'} rows</strong> = ${p.total_plants || '?'} plants
                                     </small>
                                     <small class="text-muted">
@@ -4101,7 +4107,7 @@ Calculate for ${contextPayload.planning_year}.`;
                                     </small>
                                     <small class="text-muted d-block">
                                         <i class="fas fa-calculator"></i> 
-                                        ${p.bed_length || '?'}m × ${p.bed_width || '?'}m bed: 
+                                        ${p.bed_length || '?'}m × ${p.bed_width || '?'}cm bed: 
                                         <strong>${p.plants_per_row || '?'} plants/row</strong> × <strong>${p.number_of_rows || '?'} rows</strong> = ${p.total_plants || '?'} plants
                                     </small>
                                     <small class="text-muted">
@@ -6262,7 +6268,8 @@ Plantings:`;
 
         // Calculate seed/transplant amounts based on bed dimensions
         const bedLength = parseFloat(document.getElementById('bedLength')?.value) || 0;
-        const bedWidth = parseFloat(document.getElementById('bedWidth')?.value) || 0;
+        const bedWidthCm = parseFloat(document.getElementById('bedWidth')?.value) || 0;
+        const bedWidth = bedWidthCm / 100; // Convert cm to meters
         const bedArea = bedLength * bedWidth; // in square meters
 
         let seedInfoHTML = '';
@@ -7198,6 +7205,40 @@ Plantings:`;
         }
     }
 
+    // Bed Dimensions Persistence (localStorage)
+    // Save only bed dimensions - spacing and dates auto-fill per crop
+    function saveBedDimensions() {
+        const bedLength = document.getElementById('bedLength')?.value;
+        const bedWidth = document.getElementById('bedWidth')?.value;
+        
+        if (bedLength) {
+            localStorage.setItem('farmBedLength', bedLength);
+        }
+        if (bedWidth) {
+            localStorage.setItem('farmBedWidth', bedWidth);
+        }
+        
+        console.log('💾 Saved bed dimensions:', { bedLength, bedWidth });
+    }
+
+    function loadBedDimensions() {
+        const savedBedLength = localStorage.getItem('farmBedLength');
+        const savedBedWidth = localStorage.getItem('farmBedWidth');
+        
+        const bedLengthInput = document.getElementById('bedLength');
+        const bedWidthInput = document.getElementById('bedWidth');
+        
+        if (savedBedLength && bedLengthInput && !bedLengthInput.value) {
+            bedLengthInput.value = savedBedLength;
+            console.log('📂 Loaded bed length:', savedBedLength, 'm');
+        }
+        
+        if (savedBedWidth && bedWidthInput && !bedWidthInput.value) {
+            bedWidthInput.value = savedBedWidth;
+            console.log('📂 Loaded bed width:', savedBedWidth, 'cm');
+        }
+    }
+
     // Initialize Succession Planner when DOM is ready
     document.addEventListener('DOMContentLoaded', function() {
         // AGGRESSIVE scroll to top - prevent browser auto-scroll restoration
@@ -7243,6 +7284,20 @@ Plantings:`;
 
         // Initialize the new harvest window selector
         initializeHarvestWindowSelector();
+
+        // Load saved bed dimensions from localStorage
+        loadBedDimensions();
+
+        // Add event listeners to save bed dimensions when changed
+        const bedLengthInput = document.getElementById('bedLength');
+        const bedWidthInput = document.getElementById('bedWidth');
+        
+        if (bedLengthInput) {
+            bedLengthInput.addEventListener('change', saveBedDimensions);
+        }
+        if (bedWidthInput) {
+            bedWidthInput.addEventListener('change', saveBedDimensions);
+        }
 
         // Initialize Bootstrap tooltips
         const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
