@@ -1845,6 +1845,8 @@
     let isDragging = false;
     let dragHandle = null;
     let dragStartX = 0;
+    let initialBarLeft = 0; // Track initial bar position when drag starts
+    let initialBarWidth = 0; // Track initial bar width when drag starts
     let cropId = null; // Track selected crop ID for variety filtering
     // Shared controllers to cancel stale AI requests
     let __aiCalcController = null;
@@ -2351,14 +2353,18 @@
         console.log('🖱️ Mouse down event triggered', e.target);
         
         const handle = e.target.closest('.drag-handle');
+        const dragBar = document.getElementById('dragHarvestBar');
+        
         if (!handle) {
             // Check if clicking on the bar itself
             const bar = e.target.closest('.drag-harvest-bar');
-            if (bar) {
+            if (bar && dragBar) {
                 console.log('🟢 Dragging whole bar');
                 isDragging = true;
                 dragHandle = 'whole';
                 dragStartX = e.clientX;
+                initialBarLeft = parseFloat(dragBar.style.left) || 20;
+                initialBarWidth = parseFloat(dragBar.style.width) || 40;
                 e.preventDefault();
                 document.body.style.cursor = 'grabbing';
             } else {
@@ -2372,6 +2378,11 @@
         dragHandle = handle.dataset.handle;
         dragStartX = e.clientX;
         
+        if (dragBar) {
+            initialBarLeft = parseFloat(dragBar.style.left) || 20;
+            initialBarWidth = parseFloat(dragBar.style.width) || 40;
+        }
+        
         e.preventDefault();
         e.stopPropagation();
         document.body.style.cursor = 'grabbing';
@@ -2379,23 +2390,29 @@
 
     function handleMouseMove(e, cachedRect = null) {
         if (!isDragging || !dragHandle) return;
+        
         const timeline = document.getElementById('harvestTimeline');
         const rect = cachedRect || timeline.getBoundingClientRect();
         const timelineWidth = rect.width - 40; // Account for padding
         
-        const mouseX = e.clientX - rect.left - 20; // Account for padding
-        const percentage = Math.max(0, Math.min(100, (mouseX / timelineWidth) * 100));
+        // Calculate the delta movement in pixels
+        const deltaX = e.clientX - dragStartX;
+        // Convert to percentage
+        const deltaPercentage = (deltaX / timelineWidth) * 100;
         
         if (dragHandle === 'whole') {
-            // Move the entire bar
+            // Move the entire bar by the delta amount
             const dragBar = document.getElementById('dragHarvestBar');
-            const currentWidth = parseFloat(dragBar.style.width) || 40;
-            const newLeft = Math.max(0, Math.min(100 - currentWidth, percentage - currentWidth/2));
+            const newLeft = Math.max(0, Math.min(100 - initialBarWidth, initialBarLeft + deltaPercentage));
             
             dragBar.style.left = newLeft + '%';
+            dragBar.style.width = initialBarWidth + '%';
             updateDateDisplays();
             updateDateInputsFromBar();
         } else {
+            // For handle dragging, calculate the new position based on mouse position
+            const mouseX = e.clientX - rect.left - 20; // Account for padding
+            const percentage = Math.max(0, Math.min(100, (mouseX / timelineWidth) * 100));
             updateHandlePosition(dragHandle, percentage);
         }
         
