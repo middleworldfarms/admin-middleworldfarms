@@ -187,6 +187,7 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         // Data sync routes
         Route::post('/sync-harvests', [App\Http\Controllers\Admin\FarmOSDataController::class, 'syncHarvests'])->name('sync-harvests');
         Route::post('/sync-to-stock', [App\Http\Controllers\Admin\FarmOSDataController::class, 'syncToStock'])->name('sync-to-stock');
+        Route::post('/sync-varieties', [App\Http\Controllers\Admin\FarmOSDataController::class, 'syncVarieties'])->name('sync-varieties');
         Route::delete('/clear-test-data', [App\Http\Controllers\Admin\FarmOSDataController::class, 'clearTestData'])->name('clear-test-data');
         
         // Succession Planning routes - AI-powered succession planting

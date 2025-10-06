@@ -5,7 +5,17 @@
 @section('page-title', 'farmOS Succession Planner')
 
 @section('page-header')
-    <p class="lead">Revolutionary backward planning from harvest windows • Real farmOS taxonomy • AI-powered intelligence</p>
+    <div class="d-flex justify-content-between align-items-center w-100">
+        <div>
+            <button id="syncVarietiesBtn" class="btn btn-sm btn-outline-primary" onclick="syncFarmOSVarieties()" title="Sync varieties from FarmOS - Only needed if FarmOS varieties have changed">
+                <i class="fas fa-sync-alt"></i> Sync Varieties
+            </button>
+        </div>
+        <div class="text-center flex-grow-1">
+            <p class="lead mb-0">Revolutionary backward planning from harvest windows • Real farmOS taxonomy • AI-powered intelligence</p>
+        </div>
+        <div></div>
+    </div>
 @endsection
 
 @section('styles')
@@ -1760,6 +1770,9 @@
 
                     <div class="mt-3">
                         <div class="d-grid gap-2 mb-2">
+                            <button class="btn btn-outline-primary btn-sm" onclick="syncVarietiesFromFarmOS()" title="Sync latest variety data from FarmOS">
+                                <i class="fas fa-sync"></i> Sync Varieties from FarmOS
+                            </button>
                             <button class="btn btn-outline-danger btn-sm" onclick="clearAllAllocations()" title="Clear all bed allocations to start fresh">
                                 <i class="fas fa-trash"></i> Clear All Allocations
                             </button>
@@ -3363,6 +3376,44 @@ Calculate for ${contextPayload.planning_year}.`;
         console.log(`🍞 Toast (${type}):`, message);
         // For now, just use alert. You could enhance this with a proper toast system
         alert(`${type.toUpperCase()}: ${message}`);
+    }
+
+    // Sync FarmOS Varieties
+    async function syncFarmOSVarieties() {
+        const btn = document.getElementById('syncVarietiesBtn');
+        const originalContent = btn.innerHTML;
+        
+        try {
+            // Show loading state
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+            
+            const response = await fetch('{{ route('admin.farmos.sync-varieties') }}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showToast('Plant varieties synced successfully from FarmOS!', 'success');
+                console.log('✅ Sync output:', result.output);
+            } else {
+                showToast('Failed to sync varieties: ' + result.message, 'error');
+            }
+            
+        } catch (error) {
+            console.error('❌ Sync error:', error);
+            showToast('Error syncing varieties from FarmOS', 'error');
+        } finally {
+            // Restore button
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        }
     }
 
     // ----- Missing helpers (lightweight, safe fallbacks) -----
