@@ -4998,6 +4998,20 @@ Calculate for ${contextPayload.planning_year}.`;
                                 console.log('✅ Updated Details section bed to:', bedName, 'for succession', allocationData.successionIndex);
                             }
                         }
+                        
+                        // Update location in seeding form
+                        const seedingLocationInput = tabPane.querySelector(`input[name="plantings[${allocationData.successionIndex - 1}][seeding][location]"]`);
+                        if (seedingLocationInput) {
+                            seedingLocationInput.value = bedName;
+                            console.log('✅ Updated seeding location to:', bedName);
+                        }
+                        
+                        // Update location in transplant form
+                        const transplantLocationInput = tabPane.querySelector(`input[name="plantings[${allocationData.successionIndex - 1}][transplanting][location]"]`);
+                        if (transplantLocationInput) {
+                            transplantLocationInput.value = bedName;
+                            console.log('✅ Updated transplant location to:', bedName);
+                        }
                     }
                 }
 
@@ -5084,6 +5098,20 @@ Calculate for ${contextPayload.planning_year}.`;
                             paragraphs[0].innerHTML = `<strong>Bed:</strong> ${bedName}`;
                             console.log('✅ Updated Details section bed to:', bedName);
                         }
+                    }
+                    
+                    // Update location in seeding form
+                    const seedingLocationInput = tabPane.querySelector(`input[name="plantings[${successionIndex}][seeding][location]"]`);
+                    if (seedingLocationInput) {
+                        seedingLocationInput.value = bedName;
+                        console.log('✅ Updated seeding location to:', bedName);
+                    }
+                    
+                    // Update location in transplant form
+                    const transplantLocationInput = tabPane.querySelector(`input[name="plantings[${successionIndex}][transplanting][location]"]`);
+                    if (transplantLocationInput) {
+                        transplantLocationInput.value = bedName;
+                        console.log('✅ Updated transplant location to:', bedName);
                     }
                 }
                 badge.title = 'Click to remove allocation';
