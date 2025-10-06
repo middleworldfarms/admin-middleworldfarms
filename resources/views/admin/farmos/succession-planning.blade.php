@@ -3660,7 +3660,14 @@ Calculate for ${contextPayload.planning_year}.`;
                 seeding_quantity: quantities.seedingQuantity,
                 transplant_quantity: quantities.transplantQuantity,
                 total_plants: quantities.totalPlants,
-                planting_method: plantingMethod
+                planting_method: plantingMethod,
+                // Add calculation breakdown for display
+                plants_per_row: quantities.plantsPerRow,
+                number_of_rows: quantities.numberOfRows,
+                bed_length: payload.bed_length,
+                bed_width: payload.bed_width,
+                in_row_spacing: payload.in_row_spacing,
+                between_row_spacing: payload.between_row_spacing
             });
         }
         
@@ -4013,7 +4020,21 @@ Calculate for ${contextPayload.planning_year}.`;
                                     </select>
                                 </div>
                             </div>
-                            ${p.seeding_quantity ? `<small class="text-muted">Calculated for ${p.total_plants || ''} plants with ${p.planting_method === 'direct' ? '30%' : '20%'} overseeding</small>` : ''}
+                            ${p.seeding_quantity ? `
+                                <div class="mt-2">
+                                    <small class="text-muted d-block">
+                                        <strong>Calculated:</strong> ${p.total_plants || ''} plants with ${p.planting_method === 'direct' ? '30%' : '20%'} overseeding
+                                    </small>
+                                    <small class="text-muted d-block">
+                                        <i class="fas fa-calculator"></i> 
+                                        ${p.bed_length || '?'}m × ${p.bed_width || '?'}m bed: 
+                                        <strong>${p.plants_per_row || '?'} plants/row</strong> × <strong>${p.number_of_rows || '?'} rows</strong> = ${p.total_plants || '?'} plants
+                                    </small>
+                                    <small class="text-muted">
+                                        (${p.in_row_spacing || '?'}cm in-row spacing, ${p.between_row_spacing || '?'}cm between-row spacing)
+                                    </small>
+                                </div>
+                            ` : ''}
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Notes</label>
@@ -4066,7 +4087,21 @@ Calculate for ${contextPayload.planning_year}.`;
                                     </select>
                                 </div>
                             </div>
-                            ${p.transplant_quantity ? `<small class="text-muted">Calculated for ${p.total_plants || ''} plants</small>` : ''}
+                            ${p.transplant_quantity ? `
+                                <div class="mt-2">
+                                    <small class="text-muted d-block">
+                                        <strong>Calculated:</strong> ${p.total_plants || ''} plants
+                                    </small>
+                                    <small class="text-muted d-block">
+                                        <i class="fas fa-calculator"></i> 
+                                        ${p.bed_length || '?'}m × ${p.bed_width || '?'}m bed: 
+                                        <strong>${p.plants_per_row || '?'} plants/row</strong> × <strong>${p.number_of_rows || '?'} rows</strong> = ${p.total_plants || '?'} plants
+                                    </small>
+                                    <small class="text-muted">
+                                        (${p.in_row_spacing || '?'}cm in-row spacing, ${p.between_row_spacing || '?'}cm between-row spacing)
+                                    </small>
+                                </div>
+                            ` : ''}
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Notes</label>
