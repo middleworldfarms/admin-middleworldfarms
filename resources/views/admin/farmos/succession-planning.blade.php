@@ -1483,6 +1483,28 @@
                             </div>
                         </div>
 
+                        <!-- Density Preset Selector for Brassicas -->
+                        <div id="brassicaDensityPreset" class="alert alert-info mb-3" style="display: none;">
+                            <h6 class="mb-2">
+                                <i class="fas fa-layer-group"></i> 
+                                Planting Density Options (75cm bed):
+                            </h6>
+                            <div class="btn-group w-100" role="group">
+                                <button type="button" class="btn btn-outline-primary density-preset" data-rows="2" data-between-row="40">
+                                    <strong>2 Rows</strong><br>
+                                    <small>Conservative (40cm spacing)</small>
+                                </button>
+                                <button type="button" class="btn btn-outline-primary density-preset" data-rows="3" data-between-row="30">
+                                    <strong>3 Rows</strong><br>
+                                    <small>Dense (30cm spacing)</small>
+                                </button>
+                            </div>
+                            <small class="text-muted mt-2 d-block">
+                                <i class="fas fa-lightbulb"></i> 
+                                Database default is 2 rows (safer). Choose 3 rows for higher yield if conditions allow.
+                            </small>
+                        </div>
+
                         <!-- NEW: Visual Harvest Window Selector -->
                         <div class="mt-4">
                             <label class="form-label"><strong>Harvest Window Planning:</strong></label>
@@ -2095,6 +2117,18 @@
             betweenRowSpacingInput.classList.remove('border-success');
             betweenRowSpacingInput.title = 'Default spacing - adjust as needed';
             console.log('ℹ️ No between-row spacing in database, using default');
+        }
+        
+        // Show density preset selector for brassicas
+        const cropName = document.getElementById('cropSelect')?.options[document.getElementById('cropSelect').selectedIndex]?.text?.toLowerCase() || '';
+        const densityPreset = document.getElementById('brassicaDensityPreset');
+        
+        if (cropName.includes('brussels') || cropName.includes('cabbage') || 
+            cropName.includes('broccoli') || cropName.includes('cauliflower')) {
+            densityPreset.style.display = 'block';
+            console.log('🥬 Brassica detected - showing density preset options');
+        } else {
+            densityPreset.style.display = 'none';
         }
         
         // Log planting method for reference (could be used for overseeding calculations later)
@@ -7339,6 +7373,36 @@ Plantings:`;
         if (bedWidthInput) {
             bedWidthInput.addEventListener('change', saveBedDimensions);
         }
+
+        // Add event listeners for density preset buttons
+        const densityPresetButtons = document.querySelectorAll('.density-preset');
+        densityPresetButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const rows = this.dataset.rows;
+                const betweenRowSpacing = this.dataset.betweenRow;
+                
+                // Update the between-row spacing input
+                const betweenRowInput = document.getElementById('betweenRowSpacing');
+                betweenRowInput.value = betweenRowSpacing;
+                
+                // Visual feedback
+                densityPresetButtons.forEach(btn => btn.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Calculate and show preview
+                const bedWidthCm = parseFloat(document.getElementById('bedWidth')?.value) || 75;
+                const actualRows = Math.floor(bedWidthCm / betweenRowSpacing) + 1;
+                
+                console.log(`🥬 Density preset selected: ${rows} rows (${betweenRowSpacing}cm spacing) = ${actualRows} actual rows on ${bedWidthCm}cm bed`);
+                
+                // Trigger calculation update if plan exists
+                if (currentSuccessionPlan) {
+                    // Recalculate quantities with new spacing
+                    const event = new Event('change');
+                    betweenRowInput.dispatchEvent(event);
+                }
+            });
+        });
 
         // Initialize Bootstrap tooltips
         const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
