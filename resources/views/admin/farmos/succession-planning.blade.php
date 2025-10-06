@@ -1487,16 +1487,18 @@
                         <div id="brassicaDensityPreset" class="alert alert-info mb-3" style="display: none;">
                             <h6 class="mb-2">
                                 <i class="fas fa-layer-group"></i> 
-                                Planting Density Options (75cm bed):
+                                Planting Density Options (<span id="densityBedWidth">75</span>cm bed):
                             </h6>
                             <div class="btn-group w-100" role="group">
                                 <button type="button" class="btn btn-outline-primary density-preset" data-rows="2" data-between-row="40">
                                     <strong>2 Rows</strong><br>
-                                    <small>Conservative (40cm spacing)</small>
+                                    <small>Conservative (40cm spacing)</small><br>
+                                    <small class="text-success" id="preset2rows">≈2 rows on 75cm</small>
                                 </button>
                                 <button type="button" class="btn btn-outline-primary density-preset" data-rows="3" data-between-row="30">
                                     <strong>3 Rows</strong><br>
-                                    <small>Dense (30cm spacing)</small>
+                                    <small>Dense (30cm spacing)</small><br>
+                                    <small class="text-success" id="preset3rows">≈3 rows on 75cm</small>
                                 </button>
                             </div>
                             <small class="text-muted mt-2 d-block">
@@ -2126,6 +2128,7 @@
         if (cropName.includes('brussels') || cropName.includes('cabbage') || 
             cropName.includes('broccoli') || cropName.includes('cauliflower')) {
             densityPreset.style.display = 'block';
+            updateDensityPresetDisplay(); // Update the preset display with current bed width
             console.log('🥬 Brassica detected - showing density preset options');
         } else {
             densityPreset.style.display = 'none';
@@ -7369,6 +7372,29 @@ Plantings:`;
         const inRowSpacingInput = document.getElementById('inRowSpacing');
         const betweenRowSpacingInput = document.getElementById('betweenRowSpacing');
         
+        // Function to update density preset display with current bed width
+        function updateDensityPresetDisplay() {
+            const bedWidthCm = parseFloat(bedWidthInput?.value) || 75;
+            const densityBedWidthSpan = document.getElementById('densityBedWidth');
+            const preset2rowsText = document.getElementById('preset2rows');
+            const preset3rowsText = document.getElementById('preset3rows');
+            
+            if (densityBedWidthSpan) {
+                densityBedWidthSpan.textContent = bedWidthCm;
+            }
+            
+            // Calculate actual rows for each preset
+            const rows2 = Math.floor(bedWidthCm / 40) + 1;
+            const rows3 = Math.floor(bedWidthCm / 30) + 1;
+            
+            if (preset2rowsText) {
+                preset2rowsText.textContent = `≈${rows2} rows on ${bedWidthCm}cm`;
+            }
+            if (preset3rowsText) {
+                preset3rowsText.textContent = `≈${rows3} rows on ${bedWidthCm}cm`;
+            }
+        }
+        
         // Function to recalculate and update displayed quantities when inputs change
         function updateDisplayedQuantities() {
             if (!currentSuccessionPlan || !currentSuccessionPlan.plantings) {
@@ -7412,7 +7438,12 @@ Plantings:`;
         if (bedWidthInput) {
             bedWidthInput.addEventListener('change', () => {
                 saveBedDimensions();
+                updateDensityPresetDisplay(); // Update preset display
                 updateDisplayedQuantities();
+            });
+            // Also update on input (real-time as you type)
+            bedWidthInput.addEventListener('input', () => {
+                updateDensityPresetDisplay();
             });
         }
         if (inRowSpacingInput) {
