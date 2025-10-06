@@ -7397,8 +7397,8 @@ Plantings:`;
                 planting.total_plants = quantities.totalPlants;
             });
 
-            // Redisplay the succession list
-            displaySuccessionList(currentSuccessionPlan);
+            // Redisplay the succession summary with updated quantities
+            renderSuccessionSummary(currentSuccessionPlan);
 
             console.log('✅ Plant quantities updated with new dimensions');
         }
