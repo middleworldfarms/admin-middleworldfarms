@@ -1500,9 +1500,9 @@
                                 Row Density Presets (<span id="densityBedWidth">75</span>cm bed):
                             </h6>
                             <div class="btn-group w-100" role="group">
-                                <button type="button" class="btn btn-outline-primary density-preset" data-between-row="40">
+                                <button type="button" class="btn btn-outline-primary density-preset" data-between-row="45">
                                     <strong id="preset2rowsLabel">2 Rows</strong><br>
-                                    <small>40cm between rows</small>
+                                    <small>45cm between rows</small>
                                 </button>
                                 <button type="button" class="btn btn-outline-primary density-preset" data-between-row="30">
                                     <strong id="preset3rowsLabel">3 Rows</strong><br>
@@ -1511,7 +1511,7 @@
                             </div>
                             <small class="text-muted mt-2 d-block">
                                 <i class="fas fa-lightbulb"></i> 
-                                These buttons set the "Between-Row Spacing" below. 40cm = conservative (default), 30cm = dense.
+                                These buttons set the "Between-Row Spacing" below. 45cm = conservative (default), 30cm = dense.
                             </small>
                         </div>
                     </div>
