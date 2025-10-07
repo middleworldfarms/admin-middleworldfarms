@@ -108,6 +108,20 @@ return [
             'sslmode' => 'prefer',
         ],
 
+        'pgsql_rag' => [
+            'driver' => 'pgsql',
+            'host' => env('PGSQL_RAG_HOST', '127.0.0.1'),
+            'port' => env('PGSQL_RAG_PORT', '5432'),
+            'database' => env('PGSQL_RAG_DATABASE', 'farm_rag_db'),
+            'username' => env('PGSQL_RAG_USERNAME', 'farm_rag_user'),
+            'password' => env('PGSQL_RAG_PASSWORD', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => 'prefer',
+        ],
+
         'sqlsrv' => [
             'driver' => 'sqlsrv',
             'url' => env('DB_URL'),
