@@ -2047,17 +2047,19 @@
         const nameEl = document.getElementById('varietyName');
         nameEl.textContent = varietyData.name || varietyData.title || 'Unknown Variety';
 
-        // Update description - combine available fields
+        // Update description - prioritize catalog description over generated notes
         const descEl = document.getElementById('varietyDescription');
         let description = '';
         
-        if (varietyData.harvest_notes) {
-            description += varietyData.harvest_notes;
+        // Show catalog description first (from Moles Seeds or other sources)
+        if (varietyData.description) {
+            description += varietyData.description;
         }
         
-        if (varietyData.description) {
-            if (description) description += ' ';
-            description += varietyData.description;
+        // Optionally append harvest notes if they don't look auto-generated
+        if (varietyData.harvest_notes && !varietyData.harvest_notes.includes('Estimated harvest window')) {
+            if (description) description += '\n\n';
+            description += varietyData.harvest_notes;
         }
         
         if (!description) {
