@@ -2312,6 +2312,7 @@ class SuccessionPlanningController extends Controller
                     'id' => $plantVariety->id,
                     'farmos_id' => $plantVariety->farmos_id,
                     'name' => $plantVariety->name,
+                    'description' => $plantVariety->description, // Moles Seeds catalog description
                     'crop_family' => $plantVariety->crop_family,
                     'plant_type' => $plantVariety->plant_type,
                     'maturity_days' => $plantVariety->maturity_days,
