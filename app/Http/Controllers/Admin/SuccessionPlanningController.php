@@ -8,6 +8,8 @@ use App\Services\AI\SymbiosisAIService;
 use App\Services\FarmOSQuickFormService;
 use App\Models\PlantVariety;
 use App\Models\CompanionPlantingKnowledge;
+use App\Models\CropRotationKnowledge;
+use App\Models\UKPlantingCalendar;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -1578,34 +1580,48 @@ class SuccessionPlanningController extends Controller
             $systemPrompt = 'You are Symbiosis AI, a practical farm planning assistant. Be direct and specific - no generic advice.';
             
             if ($hasPlan) {
-                $systemPrompt .= ' Analyze the SPECIFIC succession plan provided. Comment on: spacing appropriateness, succession timing/gaps, harvest window coverage. Suggest useful COMPANION PLANTS or INTERCROPS that could be planted with this crop (e.g., quick salads between brassica rows, herbs for pest control). Use exact numbers from the plan. Keep under 100 words.';
+                $systemPrompt .= ' Analyze the SPECIFIC succession plan provided. Comment on: spacing appropriateness, succession timing/gaps, harvest window coverage. Suggest useful COMPANION PLANTS or INTERCROPS that could be planted with this crop (e.g., quick salads between brassica rows, herbs for pest control). Use exact numbers from the plan. Keep under 150 words.';
                 
-                // Add companion plant knowledge from database
-                if (!empty($validated['crop_type'])) {
-                    $cropType = $validated['crop_type'];
-                    
-                    // Get crop family if available from the plan
-                    $cropFamily = null;
-                    if (isset($plan['crop_name'])) {
-                        $variety = PlantVariety::where('name', 'LIKE', "%{$plan['crop_name']}%")->first();
-                        if ($variety) {
-                            $cropFamily = $variety->crop_family;
-                        }
+                // Get crop info for knowledge lookups
+                $cropType = $validated['crop_type'] ?? null;
+                $cropFamily = null;
+                $season = $validated['season'] ?? null;
+                
+                if (isset($plan['crop_name'])) {
+                    $variety = PlantVariety::where('name', 'LIKE', "%{$plan['crop_name']}%")->first();
+                    if ($variety) {
+                        $cropFamily = $variety->crop_family;
                     }
-                    
-                    // Get companion planting knowledge from database
+                }
+                
+                // Add companion planting knowledge from database
+                if ($cropType) {
                     $companionKnowledge = CompanionPlantingKnowledge::formatForAI($cropType, $cropFamily);
                     if (!empty($companionKnowledge)) {
                         $systemPrompt .= $companionKnowledge;
-                    }
-                    
-                    // Fallback to basic companions if no database knowledge found
-                    if (empty($companionKnowledge)) {
+                    } else {
+                        // Fallback to basic companions
                         $companions = $this->getBasicCompanions(strtolower($cropType));
                         if (!empty($companions)) {
                             $companionList = implode(', ', $companions);
                             $systemPrompt .= " COMPANION SUGGESTIONS for {$cropType}: {$companionList}.";
                         }
+                    }
+                }
+                
+                // Add crop rotation knowledge
+                if ($cropType) {
+                    $rotationKnowledge = CropRotationKnowledge::formatForAI($cropType, $cropFamily);
+                    if (!empty($rotationKnowledge)) {
+                        $systemPrompt .= $rotationKnowledge;
+                    }
+                }
+                
+                // Add UK planting calendar knowledge
+                if ($cropType) {
+                    $calendarKnowledge = UKPlantingCalendar::formatForAI($cropType, $season);
+                    if (!empty($calendarKnowledge)) {
+                        $systemPrompt .= $calendarKnowledge;
                     }
                 }
                 
