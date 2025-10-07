@@ -1571,7 +1571,7 @@ class SuccessionPlanningController extends Controller
             $systemPrompt = 'You are Symbiosis AI, a practical farm planning assistant. Be direct and specific - no generic advice.';
             
             if ($hasPlan) {
-                $systemPrompt .= ' Analyze the SPECIFIC succession plan provided. Comment on: spacing appropriateness, succession timing/gaps, harvest window coverage, potential bottlenecks. Use exact numbers from the plan. Keep under 100 words.';
+                $systemPrompt .= ' Analyze the SPECIFIC succession plan provided. Comment on: spacing appropriateness, succession timing/gaps, harvest window coverage. Use exact numbers from the plan. Keep under 100 words. NOTE: Each succession uses a DIFFERENT bed in rotation - gaps between successions are about farm scheduling, not bed recovery time.';
                 
                 // Add spacing context for brassicas
                 if (isset($plan['between_row_spacing']) && $plan['between_row_spacing'] <= 30) {
