@@ -6396,20 +6396,12 @@ Plantings:`;
                 const transplantWindowDays = 61; // March 15 - May 15 is approximately 61 days
                 const transplantInterval = cropTiming.daysToTransplant || 35;
 
-                // For Brussels sprouts, allow more successions since sowing dates can overlap
-                // The transplant window constraint is less limiting than the harvest window
-                let maxByTransplantWindow;
-                if (cropName.toLowerCase().includes('brussels')) {
-                    // Allow up to 3 successions for Brussels sprouts despite window constraints
-                    maxByTransplantWindow = 3;
-                    console.log(`🌱 Brussels sprouts: allowing ${maxByTransplantWindow} successions (prioritizing harvest coverage)`);
-                } else {
-                    // For other crops, use the conservative calculation
-                    const minDaysPerSuccession = transplantInterval + 14; // 35 days + 2 weeks buffer
-                    maxByTransplantWindow = Math.max(1, Math.floor(transplantWindowDays / minDaysPerSuccession));
-                }
+                // Calculate maximum successions that fit in transplant window
+                // Use half the transplant interval as spacing to allow overlap of growing periods
+                const minDaysPerSuccession = Math.floor(transplantInterval / 2); // e.g., 35 days / 2 = 17.5 day spacing
+                const maxByTransplantWindow = Math.max(1, Math.floor(transplantWindowDays / minDaysPerSuccession));
 
-                console.log(`🌱 Transplant window analysis: ${transplantWindowDays} days, ${transplantInterval} day interval`);
+                console.log(`🌱 Transplant window analysis: ${transplantWindowDays} days, ${transplantInterval} day interval, ${minDaysPerSuccession} day spacing`);
                 console.log(`📊 Maximum realistic successions: ${maxByTransplantWindow}`);
 
                 // Reduce successions if transplant window can't support them
@@ -6703,20 +6695,15 @@ Plantings:`;
 
             console.log(`🌱 ${cropName} transplant window: ${plantingWindowStart.toLocaleDateString()} - ${plantingWindowEnd.toLocaleDateString()} (${plantingWindowDays.toFixed(0)} days)`);
 
-            // Simple approach: manually set transplant dates for 3 successions to ensure uniqueness
+            // Evenly space transplant dates across the transplant window
             let transplantDate;
-            if (optimalSuccessions === 3) {
-                // Set specific dates to ensure they're different and within window
-                if (successionIndex === 0) {
-                    transplantDate = new Date(plantingWindowStart.getTime() + (35 * 24 * 60 * 60 * 1000)); // April 19
-                } else if (successionIndex === 1) {
-                    transplantDate = new Date(plantingWindowStart.getTime() + (47 * 24 * 60 * 60 * 1000)); // May 1
-                } else {
-                    transplantDate = new Date(plantingWindowEnd.getTime()); // May 15
-                }
+            if (optimalSuccessions > 1) {
+                // Distribute transplants evenly across the window
+                const spacing = plantingWindowDays / (optimalSuccessions - 1);
+                transplantDate = new Date(plantingWindowStart.getTime() + (successionIndex * spacing * 24 * 60 * 60 * 1000));
             } else {
-                // Fallback for other counts
-                transplantDate = new Date(plantingWindowStart.getTime() + (successionIndex * plantingWindowDays / optimalSuccessions * 24 * 60 * 60 * 1000));
+                // Single succession: use middle of window
+                transplantDate = new Date(plantingWindowStart.getTime() + (plantingWindowDays / 2 * 24 * 60 * 60 * 1000));
             }
 
             console.log(`🎯 Succession ${successionIndex + 1}/${optimalSuccessions}: transplant ${transplantDate.toLocaleDateString()}`);
