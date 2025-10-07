@@ -1601,7 +1601,7 @@ class SuccessionPlanningController extends Controller
                 
                 Log::info('SymbiosisAI chat response received', [
                     'user_message' => $validated['question'],
-                    'model' => 'stablelm2:1.6b'
+                    'model' => 'phi3:mini'
                 ]);
 
                 return response()->json([
@@ -2393,7 +2393,7 @@ class SuccessionPlanningController extends Controller
             return response()->json([
                 'success' => true,
                 'ai_available' => $aiAvailable,
-                'service' => 'StableLM2 1.6B via Ollama',
+                'service' => 'Phi-3 Mini via Ollama',
                 'status' => $aiAvailable ? 'online' : 'offline',
                 'timestamp' => now()->toISOString()
             ]);
@@ -2402,7 +2402,7 @@ class SuccessionPlanningController extends Controller
             return response()->json([
                 'success' => true,
                 'ai_available' => false,
-                'service' => 'StableLM2 1.6B via Ollama',
+                'service' => 'Phi-3 Mini via Ollama',
                 'status' => 'error',
                 'error' => $e->getMessage(),
                 'timestamp' => now()->toISOString()

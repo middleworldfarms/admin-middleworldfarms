@@ -25,8 +25,8 @@ class SymbiosisAIService
             // Convert messages to a single prompt for Ollama
             $prompt = $this->convertMessagesToPrompt($messages);
             
-            $response = Http::timeout(60)->post($this->baseUrl . '/generate', [
-                'model' => 'stablelm2:1.6b',
+            $response = Http::timeout(90)->post($this->baseUrl . '/generate', [
+                'model' => 'phi3:mini',
                 'prompt' => $prompt,
                 'stream' => false,
                 'options' => [
@@ -39,7 +39,7 @@ class SymbiosisAIService
 
             Log::info('Ollama API request', [
                 'url' => $this->baseUrl . '/generate',
-                'model' => 'stablelm2:1.6b',
+                'model' => 'phi3:mini',
                 'prompt_length' => strlen($prompt)
             ]);
 
