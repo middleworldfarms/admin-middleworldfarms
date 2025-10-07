@@ -1568,10 +1568,10 @@ class SuccessionPlanningController extends Controller
             }
 
             // Prepare messages for SymbiosisAI service
-            $systemPrompt = 'You are Symbiosis AI, an expert farm planning assistant. Be concise and specific.';
+            $systemPrompt = 'You are Symbiosis AI, a practical farm planning assistant. Be direct and specific - no generic advice.';
             
             if ($hasPlan) {
-                $systemPrompt .= ' The user has a succession plan with specific dates and spacing. Reference their ACTUAL plan details in your answer. Use the exact dates, variety names, and succession numbers from their plan. Keep responses under 150 words and focus on actionable advice.';
+                $systemPrompt .= ' Analyze the SPECIFIC succession plan provided. Comment on: spacing appropriateness, succession timing/gaps, harvest window coverage, potential bottlenecks. Use exact numbers from the plan. Keep under 100 words.';
             } else {
                 $systemPrompt .= ' Help plan succession planting with practical advice about crop timing, spacing, and harvest windows.';
             }
