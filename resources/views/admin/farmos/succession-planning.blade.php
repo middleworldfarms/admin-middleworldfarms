@@ -7710,16 +7710,19 @@ Plantings:`;
 
         if (!statusLight || !statusText) return;
 
+        // Check for ai_available from backend response
+        const isAvailable = status.ai_available || status.available || false;
+
         // Update status light
         statusLight.classList.remove('online', 'offline', 'checking');
-        if (status.available) {
+        if (isAvailable) {
             statusLight.classList.add('online');
         } else {
             statusLight.classList.add('offline');
         }
 
         // Update status text
-        statusText.textContent = status.available ? 'AI Service Online' : 'AI Service Offline';
+        statusText.textContent = isAvailable ? 'AI Service Online' : 'AI Service Offline';
 
         // Update details
         if (statusDetails) {
