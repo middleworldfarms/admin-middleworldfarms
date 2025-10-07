@@ -1729,10 +1729,9 @@
                             <div class="text-muted small mt-2">Loading variety information...</div>
                         </div>
                         
-                        <!-- Error State -->
+                        <!-- Error State (hidden - using local database is not an error) -->
                         <div id="varietyError" class="alert alert-warning py-2 small" style="display: none;">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            Unable to load variety information from FarmOS
+                            <!-- Error message removed - local database is preferred -->
                         </div>
                     </div>
                     
