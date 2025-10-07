@@ -7842,6 +7842,7 @@ Plantings:`;
                 },
                 body: JSON.stringify({ 
                     question: message,
+                    crop_type: context.plan?.crop_name,
                     context: context
                 })
             });
