@@ -416,7 +416,7 @@
     <div class="top-header">
         <div class="d-flex justify-content-between align-items-center">
             <div class="header-spacer">
-                <h2 class="header-brand-name">Symbiosis</h2>
+                <small class="text-white">Only needed if FarmOS varieties have changed</small>
             </div>
             <div class="header-content">
                 @hasSection('page-header')
