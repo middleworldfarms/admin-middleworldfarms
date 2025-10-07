@@ -1568,12 +1568,12 @@ class SuccessionPlanningController extends Controller
             }
 
             // Prepare messages for SymbiosisAI service
-            $systemPrompt = 'You are an expert agricultural AI assistant specializing in sustainable farming practices, crop planning, and farm management.';
+            $systemPrompt = 'You are Symbiosis AI, an expert farm planning assistant. Be concise and specific.';
             
             if ($hasPlan) {
-                $systemPrompt .= ' The user has an active succession plan loaded in the interface. Answer questions specifically about their plan, providing actionable insights and suggestions based on the actual planting schedule, timing, and crop details they have selected.';
+                $systemPrompt .= ' The user has a succession plan with specific dates and spacing. Reference their ACTUAL plan details in your answer. Use the exact dates, variety names, and succession numbers from their plan. Keep responses under 150 words and focus on actionable advice.';
             } else {
-                $systemPrompt .= ' Help the user plan their succession planting by answering questions about crop timing, spacing, and harvest windows.';
+                $systemPrompt .= ' Help plan succession planting with practical advice about crop timing, spacing, and harvest windows.';
             }
             
             $messages = [
@@ -1586,6 +1586,12 @@ class SuccessionPlanningController extends Controller
                     'content' => $question
                 ]
             ];
+
+            // Log the full prompt being sent to AI
+            Log::info('🤖 AI Prompt', [
+                'system' => $systemPrompt,
+                'user_question' => $question
+            ]);
 
             // Call SymbiosisAI service
             $aiResponse = $this->symbiosisAI->chat($messages);

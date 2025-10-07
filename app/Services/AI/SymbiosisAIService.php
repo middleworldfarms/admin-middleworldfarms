@@ -30,8 +30,10 @@ class SymbiosisAIService
                 'prompt' => $prompt,
                 'stream' => false,
                 'options' => [
-                    'temperature' => $options['temperature'] ?? 0.7,
-                    'num_predict' => min($options['max_tokens'] ?? 1000, 500), // Limit to 500 tokens max
+                    'temperature' => $options['temperature'] ?? 0.3, // Lower temp for more focused responses
+                    'num_predict' => $options['max_tokens'] ?? 300, // Allow up to 300 tokens
+                    'top_p' => 0.9,
+                    'top_k' => 40,
                 ]
             ]);
 
