@@ -7791,13 +7791,47 @@ Plantings:`;
         const loadingId = addMessageToChat('ai', '💭 Thinking...');
         
         try {
+            // Gather context from the current succession plan
+            const context = {
+                has_plan: currentSuccessionPlan && currentSuccessionPlan.plantings && currentSuccessionPlan.plantings.length > 0,
+                plan: null
+            };
+            
+            // If we have a plan, include relevant details
+            if (context.has_plan) {
+                const plan = currentSuccessionPlan;
+                context.plan = {
+                    variety_name: plan.plantings[0]?.variety_name || 'Unknown',
+                    crop_name: plan.plantings[0]?.crop_name || 'Unknown',
+                    total_successions: plan.plantings.length,
+                    harvest_window_start: plan.harvest_start,
+                    harvest_window_end: plan.harvest_end,
+                    bed_length: plan.plantings[0]?.bed_length,
+                    bed_width: plan.plantings[0]?.bed_width,
+                    in_row_spacing: plan.plantings[0]?.in_row_spacing,
+                    between_row_spacing: plan.plantings[0]?.between_row_spacing,
+                    planting_method: plan.plantings[0]?.planting_method,
+                    plantings: plan.plantings.map((p, i) => ({
+                        succession_number: i + 1,
+                        seeding_date: p.seeding_date,
+                        transplant_date: p.transplant_date,
+                        harvest_date: p.harvest_date,
+                        quantity: p.quantity,
+                        bed_name: p.bed_name
+                    }))
+                };
+            }
+            
             const response = await fetch('/admin/farmos/succession-planning/chat', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                 },
-                body: JSON.stringify({ question: message })
+                body: JSON.stringify({ 
+                    question: message,
+                    context: context
+                })
             });
             
             const data = await response.json();

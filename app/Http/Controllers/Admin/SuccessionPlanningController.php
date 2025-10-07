@@ -1520,6 +1520,42 @@ class SuccessionPlanningController extends Controller
             // Build contextual question for AI
             $question = $validated['question'];
             
+            // Get context from request
+            $context = $validated['context'] ?? null;
+            $hasPlan = false;
+            $planDetails = '';
+            
+            // Check if we have succession plan context
+            if ($context && is_array($context) && isset($context['has_plan']) && $context['has_plan']) {
+                $hasPlan = true;
+                $plan = $context['plan'];
+                
+                // Build detailed plan context for AI
+                $planDetails = "\n\nCurrent Succession Plan Context:\n";
+                $planDetails .= "- Crop: {$plan['crop_name']} ({$plan['variety_name']})\n";
+                $planDetails .= "- Total Successions: {$plan['total_successions']}\n";
+                $planDetails .= "- Harvest Window: {$plan['harvest_window_start']} to {$plan['harvest_window_end']}\n";
+                $planDetails .= "- Bed Dimensions: {$plan['bed_length']}m × {$plan['bed_width']}cm\n";
+                $planDetails .= "- Spacing: {$plan['in_row_spacing']}cm in-row, {$plan['between_row_spacing']}cm between rows\n";
+                $planDetails .= "- Method: {$plan['planting_method']}\n\n";
+                $planDetails .= "Planting Schedule:\n";
+                
+                foreach ($plan['plantings'] as $planting) {
+                    $planDetails .= "  Succession {$planting['succession_number']}:\n";
+                    $planDetails .= "    - Seeding: {$planting['seeding_date']}\n";
+                    if ($planting['transplant_date']) {
+                        $planDetails .= "    - Transplant: {$planting['transplant_date']}\n";
+                    }
+                    $planDetails .= "    - Harvest: {$planting['harvest_date']}\n";
+                    $planDetails .= "    - Quantity: {$planting['quantity']} plants\n";
+                    if ($planting['bed_name']) {
+                        $planDetails .= "    - Location: {$planting['bed_name']}\n";
+                    }
+                }
+                
+                $question .= $planDetails;
+            }
+            
             // Add context if provided
             if (!empty($validated['crop_type'])) {
                 $question .= " (Context: working with {$validated['crop_type']} crop)";
@@ -1530,10 +1566,18 @@ class SuccessionPlanningController extends Controller
             }
 
             // Prepare messages for SymbiosisAI service
+            $systemPrompt = 'You are an expert agricultural AI assistant specializing in sustainable farming practices, crop planning, and farm management.';
+            
+            if ($hasPlan) {
+                $systemPrompt .= ' The user has an active succession plan loaded in the interface. Answer questions specifically about their plan, providing actionable insights and suggestions based on the actual planting schedule, timing, and crop details they have selected.';
+            } else {
+                $systemPrompt .= ' Help the user plan their succession planting by answering questions about crop timing, spacing, and harvest windows.';
+            }
+            
             $messages = [
                 [
                     'role' => 'system',
-                    'content' => 'You are an expert agricultural AI assistant specializing in sustainable farming practices, crop planning, and farm management. Provide practical, actionable insights for succession planning.'
+                    'content' => $systemPrompt
                 ],
                 [
                     'role' => 'user',
