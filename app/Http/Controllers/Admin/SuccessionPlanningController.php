@@ -1543,12 +1543,14 @@ class SuccessionPlanningController extends Controller
                 foreach ($plan['plantings'] as $planting) {
                     $planDetails .= "  Succession {$planting['succession_number']}:\n";
                     $planDetails .= "    - Seeding: {$planting['seeding_date']}\n";
-                    if ($planting['transplant_date']) {
+                    if (!empty($planting['transplant_date'])) {
                         $planDetails .= "    - Transplant: {$planting['transplant_date']}\n";
                     }
                     $planDetails .= "    - Harvest: {$planting['harvest_date']}\n";
-                    $planDetails .= "    - Quantity: {$planting['quantity']} plants\n";
-                    if ($planting['bed_name']) {
+                    if (!empty($planting['quantity'])) {
+                        $planDetails .= "    - Quantity: {$planting['quantity']} plants\n";
+                    }
+                    if (!empty($planting['bed_name']) && $planting['bed_name'] !== 'Unassigned') {
                         $planDetails .= "    - Location: {$planting['bed_name']}\n";
                     }
                 }
