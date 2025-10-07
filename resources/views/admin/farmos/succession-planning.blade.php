@@ -1679,9 +1679,14 @@
                             placeholder="Ask a question... (e.g., 'What's the best succession interval for lettuce?')"></textarea>
                     </div>
                     
-                    <button class="btn btn-success w-100" id="sendChatBtn">
-                        <i class="fas fa-paper-plane"></i> Send Message
-                    </button>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary flex-shrink-0" id="evaluatePlanBtn" title="Quick evaluation of your succession plan">
+                            <i class="fas fa-clipboard-check"></i> Evaluate Plan
+                        </button>
+                        <button class="btn btn-success flex-grow-1" id="sendChatBtn">
+                            <i class="fas fa-paper-plane"></i> Send Message
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -7765,9 +7770,16 @@ Plantings:`;
     const chatMessages = document.getElementById('chatMessages');
     const chatInput = document.getElementById('chatInput');
     const sendChatBtn = document.getElementById('sendChatBtn');
+    const evaluatePlanBtn = document.getElementById('evaluatePlanBtn');
     
     // Send message on button click
     sendChatBtn.addEventListener('click', sendChatMessage);
+    
+    // Quick evaluation button
+    evaluatePlanBtn.addEventListener('click', function() {
+        chatInput.value = 'Can you give me any advice on the planned successions?';
+        sendChatMessage();
+    });
     
     // Send message on Enter (but allow Shift+Enter for new lines)
     chatInput.addEventListener('keydown', function(e) {
