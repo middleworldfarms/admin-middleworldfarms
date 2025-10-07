@@ -7863,7 +7863,10 @@ Plantings:`;
             <div class="d-inline-block text-start" style="max-width: 85%;">
                 <div class="d-flex align-items-start gap-2 ${isUser ? 'flex-row-reverse' : ''}">
                     <div class="flex-shrink-0">
-                        <i class="fas fa-${isUser ? 'user' : 'robot'} text-${isUser ? 'primary' : 'success'}"></i>
+                        ${isUser ? 
+                            '<i class="fas fa-user text-primary"></i>' : 
+                            '<span class="text-success fw-bold" style="font-size: 0.8rem; letter-spacing: -1px;">Symbi<i class="fas fa-robot" style="font-size: 1rem;"></i><i class="fas fa-robot" style="font-size: 1rem;"></i>sis</span>'
+                        }
                     </div>
                     <div class="flex-grow-1 p-2 rounded" style="background: ${isUser ? '#e3f2fd' : '#f1f8e9'};">
                         <small class="fw-bold">${isUser ? 'You' : 'AI Advisor'}</small><br>
