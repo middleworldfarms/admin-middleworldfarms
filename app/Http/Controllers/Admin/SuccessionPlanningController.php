@@ -1572,6 +1572,11 @@ class SuccessionPlanningController extends Controller
             
             if ($hasPlan) {
                 $systemPrompt .= ' Analyze the SPECIFIC succession plan provided. Comment on: spacing appropriateness, succession timing/gaps, harvest window coverage, potential bottlenecks. Use exact numbers from the plan. Keep under 100 words.';
+                
+                // Add spacing context for brassicas
+                if (isset($plan['between_row_spacing']) && $plan['between_row_spacing'] <= 30) {
+                    $systemPrompt .= ' IMPORTANT: If spacing is tight (≤30cm between rows), acknowledge this works for SMALL brassicas (baby leaf, spring greens) but warn: may reduce airflow, increase disease risk, and limit mature head size. Only recommended for quick-harvest varieties or baby crops.';
+                }
             } else {
                 $systemPrompt .= ' Help plan succession planting with practical advice about crop timing, spacing, and harvest windows.';
             }
