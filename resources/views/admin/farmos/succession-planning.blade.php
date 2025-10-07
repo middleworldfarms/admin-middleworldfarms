@@ -1652,7 +1652,7 @@
             <div id="aiChatSection" class="planning-card">
                 <div class="planning-section">
                     <h3>
-                        <i class="fas fa-robot section-icon"></i>
+                        <span class="text-success fw-bold" style="font-size: 1rem;">Symbi<i class="fas fa-robot section-icon" style="font-size: 1.2rem;"></i>sis</span>
                         AI Succession Advisor
                     </h3>
                     
@@ -1667,7 +1667,7 @@
                     <!-- Chat Messages Area -->
                     <div id="chatMessages" class="mb-3" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px; padding: 15px; background: #f8f9fa;">
                         <div class="text-muted text-center">
-                            <i class="fas fa-robot fa-2x mb-2 text-success"></i>
+                            <span class="text-success fw-bold" style="font-size: 1.5rem;">Symbi<i class="fas fa-robot fa-2x text-success" style="font-size: 2rem;"></i>sis</span>
                             <p><strong>AI Advisor Ready</strong></p>
                             <p class="small">Ask me about succession planning, crop timing, or growing advice!</p>
                         </div>
