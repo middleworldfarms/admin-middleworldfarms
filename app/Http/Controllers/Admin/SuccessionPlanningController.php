@@ -1575,7 +1575,7 @@ class SuccessionPlanningController extends Controller
                 
                 // Add spacing context for brassicas
                 if (isset($plan['between_row_spacing']) && $plan['between_row_spacing'] <= 30) {
-                    $systemPrompt .= ' IMPORTANT: If spacing is tight (≤30cm between rows), acknowledge this works for SMALL brassicas (baby leaf, spring greens) but warn: may reduce airflow, increase disease risk, and limit mature head size. Only recommended for quick-harvest varieties or baby crops.';
+                    $systemPrompt .= ' IMPORTANT: Tight spacing (30cm between rows) works for SMALL brassicas (summer cauliflower, baby cabbage, spring greens) but RECOMMEND STAGGERED PLANTING: offset plants in adjacent rows so they sit in gaps, increasing effective spacing. This improves airflow and allows larger heads. Works well for most calabrese/broccoli. Not suitable for large winter cauliflowers or cabbages - those need 45cm+.';
                 }
             } else {
                 $systemPrompt .= ' Help plan succession planting with practical advice about crop timing, spacing, and harvest windows.';
