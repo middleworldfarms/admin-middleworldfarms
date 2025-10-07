@@ -1323,7 +1323,13 @@ class SuccessionPlanningController extends Controller
             'radish' => ['Lettuce (space sharing)', 'Spinach (soil improvement)', 'Calendula (healing energy)'],
             'spinach' => ['Strawberry (ground cover)', 'Thyme (aromatic support)', 'Borage (mineral uptake)'],
             'kale' => ['Nasturtium (pest control)', 'Dill (beneficial insects)', 'Chamomile (soil health)'],
-            'arugula' => ['Basil (flavor synergy)', 'Oregano (protection)', 'Parsley (companion support)']
+            'arugula' => ['Basil (flavor synergy)', 'Oregano (protection)', 'Parsley (companion support)'],
+            // Brassica family companions
+            'cauliflower' => ['Nasturtium (aphid trap crop)', 'Lettuce (space between rows)', 'Spinach (quick intercrop)', 'Dill (beneficial insects)'],
+            'cabbage' => ['Nasturtium (pest control)', 'Quick salads between rows', 'Dill (attracts predators)', 'Thyme (cabbage white deterrent)'],
+            'broccoli' => ['Lettuce (fast intercrop)', 'Nasturtium (aphid protection)', 'Spinach (cool season match)', 'Chamomile (health)'],
+            'brussels sprouts' => ['Quick salads early season', 'Nasturtium (pest trap)', 'Dill (beneficial insects)', 'Thyme (aromatic protection)'],
+            'calabrese' => ['Lettuce intercrop', 'Nasturtium (pest control)', 'Radish (fast harvest)', 'Basil (companion)']
         ];
         
         return $companions[$cropType] ?? ['Marigold (universal companion)', 'Basil (harmony)', 'Chamomile (gentle healing)'];
@@ -1571,7 +1577,17 @@ class SuccessionPlanningController extends Controller
             $systemPrompt = 'You are Symbiosis AI, a practical farm planning assistant. Be direct and specific - no generic advice.';
             
             if ($hasPlan) {
-                $systemPrompt .= ' Analyze the SPECIFIC succession plan provided. Comment on: spacing appropriateness, succession timing/gaps, harvest window coverage. Use exact numbers from the plan. Keep under 100 words. NOTE: Each succession uses a DIFFERENT bed in rotation - gaps between successions are about farm scheduling, not bed recovery time.';
+                $systemPrompt .= ' Analyze the SPECIFIC succession plan provided. Comment on: spacing appropriateness, succession timing/gaps, harvest window coverage. Suggest useful COMPANION PLANTS or INTERCROPS that could be planted with this crop (e.g., quick salads between brassica rows, herbs for pest control). Use exact numbers from the plan. Keep under 100 words.';
+                
+                // Add companion plant suggestions if we know the crop type
+                if (!empty($validated['crop_type'])) {
+                    $cropType = strtolower($validated['crop_type']);
+                    $companions = $this->getBasicCompanions($cropType);
+                    if (!empty($companions)) {
+                        $companionList = implode(', ', $companions);
+                        $systemPrompt .= " COMPANION SUGGESTIONS for {$validated['crop_type']}: {$companionList}.";
+                    }
+                }
                 
                 // Add spacing context for brassicas
                 if (isset($plan['between_row_spacing']) && $plan['between_row_spacing'] <= 30) {
