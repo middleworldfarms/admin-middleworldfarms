@@ -7546,6 +7546,8 @@ Plantings:`;
                 const rows = this.dataset.rows;
                 const betweenRowSpacing = this.dataset.betweenRow;
                 
+                console.log(`🎯 Density preset clicked: ${betweenRowSpacing}cm between-row spacing`);
+                
                 // Update the between-row spacing input
                 const betweenRowInput = document.getElementById('betweenRowSpacing');
                 betweenRowInput.value = betweenRowSpacing;
@@ -7560,12 +7562,13 @@ Plantings:`;
                 
                 console.log(`🥬 Density preset selected: ${rows} rows (${betweenRowSpacing}cm spacing) = ${actualRows} actual rows on ${bedWidthCm}cm bed`);
                 
-                // Trigger calculation update if plan exists
-                if (currentSuccessionPlan) {
-                    // Recalculate quantities with new spacing
-                    const event = new Event('change');
-                    betweenRowInput.dispatchEvent(event);
-                }
+                // ALWAYS trigger recalculation (even if no plan yet, for when plan is generated)
+                console.log('📊 Triggering quantity recalculation...');
+                updateDisplayedQuantities();
+                
+                // Also dispatch change event for any other listeners
+                const event = new Event('change');
+                betweenRowInput.dispatchEvent(event);
             });
         });
 
