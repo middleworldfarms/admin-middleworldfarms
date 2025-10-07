@@ -7507,6 +7507,12 @@ Plantings:`;
                 planting.number_of_rows = quantities.numberOfRows;
                 planting.plants_per_row = quantities.plantsPerRow;
                 planting.total_plants = quantities.totalPlants;
+                
+                // CRITICAL: Also update the form input quantities
+                planting.seeding_quantity = quantities.seedingQuantity;
+                planting.transplant_quantity = quantities.totalPlants;
+                
+                console.log(`📊 Updated planting ${planting.succession_number || '?'}: ${quantities.numberOfRows} rows × ${quantities.plantsPerRow} plants = ${quantities.totalPlants} total (seeding: ${quantities.seedingQuantity})`);
             });
 
             // Re-render the quick form tabs to show updated quantities
