@@ -6827,6 +6827,16 @@ Plantings:`;
                     high: '⚠️ Zucchini plants are very productive. Fewer successions may suffice.',
                     tooMany: '❌ Too many! Each zucchini plant produces prolifically. Reduce successions.'
                 }
+            },
+            'courgette': {
+                optimal: 3,
+                max: 4,
+                tips: {
+                    low: '✅ Good! Courgette plants produce heavily for several weeks.',
+                    optimal: '✅ Optimal for continuous courgette harvest throughout season.',
+                    high: '⚠️ Courgette plants are very productive. Fewer successions may suffice.',
+                    tooMany: '❌ Too many! Each courgette plant produces 10-20+ fruits. Reduce successions.'
+                }
             }
         };
         
@@ -7119,7 +7129,8 @@ Plantings:`;
             'tomato': 21, // 3 weeks
             'pepper': 21, // 3 weeks
             'cucumber': 60, // ~8 weeks (3 successions for continuous harvest: early, mid, late)
-            'zucchini': 21, // 3 weeks
+            'zucchini': 45, // ~6 weeks (very productive - 2-3 successions sufficient)
+            'courgette': 45, // ~6 weeks (same as zucchini - very productive plants)
             'corn': 14, // 2 weeks
             'potato': 21, // 3 weeks
             'garlic': 30, // 4 weeks
