@@ -1598,12 +1598,8 @@
                                     <span id="successionCount" class="badge bg-success fs-6">0</span>
                                 </div>
                                 <small class="text-muted d-block mt-1">
-                                    Drag the handles above to adjust your harvest window and see how it affects the number of successions
+                                    Quick forms auto-update when you adjust the harvest window
                                 </small>
-                                <div id="planGeneratedWarning" class="alert alert-warning mt-2 mb-0" style="display: none; padding: 0.5rem;">
-                                    <i class="fas fa-exclamation-triangle"></i>
-                                    <strong>Plan already generated!</strong> Click "Generate Plan" button again to update with new succession count.
-                                </div>
                             </div>
 
                             <!-- Calendar Grid View -->
@@ -3904,12 +3900,6 @@ Calculate for ${contextPayload.planning_year}.`;
         // Clear any previous allocations when generating a new plan
         localStorage.removeItem('bedAllocations');
         console.log('🗑️ Cleared previous allocations for new succession plan');
-
-        // Hide plan regeneration warning
-        const planWarning = document.getElementById('planGeneratedWarning');
-        if (planWarning) {
-            planWarning.style.display = 'none';
-        }
 
         showLoading(true);
         try {
@@ -6565,14 +6555,47 @@ Plantings:`;
             sidebarCountBadge.textContent = `${successions} Succession${successions > 1 ? 's' : ''}`;
         }
 
-        // Show warning if plan is already generated and count changed
-        const planWarning = document.getElementById('planGeneratedWarning');
-        if (planWarning && currentSuccessionPlan && currentSuccessionPlan.plantings) {
+        // Auto-regenerate quick forms if plan exists and count changed
+        if (currentSuccessionPlan && currentSuccessionPlan.plantings) {
             const currentPlantingCount = currentSuccessionPlan.plantings.length;
             if (currentPlantingCount !== successions) {
-                planWarning.style.display = 'block';
-            } else {
-                planWarning.style.display = 'none';
+                console.log(`🔄 Succession count changed from ${currentPlantingCount} to ${successions}, regenerating plan...`);
+                
+                // Update the succession_count in current plan
+                currentSuccessionPlan.succession_count = successions;
+                
+                // Trigger auto-regeneration
+                const cropSelect = document.getElementById('cropSelect');
+                const varietySelect = document.getElementById('varietySelect');
+                if (cropSelect && varietySelect && cropSelect.value && varietySelect.value) {
+                    const cropName = cropSelect.options[cropSelect.selectedIndex].text;
+                    const varietyName = varietySelect.options[varietySelect.selectedIndex].text;
+                    
+                    // Rebuild payload with new succession count
+                    const payload = {
+                        harvest_start: harvestWindowData.userStart,
+                        harvest_end: harvestWindowData.userEnd,
+                        succession_count: successions,
+                        bed_length: parseFloat(document.getElementById('bedLength')?.value || 10),
+                        bed_width: parseFloat(document.getElementById('bedWidth')?.value || 75),
+                        in_row_spacing: parseFloat(document.getElementById('inRowSpacing')?.value || 30),
+                        between_row_spacing: parseFloat(document.getElementById('betweenRowSpacing')?.value || 30)
+                    };
+                    
+                    // Regenerate the plan with new count
+                    const newPlan = generateLocalSuccessionPlan(payload, cropName, varietyName);
+                    currentSuccessionPlan = newPlan;
+                    
+                    // Update quick forms
+                    renderQuickFormTabs(currentSuccessionPlan);
+                    
+                    // Update sidebar if visible
+                    if (typeof populateSuccessionSidebar === 'function') {
+                        populateSuccessionSidebar(currentSuccessionPlan);
+                    }
+                    
+                    console.log(`✅ Plan regenerated with ${successions} successions`);
+                }
             }
         }
 
