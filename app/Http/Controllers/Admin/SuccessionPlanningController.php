@@ -2924,20 +2924,25 @@ class SuccessionPlanningController extends Controller
                 ];
 
                 try {
-                    // Get the succession data from session or generate it
-                    $successionData = session('succession_plan_data', []);
-                    if (empty($successionData) || !isset($successionData[$successionIndex])) {
-                        throw new \Exception("No succession data found for index {$successionIndex}");
+                    // Parse crop variety from the request data
+                    // Format can be "Crop - Variety" or "Crop Variety" or just "Crop"
+                    $cropName = 'Unknown Crop';
+                    $varietyName = 'Generic';
+                    
+                    if ($cropVariety) {
+                        // Try splitting by " - " first (e.g., "Lettuce - Tom Thumb")
+                        if (strpos($cropVariety, ' - ') !== false) {
+                            $parts = explode(' - ', $cropVariety, 2);
+                            $cropName = trim($parts[0]);
+                            $varietyName = trim($parts[1]);
+                        } else {
+                            // Otherwise just use the whole string as crop name
+                            $cropName = trim($cropVariety);
+                        }
                     }
 
-                    $succession = $successionData[$successionIndex];
                     $locationId = null;
                     $plantingId = null;
-
-                    // Parse crop variety - could be "Crop Variety" or just "Crop"
-                    $cropParts = explode(' ', $cropVariety, 2);
-                    $cropName = $cropParts[0] ?? $succession['crop_name'] ?? 'Unknown Crop';
-                    $varietyName = count($cropParts) > 1 ? $cropParts[1] : ($succession['variety_name'] ?? $cropName);
 
                     // Create planting asset first if seeding is included
                     if (isset($logs['seeding'])) {
@@ -2948,6 +2953,7 @@ class SuccessionPlanningController extends Controller
                             'bed_name' => $logs['seeding']['location'],
                             'quantity' => $logs['seeding']['quantity']['value'] ?? 100,
                             'succession_number' => $successionIndex + 1,
+                            'notes' => "Quick form submission for {$season}"
                         ];
                         $plantingId = $this->createPlantingAsset($plantingAssetData, $locationId);
                     }
