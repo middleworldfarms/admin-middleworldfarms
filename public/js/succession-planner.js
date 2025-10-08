@@ -164,12 +164,12 @@ class SuccessionPlanner {
             // Crops that should NOT be transplanted
             if (cropName.includes('cucumber') || cropName.includes('courgette') || 
                 cropName.includes('zucchini') || cropName.includes('squash')) {
-                warningMessage = '⚠️ Warning: Cucurbits (cucumbers, squash, courgettes) typically don\'t transplant well due to sensitive roots. Direct sowing is strongly recommended.';
+                warningMessage = 'ℹ️ Note: Cucurbits have sensitive roots and are usually direct sown. However, transplanting works well for early crops under protection (greenhouse/polytunnel).';
             } else if (cropName.includes('carrot') || cropName.includes('parsnip') || 
                        cropName.includes('radish') || cropName.includes('beetroot')) {
-                warningMessage = '⚠️ Warning: Root vegetables develop tap roots and don\'t transplant well. Direct sowing is recommended for best results.';
+                warningMessage = 'ℹ️ Note: Root vegetables develop tap roots and generally prefer direct sowing for best root development.';
             } else if (cropName.includes('pea') || cropName.includes('bean')) {
-                warningMessage = 'ℹ️ Note: Peas and beans can be transplanted but are usually direct sown. Only transplant if starting early under protection.';
+                warningMessage = 'ℹ️ Note: Peas and beans are usually direct sown but can be transplanted for early crops under protection.';
             }
         } else if (selectedMethod === 'direct') {
             // Crops that benefit from transplanting
