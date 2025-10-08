@@ -55,6 +55,12 @@ class SuccessionPlanner {
             varietySelect.addEventListener('change', (e) => this.handleVarietySelection(e.target.value));
         }
 
+        // Planting method change
+        const plantingMethodRadios = document.querySelectorAll('input[name="plantingMethod"]');
+        plantingMethodRadios.forEach(radio => {
+            radio.addEventListener('change', (e) => this.handlePlantingMethodChange(e.target.value));
+        });
+
         // Season/Year handlers
         this.setupSeasonYearHandlers();
 
@@ -110,6 +116,30 @@ class SuccessionPlanner {
         }
 
         // Removed automatic AI harvest window calculation - now manual only
+    }
+
+    /**
+     * Handle planting method change
+     */
+    handlePlantingMethodChange(method) {
+        console.log('🌱 Planting method changed to:', method);
+        
+        // Update hint text
+        const hintElement = document.getElementById('plantingMethodHint');
+        if (hintElement) {
+            const hints = {
+                'direct': 'Direct sowing: Seeds planted directly in final location. Faster setup, less transplant shock.',
+                'transplant': 'Transplanting: Start seeds indoors/greenhouse, transplant later. Better control, earlier start possible.',
+                'either': 'Auto mode: System will choose best method based on variety data and growing conditions.'
+            };
+            hintElement.textContent = hints[method] || hints['either'];
+        }
+        
+        // Trigger succession plan regeneration with new method
+        if (this.cropId && typeof calculateSuccessionPlan === 'function') {
+            console.log('🔄 Regenerating succession plan with method:', method);
+            setTimeout(() => calculateSuccessionPlan(), 100);
+        }
     }
 
     /**

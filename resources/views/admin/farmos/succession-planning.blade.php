@@ -1428,6 +1428,36 @@
                             </select>
                         </div>
                     </div>
+                    
+                    <!-- Planting Method Selection -->
+                    <div class="row mt-3" id="plantingMethodRow" style="display: none;">
+                        <div class="col-md-12">
+                            <label class="form-label">
+                                <i class="fas fa-seedling text-primary"></i>
+                                Planting Method
+                            </label>
+                            <div class="btn-group w-100" role="group" aria-label="Planting method">
+                                <input type="radio" class="btn-check" name="plantingMethod" id="methodDirectSow" value="direct" autocomplete="off">
+                                <label class="btn btn-outline-success" for="methodDirectSow">
+                                    <i class="fas fa-hand-holding-seedling"></i> Direct Sow
+                                </label>
+                                
+                                <input type="radio" class="btn-check" name="plantingMethod" id="methodTransplant" value="transplant" autocomplete="off">
+                                <label class="btn btn-outline-primary" for="methodTransplant">
+                                    <i class="fas fa-seedling"></i> Transplant
+                                </label>
+                                
+                                <input type="radio" class="btn-check" name="plantingMethod" id="methodEither" value="either" autocomplete="off" checked>
+                                <label class="btn btn-outline-info" for="methodEither">
+                                    <i class="fas fa-exchange-alt"></i> Either (Auto)
+                                </label>
+                            </div>
+                            <small class="text-muted d-block mt-1">
+                                <i class="fas fa-info-circle"></i> 
+                                <span id="plantingMethodHint">This affects timing, quantities, and succession dates. Choose based on your growing setup.</span>
+                            </small>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Step 2: Drag-and-Drop Harvest Window -->
@@ -2192,6 +2222,30 @@
         // Log planting method for reference (could be used for overseeding calculations later)
         if (varietyData.planting_method) {
             console.log('🌱 Planting method:', varietyData.planting_method);
+        }
+
+        // Show and configure planting method selector
+        const plantingMethodRow = document.getElementById('plantingMethodRow');
+        if (plantingMethodRow) {
+            plantingMethodRow.style.display = 'block';
+            
+            // Set default based on variety data
+            const method = varietyData.planting_method?.toLowerCase() || 'either';
+            const methodRadio = document.getElementById(
+                method === 'direct' ? 'methodDirectSow' :
+                method === 'transplant' ? 'methodTransplant' :
+                'methodEither'
+            );
+            
+            if (methodRadio) {
+                methodRadio.checked = true;
+                
+                // Trigger change event to update hint and calculations
+                const event = new Event('change', { bubbles: true });
+                methodRadio.dispatchEvent(event);
+                
+                console.log('🌱 Set planting method to:', method);
+            }
         }
 
         console.log('✅ Variety information displayed');
@@ -3871,10 +3925,31 @@ Calculate for ${contextPayload.planning_year}.`;
         const inRowSpacing = parseFloat(document.getElementById('inRowSpacing')?.value) || 15; // default 15cm
         const betweenRowSpacing = parseFloat(document.getElementById('betweenRowSpacing')?.value) || 20; // default 20cm
         
-        // Determine planting method (transplant vs direct seed)
-        const isTransplant = cropName.includes('brussels') || cropName.includes('cabbage') || 
-                            cropName.includes('broccoli') || cropName.includes('cauliflower');
-        const plantingMethod = isTransplant ? 'transplant' : 'direct';
+        // Get selected planting method from radio buttons
+        const methodRadio = document.querySelector('input[name="plantingMethod"]:checked');
+        let selectedMethod = methodRadio?.value || 'either';
+        
+        // Determine actual planting method
+        let plantingMethod;
+        if (selectedMethod === 'direct') {
+            plantingMethod = 'direct';
+        } else if (selectedMethod === 'transplant') {
+            plantingMethod = 'transplant';
+        } else {
+            // Auto mode: determine based on crop type or variety data
+            const varietyMethod = window.currentVarietyData?.planting_method?.toLowerCase();
+            if (varietyMethod === 'direct' || varietyMethod === 'transplant') {
+                plantingMethod = varietyMethod;
+            } else {
+                // Fallback to crop-based logic
+                const isTransplant = cropName.includes('brussels') || cropName.includes('cabbage') || 
+                                    cropName.includes('broccoli') || cropName.includes('cauliflower') ||
+                                    cropName.includes('tomato') || cropName.includes('pepper');
+                plantingMethod = isTransplant ? 'transplant' : 'direct';
+            }
+        }
+        
+        console.log(`🌱 Planting method: ${plantingMethod} (selected: ${selectedMethod})`);
         
         // Calculate quantities based on bed dimensions
         const quantities = calculatePlantQuantity(bedLength, bedWidth, inRowSpacing, betweenRowSpacing, plantingMethod);
@@ -3896,7 +3971,7 @@ Calculate for ${contextPayload.planning_year}.`;
             
             // For transplanted crops, calculate transplant date
             let transplantDate = null;
-            if (isTransplant) {
+            if (plantingMethod === 'transplant') {
                 transplantDate = new Date(seedingDate);
                 transplantDate.setDate(transplantDate.getDate() + 35); // ~5 weeks from seed to transplant
             }
