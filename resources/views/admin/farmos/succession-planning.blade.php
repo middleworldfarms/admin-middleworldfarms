@@ -2779,6 +2779,9 @@
     // Calculate AI harvest window - main function for getting maximum possible harvest
     async function calculateAIHarvestWindow() {
         let harvestInfo = null; // Declare at function level
+        let cropName = null;
+        let varietyName = null;
+        let contextPayload = null;
 
         try {
             console.log('🤖 calculateAIHarvestWindow() called');
@@ -2797,8 +2800,8 @@
                 return;
             }
 
-            const cropName = cropSelect.options[cropSelect.selectedIndex].text;
-            const varietyName = varietySelect && varietySelect.value ? varietySelect.options[varietySelect.selectedIndex].text : null;
+            cropName = cropSelect.options[cropSelect.selectedIndex].text;
+            varietyName = varietySelect && varietySelect.value ? varietySelect.options[varietySelect.selectedIndex].text : null;
             const varietyId = varietySelect && varietySelect.value ? varietySelect.value : null;
 
             // Try to fetch full variety metadata from farmOS to pass to AI
@@ -2812,7 +2815,7 @@
                 }
             }
 
-            const contextPayload = {
+            contextPayload = {
                 crop: cropName,
                 variety: varietyName || null,
                 variety_meta: varietyMeta,
@@ -6553,50 +6556,6 @@ Plantings:`;
         const sidebarCountBadge = document.getElementById('sidebarSuccessionCount');
         if (sidebarCountBadge) {
             sidebarCountBadge.textContent = `${successions} Succession${successions > 1 ? 's' : ''}`;
-        }
-
-        // Auto-regenerate quick forms if plan exists and count changed
-        if (currentSuccessionPlan && currentSuccessionPlan.plantings) {
-            const currentPlantingCount = currentSuccessionPlan.plantings.length;
-            if (currentPlantingCount !== successions) {
-                console.log(`🔄 Succession count changed from ${currentPlantingCount} to ${successions}, regenerating plan...`);
-                
-                // Update the succession_count in current plan
-                currentSuccessionPlan.succession_count = successions;
-                
-                // Trigger auto-regeneration
-                const cropSelect = document.getElementById('cropSelect');
-                const varietySelect = document.getElementById('varietySelect');
-                if (cropSelect && varietySelect && cropSelect.value && varietySelect.value) {
-                    const cropName = cropSelect.options[cropSelect.selectedIndex].text;
-                    const varietyName = varietySelect.options[varietySelect.selectedIndex].text;
-                    
-                    // Rebuild payload with new succession count
-                    const payload = {
-                        harvest_start: harvestWindowData.userStart,
-                        harvest_end: harvestWindowData.userEnd,
-                        succession_count: successions,
-                        bed_length: parseFloat(document.getElementById('bedLength')?.value || 10),
-                        bed_width: parseFloat(document.getElementById('bedWidth')?.value || 75),
-                        in_row_spacing: parseFloat(document.getElementById('inRowSpacing')?.value || 30),
-                        between_row_spacing: parseFloat(document.getElementById('betweenRowSpacing')?.value || 30)
-                    };
-                    
-                    // Regenerate the plan with new count
-                    const newPlan = generateLocalSuccessionPlan(payload, cropName, varietyName);
-                    currentSuccessionPlan = newPlan;
-                    
-                    // Update quick forms
-                    renderQuickFormTabs(currentSuccessionPlan);
-                    
-                    // Update sidebar if visible
-                    if (typeof populateSuccessionSidebar === 'function') {
-                        populateSuccessionSidebar(currentSuccessionPlan);
-                    }
-                    
-                    console.log(`✅ Plan regenerated with ${successions} successions`);
-                }
-            }
         }
 
         // Show and update the dynamic succession display
