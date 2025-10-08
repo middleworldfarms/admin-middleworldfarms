@@ -1679,13 +1679,18 @@
                             placeholder="Ask a question... (e.g., 'What's the best succession interval for lettuce?')"></textarea>
                     </div>
                     
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-primary flex-shrink-0" id="evaluatePlanBtn" title="Quick evaluation of your succession plan">
-                            <i class="fas fa-clipboard-check"></i> Evaluate Plan
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button class="btn btn-primary flex-grow-1" id="analyzePlanBtn" onclick="askAIAboutPlan()" title="Analyze succession plan with AI recommendations">
+                            <i class="fas fa-brain"></i> Analyze Succession Plan
                         </button>
-                        <button class="btn btn-success flex-grow-1" id="sendChatBtn">
-                            <i class="fas fa-paper-plane"></i> Send Message
+                        <button class="btn btn-success" id="sendChatBtn" title="Send your question to AI">
+                            <i class="fas fa-paper-plane"></i>
                         </button>
+                    </div>
+
+                    <!-- AI Response Area with Accept/Reject Buttons -->
+                    <div id="aiResponseArea" class="mt-3" style="display: none;">
+                        <!-- AI recommendations and action buttons will appear here -->
                     </div>
                 </div>
             </div>
@@ -4014,7 +4019,60 @@ Calculate for ${contextPayload.planning_year}.`;
 
             const info = document.createElement('div');
             info.className = 'succession-info';
+            
+            // Calculate timeline visualization
+            const seedDate = p.seeding_date ? new Date(p.seeding_date) : null;
+            const transplantDate = p.transplant_date ? new Date(p.transplant_date) : null;
+            const harvestStart = p.harvest_date ? new Date(p.harvest_date) : null;
+            const harvestEnd = p.harvest_end_date ? new Date(p.harvest_end_date) : harvestStart;
+            
+            let timelineHTML = '';
+            if (seedDate && harvestStart) {
+                const totalDays = Math.ceil((harvestEnd - seedDate) / (1000 * 60 * 60 * 24));
+                const seedToTransplant = transplantDate ? Math.ceil((transplantDate - seedDate) / (1000 * 60 * 60 * 24)) : 0;
+                const transplantToHarvest = transplantDate ? Math.ceil((harvestStart - transplantDate) / (1000 * 60 * 60 * 24)) : 0;
+                const seedToHarvest = Math.ceil((harvestStart - seedDate) / (1000 * 60 * 60 * 24));
+                const harvestDuration = harvestEnd ? Math.ceil((harvestEnd - harvestStart) / (1000 * 60 * 60 * 24)) : 0;
+                
+                const seedPercent = transplantDate ? (seedToTransplant / totalDays * 100) : (seedToHarvest / totalDays * 100);
+                const transplantPercent = transplantDate ? (transplantToHarvest / totalDays * 100) : 0;
+                const harvestPercent = (harvestDuration / totalDays * 100);
+                
+                timelineHTML = `
+                    <div class="succession-timeline mb-3" style="margin-top: 15px;">
+                        <div style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; margin-bottom: 5px;">
+                            <span style="font-weight: 600; color: #28a745;">🌱 Seed</span>
+                            ${transplantDate ? '<span style="color: #999;">→</span><span style="font-weight: 600; color: #17a2b8;">🌿 Transplant</span>' : ''}
+                            <span style="color: #999;">→</span>
+                            <span style="font-weight: 600; color: #ffc107;">🌾 Harvest</span>
+                            <span style="margin-left: auto; color: #666; font-size: 0.8rem;">${totalDays} days total</span>
+                        </div>
+                        <div style="position: relative; height: 30px; background: #f0f0f0; border-radius: 4px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">
+                            ${transplantDate ? `
+                                <div style="position: absolute; left: 0; height: 100%; width: ${seedPercent}%; background: linear-gradient(135deg, #28a745, #20c997); display: flex; align-items: center; justify-content: center; color: white; font-size: 0.75rem; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">
+                                    ${seedToTransplant}d
+                                </div>
+                                <div style="position: absolute; left: ${seedPercent}%; height: 100%; width: ${transplantPercent}%; background: linear-gradient(135deg, #17a2b8, #20c9b8); display: flex; align-items: center; justify-content: center; color: white; font-size: 0.75rem; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">
+                                    ${transplantToHarvest}d
+                                </div>
+                                <div style="position: absolute; right: 0; height: 100%; width: ${harvestPercent}%; background: linear-gradient(135deg, #ffc107, #ffb300); display: flex; align-items: center; justify-content: center; color: white; font-size: 0.75rem; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">
+                                    ${harvestDuration}d
+                                </div>
+                            ` : `
+                                <div style="position: absolute; left: 0; height: 100%; width: ${100 - harvestPercent}%; background: linear-gradient(135deg, #28a745, #20c997); display: flex; align-items: center; justify-content: center; color: white; font-size: 0.75rem; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">
+                                    ${seedToHarvest}d
+                                </div>
+                                <div style="position: absolute; right: 0; height: 100%; width: ${harvestPercent}%; background: linear-gradient(135deg, #ffc107, #ffb300); display: flex; align-items: center; justify-content: center; color: white; font-size: 0.75rem; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">
+                                    ${harvestDuration}d
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                `;
+            }
+            
             info.innerHTML = `<h5>Details</h5>
+                ${timelineHTML}
                 <p><strong>Bed:</strong> ${p.bed_name || 'Unassigned'}</p>
                 <p><strong>Seeding:</strong> ${p.seeding_date || '-'}</p>
                 ${p.transplant_date ? `<p><strong>Transplant:</strong> ${p.transplant_date}</p>` : ''}
@@ -5652,15 +5710,82 @@ Calculate for ${contextPayload.planning_year}.`;
             return;
         }
 
-        const planContext = buildPlanContextForAI();
-        const prompt = `Analyze this succession planting plan and provide specific recommendations for optimization. Consider timing, spacing, resource allocation, and potential improvements.
+        const analyzePlanBtn = document.getElementById('analyzePlanBtn');
+        const originalText = analyzePlanBtn.innerHTML;
+        
+        try {
+            // Show loading state
+            analyzePlanBtn.disabled = true;
+            analyzePlanBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analyzing...';
 
-Plan Details:
-${planContext}
+            const plan = currentSuccessionPlan;
+            
+            // Build detailed context object for backend
+            const context = {
+                has_plan: true,
+                plan: {
+                    crop_name: plan.plantings[0]?.crop_name || 'Unknown',
+                    variety_name: plan.plantings[0]?.variety_name || 'Standard',
+                    total_successions: plan.plantings.length,
+                    harvest_window_start: plan.harvest_start,
+                    harvest_window_end: plan.harvest_end,
+                    bed_length: plan.plantings[0]?.bed_length || 5,
+                    bed_width: plan.plantings[0]?.bed_width || 75,
+                    in_row_spacing: plan.plantings[0]?.in_row_spacing || 30,
+                    between_row_spacing: plan.plantings[0]?.between_row_spacing || 45,
+                    planting_method: plan.plantings[0]?.transplant_date ? 'Transplant' : 'Direct Sow',
+                    plantings: plan.plantings.map(p => ({
+                        succession_number: p.succession_number,
+                        seeding_date: p.seeding_date,
+                        transplant_date: p.transplant_date || null,
+                        harvest_date: p.harvest_date,
+                        quantity: p.quantity,
+                        bed_name: p.bed_name
+                    }))
+                }
+            };
 
-Please provide actionable insights for improving this succession plan.`;
+            const prompt = `Analyze this succession planting plan and provide specific, actionable recommendations.`;
 
-        await askHolisticAI(prompt, 'succession_plan_analysis');
+            console.log('🧠 Sending plan analysis request to AI with full context...');
+            console.log('📦 Context:', context);
+
+            // Call the chat API with proper context
+            const response = await fetch('/admin/farmos/succession-planning/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({ 
+                    question: prompt,
+                    crop_type: plan.plantings[0]?.crop_name?.toLowerCase() || null,
+                    context: context
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log('✅ AI response received:', data);
+
+            if (data.answer) {
+                // Display response with Accept/Modify buttons
+                displayAIResponse(data.answer);
+            } else {
+                throw new Error('No answer received from AI');
+            }
+
+        } catch (error) {
+            console.error('❌ Error analyzing plan:', error);
+            showToast('Failed to analyze plan: ' + error.message, 'error');
+        } finally {
+            // Restore button state
+            analyzePlanBtn.disabled = false;
+            analyzePlanBtn.innerHTML = originalText;
+        }
     }
 
     function buildPlanContextForAI() {
@@ -7627,21 +7752,115 @@ Plantings:`;
 
     function displayAIResponse(response) {
         const responseArea = document.getElementById('aiResponseArea');
-        if (!responseArea) return;
+        if (!responseArea) {
+            console.warn('⚠️ AI Response Area not found in DOM');
+            return;
+        }
 
+        // Show the response area
+        responseArea.style.display = 'block';
+
+        // Store response for recommendation parsing
+        lastAIResponse = response;
+        
         // Format the response with proper HTML
         const formattedResponse = response.replace(/\n/g, '<br>');
+        
+        // Parse to check if there are ACTIONABLE recommendations
+        const recommendations = parseAIRecommendations(response);
+        
+        // Check what types of recommendations we have
+        const hasRemove = recommendations.some(r => r.action === 'remove');
+        const hasTiming = recommendations.some(r => r.action === 'adjust_timing');
+        const hasSpacing = recommendations.some(r => r.action === 'adjust_spacing');
+        const hasCompanions = recommendations.some(r => r.action === 'add_companion');
+        
+        // Only timing and removal are truly actionable (can be applied automatically)
+        const hasActionableItems = hasRemove || hasTiming;
+        
+        // Check for global spacing suggestions (not tied to specific succession)
+        const lowerResponse = response.toLowerCase();
+        const hasGlobalSpacing = (lowerResponse.includes('spacing') || lowerResponse.includes('row')) && 
+                                 (lowerResponse.includes('cm') || lowerResponse.includes('centimeter')) &&
+                                 !hasSpacing; // Global if not in specific succession recommendations
+        
+        // Check if AI says plan is good/solid/adequate
+        const isPlanGood = (lowerResponse.includes('appears adequate') || 
+                           lowerResponse.includes('looks good') ||
+                           lowerResponse.includes('plan is solid') ||
+                           lowerResponse.includes('well planned') ||
+                           lowerResponse.includes('spacing is adequate')) &&
+                          !hasActionableItems;
+        
+        let actionButtons = '';
+        if (hasActionableItems && currentSuccessionPlan) {
+            // Count only actionable items
+            const actionableCount = recommendations.filter(r => r.action === 'remove' || r.action === 'adjust_timing').length;
+            
+            // Show Accept button only if there are actionable items
+            actionButtons = `
+                <div class="mt-3 border-top pt-3">
+                    <div class="alert alert-warning mb-2">
+                        <i class="fas fa-exclamation-triangle"></i> <strong>${actionableCount} actionable change(s) detected</strong>
+                        ${hasRemove ? '<br><small>• Remove successions</small>' : ''}
+                        ${hasTiming ? '<br><small>• Adjust timing/dates</small>' : ''}
+                    </div>
+                    <button class="btn btn-success btn-sm me-2" onclick="acceptAIRecommendations()">
+                        <i class="fas fa-check"></i> Accept & Apply Changes
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="modifyRecommendations()">
+                        <i class="fas fa-edit"></i> Request Modifications
+                    </button>
+                </div>
+            `;
+        } else if ((hasCompanions || hasGlobalSpacing || hasSpacing) && currentSuccessionPlan) {
+            // Has suggestions but they're manual (companion plants, spacing tweaks)
+            let suggestionTypes = [];
+            if (hasCompanions) suggestionTypes.push('🌿 Companion planting');
+            if (hasGlobalSpacing || hasSpacing) suggestionTypes.push('📏 Spacing optimization');
+            
+            actionButtons = `
+                <div class="mt-3 border-top pt-3">
+                    <div class="alert alert-info mb-0">
+                        <i class="fas fa-lightbulb"></i> <strong>Suggestions for Consideration</strong><br>
+                        <small>${suggestionTypes.join(' • ')}</small><br>
+                        <small class="text-muted">These recommendations require manual adjustment and cannot be applied automatically.</small>
+                    </div>
+                </div>
+            `;
+        } else if (isPlanGood && currentSuccessionPlan) {
+            // Show confirmation message if plan is good
+            actionButtons = `
+                <div class="mt-3 border-top pt-3">
+                    <div class="alert alert-success mb-0">
+                        <i class="fas fa-check-circle"></i> <strong>Your succession plan looks solid!</strong><br>
+                        <small>AI analysis found no critical issues. The recommendations above are informational suggestions for optional improvements.</small>
+                    </div>
+                </div>
+            `;
+        } else if (currentSuccessionPlan) {
+            // Generic message for informational responses
+            actionButtons = `
+                <div class="mt-3 border-top pt-3">
+                    <div class="alert alert-light mb-0">
+                        <i class="fas fa-info-circle"></i> <strong>Informational Advice</strong><br>
+                        <small>The suggestions above are for general planning consideration.</small>
+                    </div>
+                </div>
+            `;
+        }
         
         responseArea.innerHTML = `
             <div class="ai-response">
                 <div class="d-flex align-items-start">
                     <div class="ai-avatar me-2">
-                        <i class="fas fa-robot text-primary"></i>
+                        <i class="fas fa-robot text-primary fs-4"></i>
                     </div>
                     <div class="flex-grow-1">
-                        <div class="ai-message p-3 bg-light rounded">
+                        <div class="ai-message p-3 bg-light rounded border">
                             ${formattedResponse}
                         </div>
+                        ${actionButtons}
                         <small class="text-muted mt-1 d-block">
                             <i class="fas fa-clock"></i> ${new Date().toLocaleTimeString()}
                         </small>
@@ -7770,16 +7989,9 @@ Plantings:`;
     const chatMessages = document.getElementById('chatMessages');
     const chatInput = document.getElementById('chatInput');
     const sendChatBtn = document.getElementById('sendChatBtn');
-    const evaluatePlanBtn = document.getElementById('evaluatePlanBtn');
     
     // Send message on button click
     sendChatBtn.addEventListener('click', sendChatMessage);
-    
-    // Quick evaluation button
-    evaluatePlanBtn.addEventListener('click', function() {
-        chatInput.value = 'Can you give me any advice on the planned successions?';
-        sendChatMessage();
-    });
     
     // Send message on Enter (but allow Shift+Enter for new lines)
     chatInput.addEventListener('keydown', function(e) {
@@ -7893,6 +8105,437 @@ Plantings:`;
         chatMessages.scrollTop = chatMessages.scrollHeight;
         
         return msgId;
+    }
+    
+    // ========================================================================
+    // AI RECOMMENDATION ACCEPTANCE
+    // ========================================================================
+    
+    // Store the last AI response for parsing recommendations
+    let lastAIResponse = null;
+    let lastAIRecommendations = null;
+    
+    /**
+     * Accept AI recommendations and apply them to the succession plan
+     */
+    function acceptAIRecommendations() {
+        if (!currentSuccessionPlan) {
+            showToast('No succession plan available to modify', 'warning');
+            return;
+        }
+        
+        if (!lastAIResponse) {
+            showToast('No AI recommendations to apply', 'warning');
+            return;
+        }
+        
+        // Parse AI response for actionable recommendations
+        const recommendations = parseAIRecommendations(lastAIResponse);
+        lastAIRecommendations = recommendations;
+        
+        // Build recommendation summary for modal
+        let recommendationSummary = '';
+        if (recommendations.length > 0) {
+            recommendationSummary = '<div class="alert alert-warning small mb-3"><strong>Detected Changes:</strong><ul class="mb-0 mt-2">';
+            recommendations.forEach(rec => {
+                if (rec.action === 'remove') {
+                    recommendationSummary += `<li>❌ Remove succession ${rec.successionNumber}</li>`;
+                } else if (rec.action === 'adjust_spacing') {
+                    recommendationSummary += `<li>📏 Adjust spacing for succession ${rec.successionNumber}</li>`;
+                } else if (rec.action === 'adjust_timing') {
+                    if (rec.delayDays !== undefined) {
+                        const direction = rec.delayDays > 0 ? 'Delay' : 'Advance';
+                        const days = Math.abs(rec.delayDays);
+                        const units = days === 7 ? '1 week' : days === 14 ? '2 weeks' : days === 21 ? '3 weeks' : `${days} days`;
+                        recommendationSummary += `<li>📅 ${direction} succession ${rec.successionNumber} by ${units}</li>`;
+                    } else {
+                        recommendationSummary += `<li>⏰ Adjust timing for succession ${rec.successionNumber}</li>`;
+                    }
+                } else if (rec.action === 'add_companion') {
+                    recommendationSummary += `<li>🌿 Add companion: ${rec.companion}</li>`;
+                }
+            });
+            recommendationSummary += '</ul></div>';
+        } else {
+            recommendationSummary = '<div class="alert alert-info small mb-3"><i class="fas fa-info-circle"></i> No specific structural changes detected. Accepting will mark plan as reviewed.</div>';
+        }
+        
+        // Show confirmation modal
+        const confirmModal = `
+            <div class="modal fade" id="acceptRecommendationsModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header bg-success text-white">
+                            <h5 class="modal-title">
+                                <i class="fas fa-check-circle"></i> Accept AI Recommendations
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="mb-3">
+                                <strong>Ready to apply AI recommendations?</strong>
+                            </p>
+                            
+                            ${recommendationSummary}
+                            
+                            <p class="text-muted small mb-3">
+                                The AI has analyzed your succession plan using our knowledge base of:
+                            </p>
+                            <ul class="small text-muted mb-3">
+                                <li>39 companion planting relationships</li>
+                                <li>22 crop rotation patterns</li>
+                                <li>15 UK planting calendar entries</li>
+                            </ul>
+                            <div class="alert alert-info small mb-0">
+                                <i class="fas fa-info-circle"></i>
+                                <strong>Note:</strong> Changes will be applied to your current plan. You can review and make further manual adjustments after acceptance.
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                <i class="fas fa-times"></i> Cancel
+                            </button>
+                            <button type="button" class="btn btn-success" onclick="confirmAcceptRecommendations()">
+                                <i class="fas fa-check"></i> Accept & Apply Changes
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove existing modal if present
+        document.getElementById('acceptRecommendationsModal')?.remove();
+        
+        // Add modal to page
+        document.body.insertAdjacentHTML('beforeend', confirmModal);
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('acceptRecommendationsModal'));
+        modal.show();
+    }
+    
+    /**
+     * Parse AI response text to extract actionable recommendations
+     */
+    function parseAIRecommendations(responseText) {
+        const recommendations = [];
+        const text = responseText.toLowerCase();
+        
+        // Detect remove/skip succession patterns
+        const removePatterns = [
+            /(?:remove|skip|eliminate|drop)\s+(?:succession\s+)?(\d+)/gi,
+            /succession\s+(\d+)\s+(?:should be|could be|can be)?\s*(?:removed|skipped|eliminated|dropped)/gi,
+            /(?:not recommended|don't recommend|avoid)\s+succession\s+(\d+)/gi,
+            /succession\s+(\d+)\s+(?:is\s+)?(?:not\s+)?(?:necessary|needed|recommended)/gi
+        ];
+        
+        removePatterns.forEach(pattern => {
+            let match;
+            const regex = new RegExp(pattern);
+            while ((match = regex.exec(text)) !== null) {
+                const successionNum = parseInt(match[1]);
+                if (successionNum && !recommendations.some(r => r.action === 'remove' && r.successionNumber === successionNum)) {
+                    recommendations.push({
+                        action: 'remove',
+                        successionNumber: successionNum,
+                        reason: 'AI suggested removal'
+                    });
+                }
+            }
+        });
+        
+        // Detect spacing adjustments
+        const spacingPatterns = [
+            /(?:increase|widen|expand)\s+spacing.*?succession\s+(\d+)/gi,
+            /succession\s+(\d+).*?(?:increase|widen|expand)\s+spacing/gi,
+            /(?:reduce|narrow|decrease)\s+spacing.*?succession\s+(\d+)/gi,
+            /succession\s+(\d+).*?(?:too\s+)?(?:close|tight|crowded)/gi
+        ];
+        
+        spacingPatterns.forEach(pattern => {
+            let match;
+            const regex = new RegExp(pattern);
+            while ((match = regex.exec(text)) !== null) {
+                const successionNum = parseInt(match[1]);
+                if (successionNum && !recommendations.some(r => r.successionNumber === successionNum)) {
+                    recommendations.push({
+                        action: 'adjust_spacing',
+                        successionNumber: successionNum,
+                        reason: 'AI suggested spacing adjustment'
+                    });
+                }
+            }
+        });
+        
+        // Detect timing adjustments with specific delays
+        // Pattern 1: "delay succession X by Y days/weeks"
+        const delayWithAmountPattern = /(?:delay|postpone|move back|push back)\s+succession\s+(\d+)\s+by\s+(\d+)\s+(day|week|month)s?/gi;
+        let match;
+        while ((match = delayWithAmountPattern.exec(text)) !== null) {
+            const successionNum = parseInt(match[1]);
+            const amount = parseInt(match[2]);
+            const unit = match[3];
+            
+            let days = amount;
+            if (unit === 'week') days = amount * 7;
+            if (unit === 'month') days = amount * 30;
+            
+            recommendations.push({
+                action: 'adjust_timing',
+                successionNumber: successionNum,
+                delayDays: days,
+                reason: `AI suggested ${amount} ${unit}${amount > 1 ? 's' : ''} delay`
+            });
+        }
+        
+        // Pattern 2: "advance succession X by Y days/weeks"
+        const advanceWithAmountPattern = /(?:advance|bring forward|move forward|move up)\s+succession\s+(\d+)\s+by\s+(\d+)\s+(day|week|month)s?/gi;
+        while ((match = advanceWithAmountPattern.exec(text)) !== null) {
+            const successionNum = parseInt(match[1]);
+            const amount = parseInt(match[2]);
+            const unit = match[3];
+            
+            let days = amount;
+            if (unit === 'week') days = amount * 7;
+            if (unit === 'month') days = amount * 30;
+            
+            recommendations.push({
+                action: 'adjust_timing',
+                successionNumber: successionNum,
+                delayDays: -days, // Negative for advance
+                reason: `AI suggested ${amount} ${unit}${amount > 1 ? 's' : ''} advance`
+            });
+        }
+        
+        // Pattern 3: Generic timing issues (flag for review if no specific amount)
+        const timingPatterns = [
+            /succession\s+(\d+).*?(?:too\s+)?(?:early|soon)/gi,
+            /succession\s+(\d+).*?(?:too\s+)?late/gi,
+            /(?:delay|postpone)\s+succession\s+(\d+)(?!\s+by)/gi, // delay without "by X days"
+            /(?:advance|bring forward)\s+succession\s+(\d+)(?!\s+by)/gi
+        ];
+        
+        timingPatterns.forEach(pattern => {
+            let match;
+            const regex = new RegExp(pattern);
+            while ((match = regex.exec(text)) !== null) {
+                const successionNum = parseInt(match[1]);
+                if (successionNum && !recommendations.some(r => r.successionNumber === successionNum && r.action === 'adjust_timing')) {
+                    // Default: suggest 1 week delay for "too early", 1 week advance for "too late"
+                    const isTooEarly = /too\s+(?:early|soon)|delay|postpone/i.test(match[0]);
+                    const defaultDays = isTooEarly ? 7 : -7;
+                    
+                    recommendations.push({
+                        action: 'adjust_timing',
+                        successionNumber: successionNum,
+                        delayDays: defaultDays,
+                        reason: `AI suggested timing adjustment (default: ${Math.abs(defaultDays)} days ${isTooEarly ? 'delay' : 'advance'})`
+                    });
+                }
+            }
+        });
+        
+        // Detect companion plant suggestions
+        const companionPatterns = [
+            /(?:plant|add|include|interplant)\s+(\w+)\s+(?:as\s+)?(?:companion|intercrop|between)/gi,
+            /(?:companion|intercrop).*?(\w+)/gi
+        ];
+        
+        companionPatterns.forEach(pattern => {
+            let match;
+            const regex = new RegExp(pattern);
+            while ((match = regex.exec(text)) !== null) {
+                const companion = match[1];
+                if (companion && companion.length > 2 && !recommendations.some(r => r.action === 'add_companion' && r.companion === companion)) {
+                    // Filter out common words
+                    const excludeWords = ['the', 'and', 'for', 'with', 'that', 'this', 'plant', 'crop', 'succession', 'week', 'weeks', 'day', 'days'];
+                    if (!excludeWords.includes(companion.toLowerCase())) {
+                        recommendations.push({
+                            action: 'add_companion',
+                            companion: companion,
+                            reason: 'AI suggested companion plant'
+                        });
+                    }
+                }
+            }
+        });
+        
+        console.log('📋 Parsed AI Recommendations:', recommendations);
+        return recommendations;
+    }
+    
+    /**
+     * Confirm acceptance and apply changes to the succession plan
+     */
+    function confirmAcceptRecommendations() {
+        // Close modal
+        bootstrap.Modal.getInstance(document.getElementById('acceptRecommendationsModal')).hide();
+        
+        if (!currentSuccessionPlan || !currentSuccessionPlan.plantings) {
+            showToast('No plan data to modify', 'error');
+            return;
+        }
+        
+        let changesApplied = 0;
+        const changeLog = [];
+        
+        // Apply recommendations
+        if (lastAIRecommendations && lastAIRecommendations.length > 0) {
+            lastAIRecommendations.forEach(rec => {
+                if (rec.action === 'remove') {
+                    // Remove the succession from the plan
+                    const originalLength = currentSuccessionPlan.plantings.length;
+                    currentSuccessionPlan.plantings = currentSuccessionPlan.plantings.filter(p => {
+                        return p.succession_number !== rec.successionNumber;
+                    });
+                    
+                    if (currentSuccessionPlan.plantings.length < originalLength) {
+                        changesApplied++;
+                        changeLog.push(`Removed succession ${rec.successionNumber}`);
+                        console.log(`✂️ Removed succession ${rec.successionNumber}`);
+                        
+                        // Renumber remaining successions
+                        currentSuccessionPlan.plantings.forEach((p, index) => {
+                            p.succession_number = index + 1;
+                        });
+                        
+                        // Update total count
+                        currentSuccessionPlan.total_successions = currentSuccessionPlan.plantings.length;
+                    }
+                }
+                
+                // Apply timing adjustments
+                if (rec.action === 'adjust_timing' && rec.delayDays !== undefined) {
+                    const planting = currentSuccessionPlan.plantings.find(p => p.succession_number === rec.successionNumber);
+                    if (planting) {
+                        const oldSeedingDate = planting.seeding_date;
+                        const oldTransplantDate = planting.transplant_date;
+                        const oldHarvestDate = planting.harvest_date;
+                        
+                        // Adjust seeding date
+                        if (planting.seeding_date) {
+                            const seedingDate = new Date(planting.seeding_date);
+                            seedingDate.setDate(seedingDate.getDate() + rec.delayDays);
+                            planting.seeding_date = seedingDate.toISOString().split('T')[0];
+                        }
+                        
+                        // Adjust transplant date (if exists)
+                        if (planting.transplant_date) {
+                            const transplantDate = new Date(planting.transplant_date);
+                            transplantDate.setDate(transplantDate.getDate() + rec.delayDays);
+                            planting.transplant_date = transplantDate.toISOString().split('T')[0];
+                        }
+                        
+                        // Adjust harvest dates
+                        if (planting.harvest_date) {
+                            const harvestDate = new Date(planting.harvest_date);
+                            harvestDate.setDate(harvestDate.getDate() + rec.delayDays);
+                            planting.harvest_date = harvestDate.toISOString().split('T')[0];
+                        }
+                        
+                        if (planting.harvest_end_date) {
+                            const harvestEndDate = new Date(planting.harvest_end_date);
+                            harvestEndDate.setDate(harvestEndDate.getDate() + rec.delayDays);
+                            planting.harvest_end_date = harvestEndDate.toISOString().split('T')[0];
+                        }
+                        
+                        changesApplied++;
+                        const direction = rec.delayDays > 0 ? 'delayed' : 'advanced';
+                        const days = Math.abs(rec.delayDays);
+                        changeLog.push(`${direction.charAt(0).toUpperCase() + direction.slice(1)} succession ${rec.successionNumber} by ${days} days (${oldSeedingDate} → ${planting.seeding_date})`);
+                        console.log(`📅 ${direction.charAt(0).toUpperCase() + direction.slice(1)} succession ${rec.successionNumber}: ${oldSeedingDate} → ${planting.seeding_date}`);
+                    }
+                }
+                
+                // Flag spacing adjustments for manual review
+                if (rec.action === 'adjust_spacing') {
+                    changeLog.push(`Flagged succession ${rec.successionNumber} for spacing review`);
+                    const planting = currentSuccessionPlan.plantings.find(p => p.succession_number === rec.successionNumber);
+                    if (planting) {
+                        planting.ai_spacing_flag = true;
+                    }
+                }
+            });
+        }
+        
+        // Mark plan as AI-approved
+        currentSuccessionPlan.ai_approved = true;
+        currentSuccessionPlan.ai_approved_at = new Date().toISOString();
+        currentSuccessionPlan.ai_changes_applied = changesApplied;
+        currentSuccessionPlan.ai_change_log = changeLog;
+        
+        // Redraw the plan table with updated data
+        displaySuccessionPlan(currentSuccessionPlan);
+        
+        // Add visual indicator
+        const responseArea = document.getElementById('aiResponseArea');
+        if (responseArea) {
+            let changesList = '';
+            if (changeLog.length > 0) {
+                changesList = '<ul class="mb-0 mt-2">' + changeLog.map(c => `<li>${c}</li>`).join('') + '</ul>';
+            }
+            
+            const acceptedBadge = `
+                <div class="alert alert-success mt-3" role="alert">
+                    <i class="fas fa-check-circle"></i>
+                    <strong>Recommendations Applied!</strong>
+                    ${changeLog.length > 0 ? `<br>${changesApplied} change(s) applied to your succession plan:` : 'Plan marked as AI-reviewed.'}
+                    ${changesList}
+                    <div class="mt-2">
+                        <small class="text-muted">You can now proceed to submit plantings to FarmOS or make further adjustments.</small>
+                    </div>
+                </div>
+            `;
+            responseArea.insertAdjacentHTML('beforeend', acceptedBadge);
+        }
+        
+        // Log acceptance
+        console.log('✅ AI Recommendations applied to plan:', currentSuccessionPlan);
+        console.log('📝 Change log:', changeLog);
+        
+        // Show success message
+        if (changesApplied > 0) {
+            showToast(`${changesApplied} change(s) applied successfully! Plan updated.`, 'success');
+        } else {
+            showToast('AI recommendations accepted. Plan marked as reviewed.', 'success');
+        }
+        
+        // Highlight the plan table to show it's been updated
+        const planTable = document.querySelector('#successionPlanDisplay table');
+        if (planTable) {
+            planTable.classList.add('table-success');
+            setTimeout(() => {
+                planTable.classList.remove('table-success');
+            }, 2000);
+        }
+    }
+    
+    /**
+     * Request modifications to AI recommendations
+     */
+    function modifyRecommendations() {
+        const currentResponse = document.querySelector('#aiResponseArea .ai-message')?.textContent;
+        
+        const modifyPrompt = `Based on your previous recommendations:\n\n${currentResponse}\n\nI'd like to request the following modifications: `;
+        
+        // Focus on chat input and pre-fill with modification request
+        const chatInput = document.getElementById('chatInput');
+        if (chatInput) {
+            chatInput.value = modifyPrompt;
+            chatInput.focus();
+            chatInput.setSelectionRange(modifyPrompt.length, modifyPrompt.length);
+            
+            // Scroll to chat section
+            chatInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+            // Fallback: ask for modifications directly
+            const modification = prompt('What modifications would you like to the AI recommendations?');
+            if (modification) {
+                const fullPrompt = `${modifyPrompt}${modification}`;
+                askHolisticAI(fullPrompt, 'modification_request');
+            }
+        }
     }
     
 </script>

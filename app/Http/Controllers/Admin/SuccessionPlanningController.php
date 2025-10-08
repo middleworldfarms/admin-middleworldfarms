@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\FarmOSApi;
 use App\Services\AI\SymbiosisAIService;
 use App\Services\FarmOSQuickFormService;
+use App\Services\VectorSearchService;
 use App\Models\PlantVariety;
 use App\Models\CompanionPlantingKnowledge;
 use App\Models\CropRotationKnowledge;
@@ -21,12 +22,19 @@ class SuccessionPlanningController extends Controller
     protected $farmOSApi;
     protected $symbiosisAI;
     protected $quickFormService;
+    protected $vectorSearch;
 
-    public function __construct(FarmOSApi $farmOSApi, SymbiosisAIService $symbiosisAI, FarmOSQuickFormService $quickFormService)
+    public function __construct(
+        FarmOSApi $farmOSApi, 
+        SymbiosisAIService $symbiosisAI, 
+        FarmOSQuickFormService $quickFormService,
+        VectorSearchService $vectorSearch
+    )
     {
         $this->farmOSApi = $farmOSApi;
         $this->symbiosisAI = $symbiosisAI;
         $this->quickFormService = $quickFormService;
+        $this->vectorSearch = $vectorSearch;
     }
 
     /**
@@ -1580,7 +1588,22 @@ class SuccessionPlanningController extends Controller
             $systemPrompt = 'You are Symbiosis AI, a practical farm planning assistant. Be direct and specific - no generic advice.';
             
             if ($hasPlan) {
-                $systemPrompt .= ' Analyze the SPECIFIC succession plan provided. Comment on: spacing appropriateness, succession timing/gaps, harvest window coverage. Suggest useful COMPANION PLANTS or INTERCROPS that could be planted with this crop (e.g., quick salads between brassica rows, herbs for pest control). Use exact numbers from the plan. Keep under 150 words.';
+                $bedWidth = $plan['bed_width'] ?? 75;
+                $currentBetweenRow = $plan['between_row_spacing'] ?? 45;
+                $currentInRow = $plan['in_row_spacing'] ?? 30;
+                $bedLength = $plan['bed_length'] ?? 11;
+                
+                // Calculate current rows
+                // Formula: How many rows can fit with given spacing?
+                // For 75cm bed, 30cm spacing: positions at 0, 30, 60 = 3 rows
+                // For 75cm bed, 45cm spacing: positions at 0, 45 = 2 rows (90 doesn't fit)
+                $currentRows = floor($bedWidth / $currentBetweenRow) + 1;
+                
+                $plantsPerRow = floor(($bedLength * 100) / $currentInRow);
+                $currentTotal = $currentRows * $plantsPerRow;
+                
+                $systemPrompt .= " Analyze the SPECIFIC succession plan provided. Current setup: {$bedWidth}cm bed with {$currentBetweenRow}cm between-row spacing = {$currentRows} rows × {$plantsPerRow} plants/row = {$currentTotal} total plants per bed.";
+                $systemPrompt .= ' When suggesting spacing changes: (1) State CURRENT setup clearly using the numbers I provided, (2) Calculate NEW plant count with suggested spacing, (3) Show % increase/benefit, (4) Mention which "Row Density Preset" button to use if applicable. Comment on: spacing appropriateness, succession timing/gaps, harvest window coverage. Suggest useful COMPANION PLANTS or INTERCROPS. Keep under 150 words.';
                 
                 // Get crop info for knowledge lookups
                 $cropType = $validated['crop_type'] ?? null;
@@ -1594,34 +1617,35 @@ class SuccessionPlanningController extends Controller
                     }
                 }
                 
-                // Add companion planting knowledge from database
+                // Use vector search to find relevant knowledge
                 if ($cropType) {
-                    $companionKnowledge = CompanionPlantingKnowledge::formatForAI($cropType, $cropFamily);
-                    if (!empty($companionKnowledge)) {
-                        $systemPrompt .= $companionKnowledge;
-                    } else {
-                        // Fallback to basic companions
-                        $companions = $this->getBasicCompanions(strtolower($cropType));
-                        if (!empty($companions)) {
-                            $companionList = implode(', ', $companions);
-                            $systemPrompt .= " COMPANION SUGGESTIONS for {$cropType}: {$companionList}.";
-                        }
+                    // Build semantic query based on context
+                    $searchQuery = "companion plants and intercropping for {$cropType}";
+                    if ($cropFamily) {
+                        $searchQuery .= " {$cropFamily} family";
                     }
-                }
-                
-                // Add crop rotation knowledge
-                if ($cropType) {
-                    $rotationKnowledge = CropRotationKnowledge::formatForAI($cropType, $cropFamily);
+                    
+                    // Search for relevant knowledge using vector similarity
+                    $relevantKnowledge = $this->vectorSearch->semanticSearch($searchQuery, 5);
+                    
+                    if (!empty($relevantKnowledge)) {
+                        $knowledgeContext = $this->vectorSearch->formatResultsForAI($relevantKnowledge);
+                        $systemPrompt .= "\n\n" . $knowledgeContext;
+                    }
+                    
+                    // Also search for rotation advice if available
+                    $rotationQuery = "what to plant after {$cropType} crop rotation succession";
+                    $rotationKnowledge = $this->vectorSearch->searchKnowledgeType('rotation', $rotationQuery, 3);
+                    
                     if (!empty($rotationKnowledge)) {
-                        $systemPrompt .= $rotationKnowledge;
-                    }
-                }
-                
-                // Add UK planting calendar knowledge
-                if ($cropType) {
-                    $calendarKnowledge = UKPlantingCalendar::formatForAI($cropType, $season);
-                    if (!empty($calendarKnowledge)) {
-                        $systemPrompt .= $calendarKnowledge;
+                        $rotationContext = "\n\n=== CROP ROTATION ADVICE ===\n";
+                        foreach ($rotationKnowledge as $r) {
+                            $rotationContext .= "After {$r['previous_crop']}: {$r['following_crop']} ({$r['relationship']})\n";
+                            if (!empty($r['benefits'])) {
+                                $rotationContext .= "  Benefits: {$r['benefits']}\n";
+                            }
+                        }
+                        $systemPrompt .= $rotationContext;
                     }
                 }
                 

@@ -148,7 +148,8 @@ class EmbeddingService
             $models = $response->json()['models'] ?? [];
             
             foreach ($models as $model) {
-                if ($model['name'] === $this->embeddingModel) {
+                // Check if model name contains our embedding model (handles :latest suffix)
+                if (str_contains($model['name'], $this->embeddingModel)) {
                     return true;
                 }
             }
