@@ -6731,8 +6731,8 @@ Plantings:`;
             'beans': 14, // 2 weeks
             'tomato': 21, // 3 weeks
             'pepper': 21, // 3 weeks
-            'cucumber': 14, // 2 weeks
-            'zucchini': 14, // 2 weeks
+            'cucumber': 90, // ~12 weeks (typically only 2 successions per season - early & late)
+            'zucchini': 21, // 3 weeks
             'corn': 14, // 2 weeks
             'potato': 21, // 3 weeks
             'garlic': 30, // 4 weeks
