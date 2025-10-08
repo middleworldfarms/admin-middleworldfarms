@@ -1578,15 +1578,15 @@
                             </div>
 
                             <!-- Quick Adjust Buttons -->
-                            <div class="mt-3 d-flex gap-2 justify-content-center">
-                                <button type="button" class="btn btn-outline-success btn-sm" onclick="extendHarvestWindow()">
-                                    <i class="fas fa-plus"></i> Extend 20%
+                            <div class="mt-3 d-flex gap-2 justify-content-center flex-wrap">
+                                <button type="button" class="btn btn-outline-success btn-sm" onclick="useMaximumHarvestWindow()" title="Use the full possible harvest window for this crop">
+                                    <i class="fas fa-expand"></i> Use Maximum
                                 </button>
-                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="calculateAIHarvestWindow()">
-                                    <i class="fas fa-brain"></i> Calculate Harvest Window
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="useAIRecommendedWindow()" title="Use AI's recommended 80% window">
+                                    <i class="fas fa-brain"></i> Use AI Recommended
                                 </button>
-                                <button type="button" class="btn btn-outline-info btn-sm" onclick="shortenHarvestWindow()">
-                                    <i class="fas fa-minus"></i> Reduce Successions
+                                <button type="button" class="btn btn-outline-info btn-sm" onclick="useConservativeWindow()" title="Use a shorter, safer harvest window">
+                                    <i class="fas fa-shield-alt"></i> Conservative
                                 </button>
                             </div>
 
@@ -2660,47 +2660,140 @@
     }
 
     // Extend harvest window by maximum 20%
-    function extendHarvestWindow() {
-        const startInput = document.getElementById('harvestStart');
-        const endInput = document.getElementById('harvestEnd');
-        
-        if (!startInput || !endInput || !startInput.value || !endInput.value) {
-            console.warn('Cannot extend harvest window: missing date inputs');
+    // Smart harvest window presets
+    function useMaximumHarvestWindow() {
+        if (!harvestWindowData.maxStart || !harvestWindowData.maxEnd) {
+            console.warn('❌ No maximum harvest window data available');
             return;
         }
         
-        const startDate = new Date(startInput.value);
-        const endDate = new Date(endInput.value);
-        const currentDuration = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24));
-        const extensionDays = Math.min(Math.floor(currentDuration * 0.2), 30); // Max 20% or 30 days
+        const startInput = document.getElementById('harvestStart');
+        const endInput = document.getElementById('harvestEnd');
         
-        // Extend the end date
-        const newEndDate = new Date(endDate);
-        newEndDate.setDate(newEndDate.getDate() + extensionDays);
-        
-        endInput.value = newEndDate.toISOString().split('T')[0];
-        updateDragBar();
-        
-        // Update display
-        const aiHarvestDetails = document.getElementById('aiHarvestDetails');
-        if (aiHarvestDetails) {
-            let existingHTML = aiHarvestDetails.innerHTML;
-            existingHTML = existingHTML.replace(
-                /<div class="text-muted small mt-2">[\s\S]*?<\/div>/,
-                `<div class="alert alert-warning small mt-2">
-                    <i class="fas fa-exclamation-triangle"></i> Extended by ${extensionDays} days (increased risk of quality loss)
-                </div>
-                <div class="text-muted small mt-2">
-                    <i class="fas fa-clock"></i> Extended ${new Date().toLocaleTimeString()}
-                </div>`
-            );
-            aiHarvestDetails.innerHTML = existingHTML;
+        if (!startInput || !endInput) {
+            console.warn('❌ Harvest window inputs not found');
+            return;
         }
         
-        console.log(`📈 Extended harvest window by ${extensionDays} days`);
+        // Set to maximum possible window
+        startInput.value = harvestWindowData.maxStart;
+        endInput.value = harvestWindowData.maxEnd;
+        
+        // Update user selection in global data
+        harvestWindowData.userStart = harvestWindowData.maxStart;
+        harvestWindowData.userEnd = harvestWindowData.maxEnd;
+        
+        // Update UI
+        updateDragBar();
+        updateHarvestWindowDisplay();
+        
+        console.log('✅ Set to maximum harvest window:', harvestWindowData.maxStart, '-', harvestWindowData.maxEnd);
+        
+        // Show notification
+        showHarvestWindowNotification('Using maximum possible harvest window', 'success');
     }
 
-    // Reduce harvest window to minimum 1 week
+    function useAIRecommendedWindow() {
+        if (!harvestWindowData.aiStart || !harvestWindowData.aiEnd) {
+            console.warn('❌ No AI recommended window data available');
+            return;
+        }
+        
+        const startInput = document.getElementById('harvestStart');
+        const endInput = document.getElementById('harvestEnd');
+        
+        if (!startInput || !endInput) {
+            console.warn('❌ Harvest window inputs not found');
+            return;
+        }
+        
+        // Set to AI recommended window (80% of maximum)
+        startInput.value = harvestWindowData.aiStart;
+        endInput.value = harvestWindowData.aiEnd;
+        
+        // Update user selection in global data
+        harvestWindowData.userStart = harvestWindowData.aiStart;
+        harvestWindowData.userEnd = harvestWindowData.aiEnd;
+        
+        // Update UI
+        updateDragBar();
+        updateHarvestWindowDisplay();
+        
+        console.log('✅ Set to AI recommended window:', harvestWindowData.aiStart, '-', harvestWindowData.aiEnd);
+        
+        // Show notification
+        showHarvestWindowNotification('Using AI recommended harvest window (80% of maximum)', 'primary');
+    }
+
+    function useConservativeWindow() {
+        if (!harvestWindowData.maxStart || !harvestWindowData.maxEnd) {
+            console.warn('❌ No harvest window data available');
+            return;
+        }
+        
+        const startInput = document.getElementById('harvestStart');
+        const endInput = document.getElementById('harvestEnd');
+        
+        if (!startInput || !endInput) {
+            console.warn('❌ Harvest window inputs not found');
+            return;
+        }
+        
+        // Conservative = 60% of maximum duration from max start
+        const maxStartDate = new Date(harvestWindowData.maxStart);
+        const maxEndDate = new Date(harvestWindowData.maxEnd);
+        const maxDuration = maxEndDate - maxStartDate;
+        const conservativeDuration = maxDuration * 0.6;
+        const conservativeEndDate = new Date(maxStartDate.getTime() + conservativeDuration);
+        
+        // Set conservative window
+        startInput.value = harvestWindowData.maxStart;
+        endInput.value = conservativeEndDate.toISOString().split('T')[0];
+        
+        // Update user selection in global data
+        harvestWindowData.userStart = harvestWindowData.maxStart;
+        harvestWindowData.userEnd = conservativeEndDate.toISOString().split('T')[0];
+        
+        // Update UI
+        updateDragBar();
+        updateHarvestWindowDisplay();
+        
+        console.log('✅ Set to conservative window:', harvestWindowData.userStart, '-', harvestWindowData.userEnd);
+        
+        // Show notification
+        showHarvestWindowNotification('Using conservative harvest window (60% of maximum - safer for beginners)', 'info');
+    }
+
+    function showHarvestWindowNotification(message, type = 'success') {
+        // Create toast notification
+        const toastHTML = `
+            <div class="toast align-items-center text-white bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true" style="position: fixed; top: 80px; right: 20px; z-index: 9999;">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <i class="fas fa-check-circle me-2"></i> ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            </div>
+        `;
+        
+        // Append to body
+        const toastContainer = document.createElement('div');
+        toastContainer.innerHTML = toastHTML;
+        document.body.appendChild(toastContainer);
+        
+        // Show toast
+        const toastElement = toastContainer.querySelector('.toast');
+        const toast = new bootstrap.Toast(toastElement, { delay: 3000 });
+        toast.show();
+        
+        // Remove from DOM after hidden
+        toastElement.addEventListener('hidden.bs.toast', () => {
+            toastContainer.remove();
+        });
+    }
+
+    // Reduce harvest window to minimum 1 week (kept for backward compatibility)
     function reduceHarvestWindow() {
         const startInput = document.getElementById('harvestStart');
         const endInput = document.getElementById('harvestEnd');
