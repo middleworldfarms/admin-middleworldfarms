@@ -203,6 +203,7 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
         
         // API log submission for Quick Forms
         Route::post('/succession-planning/submit-log', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'submitLog'])->name('succession-planning.submit-log');
+        Route::post('/succession-planning/submit-all-logs', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'submitAllLogs'])->name('succession-planning.submit-all-logs');
         
         // Variety details endpoint for AI processing
         Route::get('/succession-planning/varieties/{varietyId}', [App\Http\Controllers\Admin\SuccessionPlanningController::class, 'getVariety'])->name('succession-planning.variety');

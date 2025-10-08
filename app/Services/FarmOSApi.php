@@ -741,4 +741,405 @@ class FarmOSApi
             ];
         }
     }
+
+    /**
+     * Create a planting asset in FarmOS
+     * Required for seeding logs - creates the asset that represents the planted crop
+     */
+    public function createPlantingAsset($data, $locationId = null)
+    {
+        try {
+            $this->authenticate();
+            $headers = $this->getAuthHeaders();
+
+            // Generate planting name
+            $plantingName = $data['crop_name'];
+            if (isset($data['variety_name']) && $data['variety_name'] !== 'Generic') {
+                $plantingName .= ' - ' . $data['variety_name'];
+            }
+            if (isset($data['succession_number'])) {
+                $plantingName .= ' (Succession #' . $data['succession_number'] . ')';
+            }
+
+            // Prepare JSON:API payload
+            $payload = [
+                'data' => [
+                    'type' => 'asset--plant',
+                    'attributes' => [
+                        'name' => $plantingName,
+                        'status' => 'active',
+                        'notes' => [
+                            'value' => $data['notes'] ?? 'Created via AI succession planning',
+                            'format' => 'default'
+                        ]
+                    ]
+                ]
+            ];
+
+            // Add plant type if available
+            if (isset($data['crop_name'])) {
+                // Would need to look up taxonomy term ID - for now just add to notes
+                $payload['data']['attributes']['notes']['value'] .= "\nCrop: " . $data['crop_name'];
+            }
+
+            Log::info('Creating planting asset in FarmOS', [
+                'name' => $plantingName,
+                'payload' => $payload
+            ]);
+
+            $response = $this->client->post('/api/asset/plant', [
+                'headers' => $headers,
+                'json' => $payload,
+                'http_errors' => false
+            ]);
+
+            $statusCode = $response->getStatusCode();
+            $responseData = json_decode($response->getBody(), true);
+
+            if ($statusCode >= 200 && $statusCode < 300) {
+                $assetId = $responseData['data']['id'] ?? null;
+                Log::info('Successfully created planting asset', [
+                    'asset_id' => $assetId,
+                    'name' => $plantingName
+                ]);
+                return $assetId;
+            } else {
+                Log::error('Failed to create planting asset', [
+                    'status' => $statusCode,
+                    'response' => $responseData
+                ]);
+                throw new \Exception('Failed to create planting asset: HTTP ' . $statusCode);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Exception creating planting asset: ' . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Create a seeding log in FarmOS
+     * Represents the act of seeding/planting seeds
+     */
+    public function createSeedingLog($logData)
+    {
+        try {
+            $this->authenticate();
+            $headers = $this->getAuthHeaders();
+
+            // Generate log name
+            $logName = 'Seeding: ' . $logData['crop_name'];
+            if (isset($logData['variety_name']) && $logData['variety_name'] !== 'Generic') {
+                $logName .= ' - ' . $logData['variety_name'];
+            }
+
+            // Prepare JSON:API payload
+            $payload = [
+                'data' => [
+                    'type' => 'log--seeding',
+                    'attributes' => [
+                        'name' => $logName,
+                        'timestamp' => strtotime($logData['timestamp']),
+                        'status' => $logData['status'] ?? 'done',
+                        'notes' => [
+                            'value' => $logData['notes'] ?? '',
+                            'format' => 'default'
+                        ]
+                    ],
+                    'relationships' => []
+                ]
+            ];
+
+            // Add quantity
+            if (isset($logData['quantity'])) {
+                $payload['data']['attributes']['quantity'] = [[
+                    'measure' => 'count',
+                    'value' => $logData['quantity'],
+                    'unit' => $logData['quantity_unit'] ?? 'seeds',
+                    'label' => ucfirst($logData['quantity_unit'] ?? 'seeds')
+                ]];
+            }
+
+            // Add asset reference (planting)
+            if (isset($logData['planting_id'])) {
+                $payload['data']['relationships']['asset'] = [
+                    'data' => [[
+                        'type' => 'asset--plant',
+                        'id' => $logData['planting_id']
+                    ]]
+                ];
+            }
+
+            // Add location reference
+            if (isset($logData['location_id'])) {
+                $payload['data']['relationships']['location'] = [
+                    'data' => [[
+                        'type' => 'asset--land',
+                        'id' => $logData['location_id']
+                    ]]
+                ];
+            }
+
+            Log::info('Creating seeding log in FarmOS', [
+                'name' => $logName,
+                'timestamp' => $logData['timestamp']
+            ]);
+
+            $response = $this->client->post('/api/log/seeding', [
+                'headers' => $headers,
+                'json' => $payload,
+                'http_errors' => false
+            ]);
+
+            $statusCode = $response->getStatusCode();
+            $responseData = json_decode($response->getBody(), true);
+
+            if ($statusCode >= 200 && $statusCode < 300) {
+                $logId = $responseData['data']['id'] ?? null;
+                Log::info('Successfully created seeding log', [
+                    'log_id' => $logId,
+                    'name' => $logName
+                ]);
+                return [
+                    'success' => true,
+                    'log_id' => $logId,
+                    'message' => 'Seeding log created successfully'
+                ];
+            } else {
+                Log::error('Failed to create seeding log', [
+                    'status' => $statusCode,
+                    'response' => $responseData
+                ]);
+                return [
+                    'success' => false,
+                    'error' => 'HTTP ' . $statusCode . ': ' . ($responseData['errors'][0]['detail'] ?? 'Unknown error')
+                ];
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Exception creating seeding log: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Create a transplanting log in FarmOS
+     * Represents moving plants from one location to another
+     */
+    public function createTransplantingLog($logData)
+    {
+        try {
+            $this->authenticate();
+            $headers = $this->getAuthHeaders();
+
+            // Generate log name
+            $logName = 'Transplanting: ' . $logData['crop_name'];
+            if (isset($logData['variety_name']) && $logData['variety_name'] !== 'Generic') {
+                $logName .= ' - ' . $logData['variety_name'];
+            }
+
+            // Prepare JSON:API payload
+            $payload = [
+                'data' => [
+                    'type' => 'log--transplanting',
+                    'attributes' => [
+                        'name' => $logName,
+                        'timestamp' => strtotime($logData['timestamp']),
+                        'status' => $logData['status'] ?? 'done',
+                        'is_movement' => $logData['is_movement'] ?? true,
+                        'notes' => [
+                            'value' => $logData['notes'] ?? '',
+                            'format' => 'default'
+                        ]
+                    ],
+                    'relationships' => []
+                ]
+            ];
+
+            // Add quantity
+            if (isset($logData['quantity'])) {
+                $payload['data']['attributes']['quantity'] = [[
+                    'measure' => 'count',
+                    'value' => $logData['quantity'],
+                    'unit' => $logData['quantity_unit'] ?? 'plants',
+                    'label' => ucfirst($logData['quantity_unit'] ?? 'plants')
+                ]];
+            }
+
+            // Add asset reference (planting)
+            if (isset($logData['planting_id'])) {
+                $payload['data']['relationships']['asset'] = [
+                    'data' => [[
+                        'type' => 'asset--plant',
+                        'id' => $logData['planting_id']
+                    ]]
+                ];
+            }
+
+            // Add destination location reference (where plants are moved TO)
+            if (isset($logData['destination_location_id'])) {
+                $payload['data']['relationships']['location'] = [
+                    'data' => [[
+                        'type' => 'asset--land',
+                        'id' => $logData['destination_location_id']
+                    ]]
+                ];
+            }
+
+            Log::info('Creating transplanting log in FarmOS', [
+                'name' => $logName,
+                'timestamp' => $logData['timestamp'],
+                'destination' => $logData['destination_location_id'] ?? null
+            ]);
+
+            $response = $this->client->post('/api/log/transplanting', [
+                'headers' => $headers,
+                'json' => $payload,
+                'http_errors' => false
+            ]);
+
+            $statusCode = $response->getStatusCode();
+            $responseData = json_decode($response->getBody(), true);
+
+            if ($statusCode >= 200 && $statusCode < 300) {
+                $logId = $responseData['data']['id'] ?? null;
+                Log::info('Successfully created transplanting log', [
+                    'log_id' => $logId,
+                    'name' => $logName
+                ]);
+                return [
+                    'success' => true,
+                    'log_id' => $logId,
+                    'message' => 'Transplanting log created successfully'
+                ];
+            } else {
+                Log::error('Failed to create transplanting log', [
+                    'status' => $statusCode,
+                    'response' => $responseData
+                ]);
+                return [
+                    'success' => false,
+                    'error' => 'HTTP ' . $statusCode . ': ' . ($responseData['errors'][0]['detail'] ?? 'Unknown error')
+                ];
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Exception creating transplanting log: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Create a harvest log in FarmOS
+     * Represents harvesting produce from plantings
+     */
+    public function createHarvestLog($logData)
+    {
+        try {
+            $this->authenticate();
+            $headers = $this->getAuthHeaders();
+
+            // Generate log name
+            $logName = 'Harvest: ' . $logData['crop_name'];
+            if (isset($logData['variety_name']) && $logData['variety_name'] !== 'Generic') {
+                $logName .= ' - ' . $logData['variety_name'];
+            }
+
+            // Prepare JSON:API payload
+            $payload = [
+                'data' => [
+                    'type' => 'log--harvest',
+                    'attributes' => [
+                        'name' => $logName,
+                        'timestamp' => strtotime($logData['timestamp']),
+                        'status' => $logData['status'] ?? 'done',
+                        'notes' => [
+                            'value' => $logData['notes'] ?? '',
+                            'format' => 'default'
+                        ]
+                    ],
+                    'relationships' => []
+                ]
+            ];
+
+            // Add quantity (harvest uses 'weight' measure typically)
+            if (isset($logData['quantity'])) {
+                $payload['data']['attributes']['quantity'] = [[
+                    'measure' => 'weight',
+                    'value' => $logData['quantity'],
+                    'unit' => $logData['quantity_unit'] ?? 'kg',
+                    'label' => ucfirst($logData['quantity_unit'] ?? 'kg')
+                ]];
+            }
+
+            // Add asset reference (planting being harvested)
+            if (isset($logData['planting_id'])) {
+                $payload['data']['relationships']['asset'] = [
+                    'data' => [[
+                        'type' => 'asset--plant',
+                        'id' => $logData['planting_id']
+                    ]]
+                ];
+            }
+
+            // Add location reference
+            if (isset($logData['location_id'])) {
+                $payload['data']['relationships']['location'] = [
+                    'data' => [[
+                        'type' => 'asset--land',
+                        'id' => $logData['location_id']
+                    ]]
+                ];
+            }
+
+            Log::info('Creating harvest log in FarmOS', [
+                'name' => $logName,
+                'timestamp' => $logData['timestamp']
+            ]);
+
+            $response = $this->client->post('/api/log/harvest', [
+                'headers' => $headers,
+                'json' => $payload,
+                'http_errors' => false
+            ]);
+
+            $statusCode = $response->getStatusCode();
+            $responseData = json_decode($response->getBody(), true);
+
+            if ($statusCode >= 200 && $statusCode < 300) {
+                $logId = $responseData['data']['id'] ?? null;
+                Log::info('Successfully created harvest log', [
+                    'log_id' => $logId,
+                    'name' => $logName
+                ]);
+                return [
+                    'success' => true,
+                    'log_id' => $logId,
+                    'message' => 'Harvest log created successfully'
+                ];
+            } else {
+                Log::error('Failed to create harvest log', [
+                    'status' => $statusCode,
+                    'response' => $responseData
+                ]);
+                return [
+                    'success' => false,
+                    'error' => 'HTTP ' . $statusCode . ': ' . ($responseData['errors'][0]['detail'] ?? 'Unknown error')
+                ];
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Exception creating harvest log: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
 }
