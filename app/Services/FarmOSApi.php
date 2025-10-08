@@ -1142,4 +1142,81 @@ class FarmOSApi
             ];
         }
     }
+
+    /**
+     * Update a plant type taxonomy term in FarmOS
+     * Used for pushing local changes back to FarmOS (DEV MODE)
+     */
+    public function updatePlantTypeTerm(string $termId, array $updateData)
+    {
+        try {
+            $this->authenticate();
+            $headers = $this->getAuthHeaders();
+
+            // Build JSON:API PATCH payload
+            $payload = [
+                'data' => [
+                    'type' => 'taxonomy_term--plant_type',
+                    'id' => $termId
+                ]
+            ];
+
+            // Add attributes if provided
+            if (isset($updateData['attributes']) && !empty($updateData['attributes'])) {
+                $payload['data']['attributes'] = $updateData['attributes'];
+            }
+
+            // Add relationships if provided
+            if (isset($updateData['relationships']) && !empty($updateData['relationships'])) {
+                $payload['data']['relationships'] = $updateData['relationships'];
+            }
+
+            Log::info('Updating FarmOS plant type term', [
+                'term_id' => $termId,
+                'attributes' => $updateData['attributes'] ?? []
+            ]);
+
+            $response = $this->client->patch("/api/taxonomy_term/plant_type/{$termId}", [
+                'headers' => $headers,
+                'json' => $payload,
+                'http_errors' => false
+            ]);
+
+            $statusCode = $response->getStatusCode();
+            $responseData = json_decode($response->getBody(), true);
+
+            if ($statusCode >= 200 && $statusCode < 300) {
+                Log::info('Successfully updated FarmOS plant type term', [
+                    'term_id' => $termId,
+                    'status' => $statusCode
+                ]);
+                return [
+                    'success' => true,
+                    'status' => $statusCode,
+                    'data' => $responseData
+                ];
+            } else {
+                Log::error('Failed to update FarmOS plant type term', [
+                    'term_id' => $termId,
+                    'status' => $statusCode,
+                    'response' => $responseData
+                ]);
+                return [
+                    'success' => false,
+                    'status' => $statusCode,
+                    'error' => 'HTTP ' . $statusCode . ': ' . ($responseData['errors'][0]['detail'] ?? 'Unknown error'),
+                    'body' => $responseData
+                ];
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Exception updating FarmOS plant type term: ' . $e->getMessage(), [
+                'term_id' => $termId
+            ]);
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
 }

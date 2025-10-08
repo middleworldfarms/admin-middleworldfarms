@@ -616,6 +616,12 @@
         color: #721c24;
     }
 
+    /* Thicker green border for auto-filled spacing values */
+    input.border-success {
+        border-width: 3px !important;
+        border-color: #198754 !important;
+    }
+
     .form-content {
         background: white;
         border: 1px solid #dee2e6;
