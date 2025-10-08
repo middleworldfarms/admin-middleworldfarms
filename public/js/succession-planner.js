@@ -252,8 +252,16 @@ class SuccessionPlanner {
             harvestWindowData.maxEnd = maxEnd;
             harvestWindowData.userStart = userStart;
             harvestWindowData.userEnd = userEnd;
-            harvestWindowData.aiStart = userStart; // AI defaults to user selection
-            harvestWindowData.aiEnd = userEnd;
+            
+            // Calculate AI recommended window as 80% of maximum duration
+            const maxStartDate = new Date(maxStart);
+            const maxEndDate = new Date(maxEnd);
+            const maxDuration = maxEndDate - maxStartDate;
+            const aiDuration = maxDuration * 0.8;
+            const aiEndDate = new Date(maxStartDate.getTime() + aiDuration);
+            
+            harvestWindowData.aiStart = maxStart; // AI starts at maximum start
+            harvestWindowData.aiEnd = aiEndDate.toISOString().split('T')[0];
             console.log('🔄 Updated harvestWindowData:', harvestWindowData);
         } else {
             console.warn('❌ harvestWindowData not available');
