@@ -6837,8 +6837,28 @@ Plantings:`;
                     high: '⚠️ Courgette plants are very productive. Fewer successions may suffice.',
                     tooMany: '❌ Too many! Each courgette plant produces 10-20+ fruits. Reduce successions.'
                 }
+            },
+            'aubergine': {
+                optimal: 1,
+                max: 2,
+                tips: {
+                    low: '✅ Perfect! Most growers need just 1 aubergine planting per season.',
+                    optimal: '✅ 2 successions can extend harvest if you have a long season.',
+                    high: '⚠️ Aubergines produce continuously for months. More successions rarely needed.',
+                    tooMany: '❌ Too many! Each aubergine plant produces 10-20+ fruits over many weeks.'
+                }
+            },
+            'eggplant': {
+                optimal: 1,
+                max: 2,
+                tips: {
+                    low: '✅ Perfect! Most growers need just 1 eggplant planting per season.',
+                    optimal: '✅ 2 successions can extend harvest if you have a long season.',
+                    high: '⚠️ Eggplants produce continuously for months. More successions rarely needed.',
+                    tooMany: '❌ Too many! Each eggplant produces 10-20+ fruits over many weeks.'
+                }
             }
-        };
+```
         
         // Get guidance for this crop
         const guidance = cropGuidance[crop];
@@ -7131,6 +7151,8 @@ Plantings:`;
             'cucumber': 60, // ~8 weeks (3 successions for continuous harvest: early, mid, late)
             'zucchini': 45, // ~6 weeks (very productive - 2-3 successions sufficient)
             'courgette': 45, // ~6 weeks (same as zucchini - very productive plants)
+            'aubergine': 90, // ~12 weeks (long season crop, 1-2 successions typical)
+            'eggplant': 90, // ~12 weeks (same as aubergine - continuous producer once established)
             'corn': 14, // 2 weeks
             'potato': 21, // 3 weeks
             'garlic': 30, // 4 weeks
