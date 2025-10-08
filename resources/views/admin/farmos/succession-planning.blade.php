@@ -1456,6 +1456,11 @@
                                 <i class="fas fa-info-circle"></i> 
                                 <span id="plantingMethodHint">This affects timing, quantities, and succession dates. Choose based on your growing setup.</span>
                             </small>
+                            
+                            <!-- Method Warning Alert -->
+                            <div id="plantingMethodWarning" class="alert alert-warning py-2 px-3 mt-2" style="display: none; font-size: 0.85rem;">
+                                <!-- Warning message will appear here -->
+                            </div>
                         </div>
                     </div>
                 </div>

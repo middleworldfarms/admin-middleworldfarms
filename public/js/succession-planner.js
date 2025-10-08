@@ -135,10 +135,58 @@ class SuccessionPlanner {
             hintElement.textContent = hints[method] || hints['either'];
         }
         
+        // Check for method warnings based on crop/variety
+        this.checkPlantingMethodWarning(method);
+        
         // Trigger succession plan regeneration with new method
         if (this.cropId && typeof calculateSuccessionPlan === 'function') {
             console.log('🔄 Regenerating succession plan with method:', method);
             setTimeout(() => calculateSuccessionPlan(), 100);
+        }
+    }
+
+    /**
+     * Check if selected planting method conflicts with variety recommendations
+     */
+    checkPlantingMethodWarning(selectedMethod) {
+        const warningElement = document.getElementById('plantingMethodWarning');
+        if (!warningElement) return;
+        
+        // Get current crop and variety info
+        const cropSelect = document.getElementById('cropSelect');
+        const varietyData = window.currentVarietyData;
+        const cropName = cropSelect?.options[cropSelect.selectedIndex]?.text?.toLowerCase() || '';
+        
+        let warningMessage = '';
+        
+        // Check for conflicts
+        if (selectedMethod === 'transplant') {
+            // Crops that should NOT be transplanted
+            if (cropName.includes('cucumber') || cropName.includes('courgette') || 
+                cropName.includes('zucchini') || cropName.includes('squash')) {
+                warningMessage = '⚠️ Warning: Cucurbits (cucumbers, squash, courgettes) typically don\'t transplant well due to sensitive roots. Direct sowing is strongly recommended.';
+            } else if (cropName.includes('carrot') || cropName.includes('parsnip') || 
+                       cropName.includes('radish') || cropName.includes('beetroot')) {
+                warningMessage = '⚠️ Warning: Root vegetables develop tap roots and don\'t transplant well. Direct sowing is recommended for best results.';
+            } else if (cropName.includes('pea') || cropName.includes('bean')) {
+                warningMessage = 'ℹ️ Note: Peas and beans can be transplanted but are usually direct sown. Only transplant if starting early under protection.';
+            }
+        } else if (selectedMethod === 'direct') {
+            // Crops that benefit from transplanting
+            if (cropName.includes('tomato') || cropName.includes('pepper') || cropName.includes('aubergine')) {
+                warningMessage = 'ℹ️ Note: Solanaceae (tomatoes, peppers) benefit from transplanting for earlier harvests and better growth control.';
+            } else if (cropName.includes('brussels') || cropName.includes('cabbage') || 
+                       cropName.includes('broccoli') || cropName.includes('cauliflower')) {
+                warningMessage = 'ℹ️ Note: Brassicas are typically transplanted for better spacing control and protection from pests. Consider transplanting for best results.';
+            }
+        }
+        
+        // Show or hide warning
+        if (warningMessage) {
+            warningElement.innerHTML = warningMessage;
+            warningElement.style.display = 'block';
+        } else {
+            warningElement.style.display = 'none';
         }
     }
 
