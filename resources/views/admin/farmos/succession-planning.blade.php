@@ -1600,6 +1600,10 @@
                                 <small class="text-muted d-block mt-1">
                                     Drag the handles above to adjust your harvest window and see how it affects the number of successions
                                 </small>
+                                <div id="planGeneratedWarning" class="alert alert-warning mt-2 mb-0" style="display: none; padding: 0.5rem;">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    <strong>Plan already generated!</strong> Click "Generate Plan" button again to update with new succession count.
+                                </div>
                             </div>
 
                             <!-- Calendar Grid View -->
@@ -3900,6 +3904,12 @@ Calculate for ${contextPayload.planning_year}.`;
         // Clear any previous allocations when generating a new plan
         localStorage.removeItem('bedAllocations');
         console.log('🗑️ Cleared previous allocations for new succession plan');
+
+        // Hide plan regeneration warning
+        const planWarning = document.getElementById('planGeneratedWarning');
+        if (planWarning) {
+            planWarning.style.display = 'none';
+        }
 
         showLoading(true);
         try {
@@ -6553,6 +6563,17 @@ Plantings:`;
         const sidebarCountBadge = document.getElementById('sidebarSuccessionCount');
         if (sidebarCountBadge) {
             sidebarCountBadge.textContent = `${successions} Succession${successions > 1 ? 's' : ''}`;
+        }
+
+        // Show warning if plan is already generated and count changed
+        const planWarning = document.getElementById('planGeneratedWarning');
+        if (planWarning && currentSuccessionPlan && currentSuccessionPlan.plantings) {
+            const currentPlantingCount = currentSuccessionPlan.plantings.length;
+            if (currentPlantingCount !== successions) {
+                planWarning.style.display = 'block';
+            } else {
+                planWarning.style.display = 'none';
+            }
         }
 
         // Show and update the dynamic succession display
