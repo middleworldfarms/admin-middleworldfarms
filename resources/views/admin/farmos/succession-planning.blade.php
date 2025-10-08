@@ -1597,8 +1597,21 @@
                                     <strong class="text-success">Successions Needed:</strong>
                                     <span id="successionCount" class="badge bg-success fs-6">0</span>
                                 </div>
-                                <small class="text-muted d-block mt-1">
+                                <small class="text-muted d-block mt-2">
                                     Quick forms auto-update when you adjust the harvest window
+                                </small>
+                                
+                                <!-- Succession Adjusters -->
+                                <div class="mt-2 d-flex gap-2 justify-content-center">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="adjustSuccessionCount(-1)" title="Remove one succession">
+                                        <i class="fas fa-minus"></i> Remove 1
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="adjustSuccessionCount(1)" title="Add one succession">
+                                        <i class="fas fa-plus"></i> Add 1
+                                    </button>
+                                </div>
+                                <small id="successionIntervalDisplay" class="text-muted d-block mt-1" style="font-size: 0.75rem;">
+                                    <!-- Interval info will be displayed here -->
                                 </small>
                             </div>
 
@@ -6481,6 +6494,82 @@ Plantings:`;
         updateDateInputsFromRange();
 
         console.log('📉 Shortened harvest window to reduce successions');
+    }
+
+    // Adjust succession count by modifying harvest window duration
+    function adjustSuccessionCount(change) {
+        const countBadge = document.getElementById('successionCount');
+        const intervalDisplay = document.getElementById('successionIntervalDisplay');
+        
+        if (!countBadge || !harvestWindowData.userStart || !harvestWindowData.userEnd) {
+            console.warn('❌ Cannot adjust succession count: missing data');
+            return;
+        }
+        
+        // Get current succession count and interval
+        const currentCount = parseInt(countBadge.textContent) || 1;
+        const targetCount = Math.max(1, currentCount + change); // Minimum 1 succession
+        
+        // Get crop-specific succession interval
+        const cropSelect = document.getElementById('cropSelect');
+        const varietySelect = document.getElementById('varietySelect');
+        const cropName = cropSelect?.options[cropSelect.selectedIndex]?.text?.toLowerCase() || '';
+        const varietyName = varietySelect?.options[varietySelect.selectedIndex]?.text?.toLowerCase() || '';
+        const avgInterval = getSuccessionInterval(cropName, varietyName);
+        
+        // Calculate new harvest window duration to achieve target succession count
+        const targetDuration = targetCount * avgInterval;
+        
+        // Adjust end date to achieve target duration
+        const startDate = new Date(harvestWindowData.userStart);
+        const newEndDate = new Date(startDate.getTime() + (targetDuration * 24 * 60 * 60 * 1000));
+        
+        // Don't exceed maximum possible window
+        const maxEndDate = new Date(harvestWindowData.maxEnd);
+        if (newEndDate > maxEndDate) {
+            console.warn('⚠️ Cannot add more successions - would exceed maximum harvest window');
+            showHarvestWindowNotification(
+                'Cannot add more successions - already at maximum harvest window',
+                'warning'
+            );
+            return;
+        }
+        
+        // Don't go below minimum (7 days)
+        if (targetDuration < 7) {
+            console.warn('⚠️ Cannot reduce further - minimum 1 succession with 7 day window');
+            return;
+        }
+        
+        // Update harvest window
+        harvestWindowData.userEnd = newEndDate.toISOString().split('T')[0];
+        document.getElementById('harvestEnd').value = harvestWindowData.userEnd;
+        
+        // Update UI
+        updateDragBar();
+        updateHarvestWindowDisplay();
+        
+        // Show interval info
+        if (intervalDisplay) {
+            const weeks = Math.floor(avgInterval / 7);
+            const days = avgInterval % 7;
+            let intervalText = '';
+            if (weeks > 0) {
+                intervalText = `${weeks} week${weeks > 1 ? 's' : ''}`;
+                if (days > 0) intervalText += ` ${days} day${days > 1 ? 's' : ''}`;
+            } else {
+                intervalText = `${days} day${days > 1 ? 's' : ''}`;
+            }
+            intervalDisplay.textContent = `Planting interval: ~${intervalText}`;
+        }
+        
+        console.log(`📊 Adjusted harvest window for ${targetCount} successions (${avgInterval} day interval)`);
+        
+        // Show notification
+        showHarvestWindowNotification(
+            `${change > 0 ? 'Extended' : 'Shortened'} harvest window to ${targetCount} succession${targetCount > 1 ? 's' : ''}`,
+            'info'
+        );
     }
 
     function populateSuccessionSidebar(plan) {
