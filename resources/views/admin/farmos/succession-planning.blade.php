@@ -1613,6 +1613,11 @@
                                 <small id="successionIntervalDisplay" class="text-muted d-block mt-1" style="font-size: 0.75rem;">
                                     <!-- Interval info will be displayed here -->
                                 </small>
+                                
+                                <!-- Crop-Specific Guidance -->
+                                <div id="cropGuidanceDisplay" class="mt-2">
+                                    <!-- Guidance tips will be displayed here -->
+                                </div>
                             </div>
 
                             <!-- Calendar Grid View -->
@@ -6673,6 +6678,123 @@ Plantings:`;
         }
     }
 
+    // Display crop-specific guidance tips and warnings
+    function displayCropGuidance(cropName, varietyName, successionCount, durationDays) {
+        const guidanceDisplay = document.getElementById('cropGuidanceDisplay');
+        if (!guidanceDisplay) return;
+        
+        let guidanceHTML = '';
+        const crop = cropName.toLowerCase();
+        
+        // Crop-specific recommendations
+        const cropGuidance = {
+            'cucumber': {
+                optimal: 2,
+                max: 3,
+                tips: {
+                    low: '✅ Perfect! Cucumbers produce continuously for 6-8 weeks. 2-3 successions is ideal.',
+                    optimal: '✅ This harvest window is optimal for outdoor cucumbers like Marketmore.',
+                    high: '⚠️ Cucumbers typically only need 2-3 successions per season. Consider reducing.',
+                    tooMany: '❌ Too many successions! Cucumbers have long harvest windows. Use 2-3 successions max.'
+                }
+            },
+            'tomato': {
+                optimal: 2,
+                max: 3,
+                tips: {
+                    low: '✅ Good! Tomatoes produce for extended periods. 2-3 successions works well.',
+                    optimal: '✅ Optimal succession count for continuous tomato harvest.',
+                    high: '⚠️ Tomatoes have long harvest periods. Consider fewer successions.',
+                    tooMany: '❌ Too many! Tomatoes produce continuously - 2-3 successions is sufficient.'
+                }
+            },
+            'lettuce': {
+                optimal: 7,
+                max: 12,
+                tips: {
+                    low: 'ℹ️ Lettuce benefits from frequent successions (every 2 weeks) for continuous harvest.',
+                    optimal: '✅ Great! Fortnightly lettuce successions ensure continuous fresh leaves.',
+                    high: '⚠️ Many successions, but lettuce is fast-growing. Monitor for bolting in summer.',
+                    tooMany: '⚠️ Very frequent plantings. Ensure you can manage this workload.'
+                }
+            },
+            'carrot': {
+                optimal: 6,
+                max: 10,
+                tips: {
+                    low: 'ℹ️ Carrots store well in ground. Consider more successions for continuous harvest.',
+                    optimal: '✅ Good succession planning for continuous carrot harvest.',
+                    high: '⚠️ Many carrot successions. Ensure adequate storage or market demand.',
+                    tooMany: '⚠️ Very frequent plantings. Carrots can be stored - fewer successions may work.'
+                }
+            },
+            'radish': {
+                optimal: 10,
+                max: 15,
+                tips: {
+                    low: 'ℹ️ Radishes are quick! Weekly successions possible for continuous harvest.',
+                    optimal: '✅ Perfect for fast-turnover radish production.',
+                    high: '⚠️ Very frequent! Ensure you have market demand for this volume.',
+                    tooMany: '⚠️ Extremely frequent plantings. Consider if this workload is manageable.'
+                }
+            },
+            'zucchini': {
+                optimal: 3,
+                max: 4,
+                tips: {
+                    low: '✅ Good! Zucchini plants produce heavily for several weeks.',
+                    optimal: '✅ Optimal for continuous zucchini harvest throughout season.',
+                    high: '⚠️ Zucchini plants are very productive. Fewer successions may suffice.',
+                    tooMany: '❌ Too many! Each zucchini plant produces prolifically. Reduce successions.'
+                }
+            }
+        };
+        
+        // Get guidance for this crop
+        const guidance = cropGuidance[crop];
+        
+        if (guidance) {
+            let tipType, tipMessage;
+            
+            if (successionCount <= guidance.optimal) {
+                tipType = 'low';
+                tipMessage = guidance.tips.low;
+            } else if (successionCount <= guidance.optimal + 1) {
+                tipType = 'optimal';
+                tipMessage = guidance.tips.optimal;
+            } else if (successionCount <= guidance.max) {
+                tipType = 'high';
+                tipMessage = guidance.tips.high;
+            } else {
+                tipType = 'tooMany';
+                tipMessage = guidance.tips.tooMany;
+            }
+            
+            // Determine alert class
+            let alertClass = 'alert-info';
+            if (tipMessage.startsWith('✅')) alertClass = 'alert-success';
+            else if (tipMessage.startsWith('⚠️')) alertClass = 'alert-warning';
+            else if (tipMessage.startsWith('❌')) alertClass = 'alert-danger';
+            
+            guidanceHTML = `
+                <div class="alert ${alertClass} py-2 px-3 mb-0 mt-2" style="font-size: 0.85rem;">
+                    ${tipMessage}
+                </div>
+            `;
+        } else {
+            // Generic guidance for crops without specific rules
+            if (successionCount > 8) {
+                guidanceHTML = `
+                    <div class="alert alert-warning py-2 px-3 mb-0 mt-2" style="font-size: 0.85rem;">
+                        ℹ️ ${successionCount} successions is quite frequent. Ensure this matches your growing capacity.
+                    </div>
+                `;
+            }
+        }
+        
+        guidanceDisplay.innerHTML = guidanceHTML;
+    }
+
     // Update succession impact preview
     function updateSuccessionImpact() {
         console.log('🔄 updateSuccessionImpact called');
@@ -6745,6 +6867,9 @@ Plantings:`;
         if (dynamicDisplay) {
             dynamicDisplay.style.display = 'block';
         }
+
+        // Add crop-specific guidance warnings/tips
+        displayCropGuidance(cropName, varietyName, successions, duration);
 
         console.log(`📊 Updated succession count: ${successions} based on ${duration} day harvest window`);
 
