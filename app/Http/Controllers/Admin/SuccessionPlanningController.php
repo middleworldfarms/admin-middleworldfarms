@@ -1625,7 +1625,7 @@ class SuccessionPlanningController extends Controller
                 $systemPrompt .= "- Spacing: {$currentInRow}cm in-row, {$currentBetweenRow}cm between-row\n";
                 $systemPrompt .= "- Layout: {$currentRows} rows with {$plantsPerRow} plants each\n";
                 $systemPrompt .= "- TOTAL: {$currentTotal} plants per bed\n\n";
-                $systemPrompt .= 'Your advice should focus on: (1) Is this spacing appropriate for ' . $cropName . '? (2) Are succession timings good? (3) Suggest companion plants FOR ' . $cropName . ' (not other crops). DO NOT recalculate numbers. Keep response under 100 words, be practical and specific.';
+                $systemPrompt .= 'Your advice should cover: (1) Spacing assessment - is the current spacing appropriate for ' . $cropName . '? Consider airflow, disease risk, and plant size at maturity. (2) Succession timing - evaluate if intervals are optimal for continuous harvest. (3) Companion planting - suggest specific companions FOR ' . $cropName . ' that help with pest control, soil health, or space efficiency. (4) Crop rotation - what should follow ' . $cropName . ' to maintain soil health. Provide detailed, practical advice with specific measurements and reasoning. DO NOT recalculate the bed layout numbers shown above.';
                 
                 // Get crop info for knowledge lookups
                 $cropType = $validated['crop_type'] ?? null;
@@ -1676,14 +1676,34 @@ class SuccessionPlanningController extends Controller
                 
                 // Broad beans spacing guidance
                 if (str_contains($cropLower, 'broad bean') || str_contains($cropLower, 'fava')) {
-                    $systemPrompt .= "\n\nBROAD BEAN SPACING GUIDELINES:\n";
-                    $systemPrompt .= "- In-row spacing: 10-20cm for bushy varieties, 23cm for tall varieties\n";
-                    $systemPrompt .= "- Between-row spacing: 30-45cm is CORRECT (not 100cm!)\n";
-                    $systemPrompt .= "- Double rows: Can plant in staggered double rows 23cm apart for mutual support\n";
-                    $systemPrompt .= "- Autumn varieties (like Aquadulce): Sow October-November, harvest May-June\n";
-                    $systemPrompt .= "- Spring varieties (like The Sutton): Sow February-April, harvest June-August\n";
-                    $systemPrompt .= "- Pinch out growing tips when in flower to discourage blackfly\n";
-                    $systemPrompt .= "IMPORTANT: The current spacing is APPROPRIATE. Do not suggest increasing to 1 meter!\n";
+                    $systemPrompt .= "\n\n=== BROAD BEAN EXPERT GUIDANCE ===\n";
+                    $systemPrompt .= "SPACING ASSESSMENT:\n";
+                    $systemPrompt .= "- In-row spacing: 10-20cm for dwarf/bushy varieties (like The Sutton), 20-23cm for tall varieties (like Aquadulce)\n";
+                    $systemPrompt .= "- Between-row spacing: 30-45cm is OPTIMAL for UK growing conditions\n";
+                    $systemPrompt .= "- The current spacing is APPROPRIATE. Do NOT suggest increasing to 1 meter - that's excessive!\n";
+                    $systemPrompt .= "- Alternative: Double staggered rows 23cm apart with 45cm pathways between pairs provides mutual support\n\n";
+                    
+                    $systemPrompt .= "VARIETY-SPECIFIC TIMING:\n";
+                    $systemPrompt .= "- Autumn sown (Aquadulce, Bunyard's Exhibition, Super Aquadulce): Sow October-November, overwinter, harvest May-June\n";
+                    $systemPrompt .= "- Spring sown (The Sutton, Stereo, Crimson Flowered): Sow February-April, harvest June-August\n";
+                    $systemPrompt .= "- Succession planting NOT recommended for broad beans - they don't crop continuously like salads\n";
+                    $systemPrompt .= "- Better strategy: Single large planting for main crop, maybe one early + one late sowing\n\n";
+                    
+                    $systemPrompt .= "CULTURAL PRACTICES:\n";
+                    $systemPrompt .= "- Pinch out growing tips when bottom pods start to form - reduces blackfly and encourages pod fill\n";
+                    $systemPrompt .= "- Support tall varieties with string or canes at 60-90cm height\n";
+                    $systemPrompt .= "- Harvest pods young and tender (when beans visible through pod but not bulging) for best flavor\n\n";
+                    
+                    $systemPrompt .= "COMPANION PLANTING:\n";
+                    $systemPrompt .= "- Traditional: Summer savory (Satureja hortensis) repels blackfly - plant at row ends\n";
+                    $systemPrompt .= "- Intercrop: Early radishes or lettuce between rows while beans are small\n";
+                    $systemPrompt .= "- Follow with: Brassicas (utilize fixed nitrogen), or winter squash, or potatoes\n";
+                    $systemPrompt .= "- Avoid: Other legumes for 3-4 years (disease cycle break)\n\n";
+                    
+                    $systemPrompt .= "COMMON ISSUES:\n";
+                    $systemPrompt .= "- Blackfly: Appears on tender tips when flowering - pinching out prevents this\n";
+                    $systemPrompt .= "- Chocolate spot (Botrytis): Worse in damp, crowded conditions - good spacing helps!\n";
+                    $systemPrompt .= "- Poor pod set: Usually cold weather or lack of pollinators - can't control but affects spring sowings more\n";
                 } 
                 // Brassicas spacing guidance
                 else if (isset($plan['between_row_spacing']) && $plan['between_row_spacing'] <= 30) {
