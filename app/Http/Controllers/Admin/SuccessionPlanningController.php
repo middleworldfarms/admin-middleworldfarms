@@ -1616,7 +1616,7 @@ class SuccessionPlanningController extends Controller
                 $plantsPerRow = floor(($bedLength * 100) / $currentInRow);
                 $currentTotal = $currentRows * $plantsPerRow;
                 
-                $systemPrompt .= " Analyze the SPECIFIC succession plan provided. Current setup: {$bedWidth}cm bed with {$currentBetweenRow}cm between-row spacing = {$currentRows} rows × {$plantsPerRow} plants/row = {$currentTotal} total plants per bed.";
+                $systemPrompt .= " Analyze the SPECIFIC succession plan provided. Current setup: {$bedWidthCm}cm bed with {$currentBetweenRow}cm between-row spacing = {$currentRows} rows × {$plantsPerRow} plants/row = {$currentTotal} total plants per bed.";
                 $systemPrompt .= ' When suggesting spacing changes: (1) State CURRENT setup clearly using the numbers I provided, (2) Calculate NEW plant count with suggested spacing, (3) Show % increase/benefit, (4) Mention which "Row Density Preset" button to use if applicable. Comment on: spacing appropriateness, succession timing/gaps, harvest window coverage. Suggest useful COMPANION PLANTS or INTERCROPS. Keep under 150 words.';
                 
                 // Get crop info for knowledge lookups
