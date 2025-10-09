@@ -2,6 +2,10 @@
 
 @section('title', 'Symbiosis - Delivery Schedule Management')
 
+@section('header-hint')
+Navigate between weeks • Thursday = Deliveries, Friday/Saturday = Collections
+@endsection
+
 @section('page-header')
     <div class="d-flex justify-content-between align-items-center w-100">
         <div>

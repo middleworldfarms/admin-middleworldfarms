@@ -4,6 +4,10 @@
 
 @section('page-title', 'farmOS Succession Planner')
 
+@section('header-hint')
+Only needed if FarmOS varieties have changed
+@endsection
+
 @section('page-header')
     <div class="d-flex justify-content-between align-items-center w-100">
         <div>

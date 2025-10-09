@@ -416,7 +416,9 @@
     <div class="top-header">
         <div class="d-flex justify-content-between align-items-center">
             <div class="header-spacer">
-                <small class="text-white">Only needed if FarmOS varieties have changed</small>
+                @hasSection('header-hint')
+                    <small class="text-white">@yield('header-hint')</small>
+                @endif
             </div>
             <div class="header-content">
                 @hasSection('page-header')
