@@ -1685,7 +1685,8 @@ class SuccessionPlanningController extends Controller
                     
                     $systemPrompt .= "VARIETY-SPECIFIC TIMING:\n";
                     $systemPrompt .= "- Autumn sown (Aquadulce, Bunyard's Exhibition, Super Aquadulce): Sow October-November, overwinter, harvest May-June\n";
-                    $systemPrompt .= "- Spring sown (The Sutton, Stereo, Crimson Flowered): Sow February-April, harvest June-August\n";
+                    $systemPrompt .= "- Spring sown (The Sutton, Stereo, Duet, Crimson Flowered): Sow February-April, harvest June-August\n";
+                    $systemPrompt .= "- Extended season (Duet): Can sow February-March OR June-July for May-October harvest window\n";
                     $systemPrompt .= "- Succession planting NOT recommended for broad beans - they don't crop continuously like salads\n";
                     $systemPrompt .= "- Better strategy: Single large planting for main crop, maybe one early + one late sowing\n\n";
                     

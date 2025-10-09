@@ -2160,7 +2160,15 @@ Only needed if FarmOS varieties have changed
                     <div class="alert alert-info mt-3" role="alert">
                         <i class="fas fa-snowflake"></i> <strong>Autumn-Sown Variety</strong>
                         <p class="mb-0 mt-2">This variety (${varietyData.name}) is typically <strong>sown in October-November</strong> for harvest in May-June. 
-                        It overwinters in the ground and provides early spring crops. If planning for spring planting, consider a spring variety like 'The Sutton' instead.</p>
+                        It overwinters in the ground and provides early spring crops. If planning for spring planting, consider a spring variety like 'The Sutton' or 'Duet' instead.</p>
+                    </div>
+                `;
+            } else if (varietyName.includes('duet')) {
+                seasonalNotice = `
+                    <div class="alert alert-primary mt-3" role="alert">
+                        <i class="fas fa-calendar-alt"></i> <strong>Extended Season Variety</strong>
+                        <p class="mb-0 mt-2">This variety (${varietyData.name}) offers an <strong>extended harvest window from May to October</strong>. 
+                        Sow in <strong>February-March</strong> for spring cropping, or <strong>June-July</strong> for autumn harvest. Compact growth makes it ideal for small spaces.</p>
                     </div>
                 `;
             } else if (varietyName.includes('sutton') || varietyName.includes('stereo')) {
@@ -3062,9 +3070,10 @@ Use these guidelines:
 - Onions: July 1 - September 30
 - Brussels Sprouts: October 1 - March 31
 - Broad Beans (Aquadulce, Bunyard's Exhibition - Autumn sown): October 15 - June 30 (sow Oct-Nov, harvest May-Jun)
-- Broad Beans (Spring sown varieties like The Sutton, Stereo): April 15 - July 31 (sow Feb-Apr, harvest Jun-Aug)
+- Broad Beans (Spring sown like The Sutton, Stereo): April 15 - July 31 (sow Feb-Apr, harvest Jun-Aug)
+- Broad Beans (Duet - Extended season): May 1 - October 31 (sow Feb-Mar OR Jun-Jul for extended harvest)
 
-For broad beans, if variety name contains "Aquadulce" or "Bunyard", use autumn sowing dates. Otherwise assume spring sowing.
+For broad beans, if variety name contains "Aquadulce" or "Bunyard", use autumn sowing dates. If "Duet", use extended season window. Otherwise assume spring sowing.
 
 Calculate for ${contextPayload.planning_year}.`;
 
