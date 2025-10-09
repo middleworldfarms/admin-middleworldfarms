@@ -3933,7 +3933,7 @@ Calculate for ${contextPayload.planning_year}.`;
         const bedWidthCm = bedWidthMeters * 100; // Convert meters to cm for calculations
         const bedWidth = bedWidthMeters; // Keep as meters
         const inRowSpacing = parseFloat(document.getElementById('inRowSpacing')?.value) || 15; // default 15cm
-        const betweenRowSpacing = parseFloat(document.getElementById('inRowSpacing')?.value) || 20; // default 20cm
+        const betweenRowSpacing = parseFloat(document.getElementById('betweenRowSpacing')?.value) || 20; // default 20cm
         
         // Get selected planting method from radio buttons
         const methodRadio = document.querySelector('input[name="plantingMethod"]:checked');
