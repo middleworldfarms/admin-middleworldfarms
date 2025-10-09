@@ -1616,8 +1616,14 @@ class SuccessionPlanningController extends Controller
                 $plantsPerRow = floor(($bedLength * 100) / $currentInRow);
                 $currentTotal = $currentRows * $plantsPerRow;
                 
-                $systemPrompt .= " Analyze the SPECIFIC succession plan provided. Current setup: {$bedWidthCm}cm wide bed with {$currentBetweenRow}cm between-row spacing = {$currentRows} rows (calculated as: rows fit at 0cm, {$currentBetweenRow}cm, " . ($currentBetweenRow * 2) . "cm across the {$bedWidthCm}cm width). Each row has {$plantsPerRow} plants (11m bed ÷ {$currentInRow}cm in-row spacing). Total: {$currentRows} rows × {$plantsPerRow} plants/row = {$currentTotal} plants per bed.";
-                $systemPrompt .= ' IMPORTANT: When calculating rows, use formula: floor(bed_width_cm / between_row_spacing) + 1. Example: 75cm bed with 30cm spacing = floor(75/30) + 1 = 2 + 1 = 3 rows (at positions 0cm, 30cm, 60cm). When suggesting spacing changes: (1) State CURRENT setup using my numbers, (2) Calculate NEW plant count correctly, (3) Show % increase/benefit, (4) Mention "Row Density Preset" button if applicable. Keep under 150 words.';
+                $systemPrompt .= " CRITICAL: Use ONLY these exact numbers from the current plan:\n";
+                $systemPrompt .= "- Bed size: {$bedLength}m long × " . ($bedWidthCm / 100) . "m wide (NOT {$bedWidthCm}m, that's centimeters!)\n";
+                $systemPrompt .= "- Between-row spacing: {$currentBetweenRow}cm\n";
+                $systemPrompt .= "- In-row spacing: {$currentInRow}cm\n";
+                $systemPrompt .= "- Number of rows: {$currentRows} (calculated: floor({$bedWidthCm}/{$currentBetweenRow}) + 1)\n";
+                $systemPrompt .= "- Plants per row: {$plantsPerRow} (calculated: floor({$bedLength}m × 100cm/{$currentInRow}cm) + 1)\n";
+                $systemPrompt .= "- TOTAL PLANTS PER BED: {$currentTotal} ({$currentRows} rows × {$plantsPerRow} plants/row)\n\n";
+                $systemPrompt .= 'DO NOT recalculate these numbers. Use them exactly as provided. When suggesting changes: (1) State current setup using MY numbers, (2) Propose specific spacing change, (3) Calculate new plant count, (4) Show benefit. Mention companion plants or intercrops if beneficial. Keep under 150 words.';
                 
                 // Get crop info for knowledge lookups
                 $cropType = $validated['crop_type'] ?? null;
