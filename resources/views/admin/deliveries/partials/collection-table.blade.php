@@ -45,6 +45,7 @@
                 <th>Last Paid</th>
                 <th>Contact</th>
                 <th>Frequency</th>
+                <th>Day</th>
                 <th>Week</th>
                 <th>Complete</th>
                 <th>Next Payment</th>
@@ -161,6 +162,16 @@
                                 {{ isset($collection['subscription_id']) ? 'Weekly Collection' : 'One-time Collection' }}
                             </span>
                         @endif
+                    </td>
+                    <td>
+                        {{-- Day Column - Shows collection day --}}
+                        @php
+                            $collectionDay = $collection['preferred_collection_day'] ?? 'Friday';
+                            $dayBadge = $collectionDay === 'Saturday' ? 'bg-info' : 'bg-success';
+                        @endphp
+                        <span class="badge {{ $dayBadge }}">
+                            <i class="fas fa-calendar-check"></i> {{ $collectionDay }}
+                        </span>
                     </td>
                     <td>
                         @if(isset($collection['customer_week_type']) && $collection['customer_week_type'] !== 'Weekly')

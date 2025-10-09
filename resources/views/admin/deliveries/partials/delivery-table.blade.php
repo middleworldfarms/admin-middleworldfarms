@@ -39,6 +39,7 @@
                 <th>Last Paid</th>
                 <th>Contact</th>
                 <th>Frequency</th>
+                <th>Day</th>
                 <th>Week</th>
                 <th>Status</th>
                 <th>Complete</th>
@@ -155,6 +156,28 @@
                             <span class="badge bg-{{ isset($delivery['subscription_id']) ? 'success' : 'info' }}">
                                 {{ isset($delivery['subscription_id']) ? 'Weekly Delivery' : 'One-time' }}
                             </span>
+                        @endif
+                    </td>
+                    <td>
+                        {{-- Day Column - Shows delivery/collection day --}}
+                        @if(isset($type))
+                            @if($type === 'delivery')
+                                <span class="badge bg-primary">
+                                    <i class="fas fa-truck"></i> Thursday
+                                </span>
+                            @elseif($type === 'collection')
+                                @php
+                                    $collectionDay = $delivery['preferred_collection_day'] ?? 'Friday';
+                                    $dayBadge = $collectionDay === 'Saturday' ? 'bg-info' : 'bg-success';
+                                @endphp
+                                <span class="badge {{ $dayBadge }}">
+                                    <i class="fas fa-calendar-check"></i> {{ $collectionDay }}
+                                </span>
+                            @else
+                                <span class="text-muted">-</span>
+                            @endif
+                        @else
+                            <span class="text-muted">-</span>
                         @endif
                     </td>
                     <td>
