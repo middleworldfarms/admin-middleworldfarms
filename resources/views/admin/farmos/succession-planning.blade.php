@@ -4429,11 +4429,14 @@ Calculate for ${contextPayload.planning_year}.`;
                                     </small>
                                     <small class="text-muted d-block">
                                         <i class="fas fa-calculator"></i> 
-                                        ${p.bed_length || '?'}m × ${p.bed_width || '?'}cm bed: 
+                                        ${p.bed_length || '?'}m × ${p.bed_width || '?'}m bed: 
                                         <strong>${p.plants_per_row || '?'} plants/row</strong> × <strong>${p.number_of_rows || '?'} rows</strong> = ${p.total_plants || '?'} plants
                                     </small>
-                                    <small class="text-muted">
+                                    <small class="text-muted d-block">
                                         (${p.in_row_spacing || '?'}cm in-row spacing, ${p.between_row_spacing || '?'}cm between-row spacing)
+                                    </small>
+                                    <small class="text-muted fst-italic">
+                                        <i class="fas fa-info-circle"></i> Rows calculated as: floor(bed width ÷ row spacing) + 1
                                     </small>
                                 </div>
                             ` : ''}

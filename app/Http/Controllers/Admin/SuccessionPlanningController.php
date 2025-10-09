@@ -1616,8 +1616,8 @@ class SuccessionPlanningController extends Controller
                 $plantsPerRow = floor(($bedLength * 100) / $currentInRow);
                 $currentTotal = $currentRows * $plantsPerRow;
                 
-                $systemPrompt .= " Analyze the SPECIFIC succession plan provided. Current setup: {$bedWidthCm}cm bed with {$currentBetweenRow}cm between-row spacing = {$currentRows} rows × {$plantsPerRow} plants/row = {$currentTotal} total plants per bed.";
-                $systemPrompt .= ' When suggesting spacing changes: (1) State CURRENT setup clearly using the numbers I provided, (2) Calculate NEW plant count with suggested spacing, (3) Show % increase/benefit, (4) Mention which "Row Density Preset" button to use if applicable. Comment on: spacing appropriateness, succession timing/gaps, harvest window coverage. Suggest useful COMPANION PLANTS or INTERCROPS. Keep under 150 words.';
+                $systemPrompt .= " Analyze the SPECIFIC succession plan provided. Current setup: {$bedWidthCm}cm wide bed with {$currentBetweenRow}cm between-row spacing = {$currentRows} rows (calculated as: rows fit at 0cm, {$currentBetweenRow}cm, " . ($currentBetweenRow * 2) . "cm across the {$bedWidthCm}cm width). Each row has {$plantsPerRow} plants (11m bed ÷ {$currentInRow}cm in-row spacing). Total: {$currentRows} rows × {$plantsPerRow} plants/row = {$currentTotal} plants per bed.";
+                $systemPrompt .= ' IMPORTANT: When calculating rows, use formula: floor(bed_width_cm / between_row_spacing) + 1. Example: 75cm bed with 30cm spacing = floor(75/30) + 1 = 2 + 1 = 3 rows (at positions 0cm, 30cm, 60cm). When suggesting spacing changes: (1) State CURRENT setup using my numbers, (2) Calculate NEW plant count correctly, (3) Show % increase/benefit, (4) Mention "Row Density Preset" button if applicable. Keep under 150 words.';
                 
                 // Get crop info for knowledge lookups
                 $cropType = $validated['crop_type'] ?? null;
