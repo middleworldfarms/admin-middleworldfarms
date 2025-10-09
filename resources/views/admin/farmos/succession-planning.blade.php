@@ -4379,7 +4379,7 @@ Calculate for ${contextPayload.planning_year}.`;
                 </div>
 
                 <!-- Embedded Quick Form Sections -->
-                <div id="quick-form-seeding-${i}" class="embedded-quick-form" style="display: none;">
+                <div id="quick-form-seeding-${i}" class="embedded-quick-form" style="display: block;">
                     <div class="form-content">
                         <h6><i class="fas fa-seedling text-success"></i> Seeding Form</h6>
                         <div class="row mb-3">
@@ -4449,7 +4449,7 @@ Calculate for ${contextPayload.planning_year}.`;
                 </div>
 
                 ${p.transplant_date ? `
-                <div id="quick-form-transplanting-${i}" class="embedded-quick-form" style="display: none;">
+                <div id="quick-form-transplanting-${i}" class="embedded-quick-form" style="display: block;">
                     <div class="form-content">
                         <h6><i class="fas fa-shipping-fast text-warning"></i> Transplanting Form</h6>
                         <div class="row mb-3">
@@ -4516,7 +4516,7 @@ Calculate for ${contextPayload.planning_year}.`;
                 </div>
                 ` : ''}
 
-                <div id="quick-form-harvest-${i}" class="embedded-quick-form" style="display: none;">
+                <div id="quick-form-harvest-${i}" class="embedded-quick-form" style="display: block;">
                     <div class="form-content">
                         <h6><i class="fas fa-shopping-basket text-danger"></i> Harvest Form</h6>
                         <div class="row mb-3">
