@@ -4918,9 +4918,24 @@ Calculate for ${contextPayload.planning_year}.`;
         const minDate = new Date(Math.min(...allDates));
         const maxDate = new Date(Math.max(...allDates));
 
-        // Extend timeline by 1 month on each side for context
-        minDate.setMonth(minDate.getMonth() - 1);
-        maxDate.setMonth(maxDate.getMonth() + 1);
+        // Extend timeline by 2 months on each side for better context
+        // This prevents succession blocks from being clamped to 0% when dates are outside range
+        minDate.setMonth(minDate.getMonth() - 2);
+        maxDate.setMonth(maxDate.getMonth() + 2);
+
+        // Ensure timeline spans at least the current calendar year to prevent positioning bugs
+        const now = new Date();
+        const yearStart = new Date(now.getFullYear(), 0, 1);  // January 1st
+        const yearEnd = new Date(now.getFullYear(), 11, 31);   // December 31st
+        
+        if (minDate > yearStart) minDate.setTime(yearStart.getTime());
+        if (maxDate < yearEnd) maxDate.setTime(yearEnd.getTime());
+
+        console.log('📅 Timeline date range calculated:', {
+            minDate: minDate.toISOString().split('T')[0],
+            maxDate: maxDate.toISOString().split('T')[0],
+            totalDates: allDates.length
+        });
 
         // Create month labels
         const months = [];
@@ -5670,7 +5685,12 @@ Calculate for ${contextPayload.planning_year}.`;
         console.log('📐 Calculated positions:', {
             growingLeft, growingWidth,
             harvestLeft, harvestWidth,
-            totalDuration
+            totalDuration,
+            startDate: startDate.toISOString(),
+            harvestDate: harvestDate.toISOString(),
+            endDate: endDate.toISOString(),
+            timelineStart: timelineStart.toISOString(),
+            timelineEnd: timelineEnd.toISOString()
         });
 
         // Create container for the succession block
