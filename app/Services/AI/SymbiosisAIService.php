@@ -31,7 +31,7 @@ class SymbiosisAIService
                 'stream' => false,
                 'options' => [
                     'temperature' => $options['temperature'] ?? 0.3, // Lower temp for more focused responses
-                    'num_predict' => $options['max_tokens'] ?? 300, // Allow up to 300 tokens
+                    'num_predict' => $options['max_tokens'] ?? 500, // Increased to 500 tokens for complete responses
                     'top_p' => 0.9,
                     'top_k' => 40,
                 ]

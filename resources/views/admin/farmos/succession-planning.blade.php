@@ -2148,6 +2148,45 @@ Only needed if FarmOS varieties have changed
         const cropTypeEl = document.getElementById('varietyCropType');
         cropTypeEl.textContent = varietyData.crop_family || varietyData.plant_type || 'Unknown';
 
+        // Check for season-specific planting recommendations (e.g., autumn-sown broad beans)
+        const varietyName = (varietyData.name || varietyData.title || '').toLowerCase();
+        const cropFamily = (varietyData.crop_family || varietyData.plant_type || '').toLowerCase();
+        let seasonalNotice = '';
+        
+        // Broad beans - autumn vs spring varieties
+        if (cropFamily.includes('bean') && (cropFamily.includes('broad') || varietyName.includes('broad'))) {
+            if (varietyName.includes('aquadulce') || varietyName.includes('bunyard')) {
+                seasonalNotice = `
+                    <div class="alert alert-info mt-3" role="alert">
+                        <i class="fas fa-snowflake"></i> <strong>Autumn-Sown Variety</strong>
+                        <p class="mb-0 mt-2">This variety (${varietyData.name}) is typically <strong>sown in October-November</strong> for harvest in May-June. 
+                        It overwinters in the ground and provides early spring crops. If planning for spring planting, consider a spring variety like 'The Sutton' instead.</p>
+                    </div>
+                `;
+            } else if (varietyName.includes('sutton') || varietyName.includes('stereo')) {
+                seasonalNotice = `
+                    <div class="alert alert-success mt-3" role="alert">
+                        <i class="fas fa-seedling"></i> <strong>Spring-Sown Variety</strong>
+                        <p class="mb-0 mt-2">This variety (${varietyData.name}) is suitable for <strong>spring sowing (February-April)</strong> for harvest in June-August.</p>
+                    </div>
+                `;
+            }
+        }
+        
+        // Insert seasonal notice after variety description
+        if (seasonalNotice) {
+            const descContainer = descEl.parentElement;
+            // Remove any existing seasonal notice
+            const existingNotice = descContainer.querySelector('.seasonal-planting-notice');
+            if (existingNotice) existingNotice.remove();
+            
+            // Add new notice
+            const noticeDiv = document.createElement('div');
+            noticeDiv.className = 'seasonal-planting-notice';
+            noticeDiv.innerHTML = seasonalNotice;
+            descContainer.appendChild(noticeDiv);
+        }
+
         // Update variety ID
         const idEl = document.getElementById('varietyId');
         idEl.textContent = varietyData.farmos_id || varietyData.id || 'N/A';
@@ -3022,6 +3061,10 @@ Use these guidelines:
 - Radishes: April 1 - October 31
 - Onions: July 1 - September 30
 - Brussels Sprouts: October 1 - March 31
+- Broad Beans (Aquadulce, Bunyard's Exhibition - Autumn sown): October 15 - June 30 (sow Oct-Nov, harvest May-Jun)
+- Broad Beans (Spring sown varieties like The Sutton, Stereo): April 15 - July 31 (sow Feb-Apr, harvest Jun-Aug)
+
+For broad beans, if variety name contains "Aquadulce" or "Bunyard", use autumn sowing dates. Otherwise assume spring sowing.
 
 Calculate for ${contextPayload.planning_year}.`;
 

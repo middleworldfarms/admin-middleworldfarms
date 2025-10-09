@@ -1671,8 +1671,22 @@ class SuccessionPlanningController extends Controller
                     }
                 }
                 
-                // Add spacing context for brassicas
-                if (isset($plan['between_row_spacing']) && $plan['between_row_spacing'] <= 30) {
+                // Add spacing context for specific crops
+                $cropLower = strtolower($cropName);
+                
+                // Broad beans spacing guidance
+                if (str_contains($cropLower, 'broad bean') || str_contains($cropLower, 'fava')) {
+                    $systemPrompt .= "\n\nBROAD BEAN SPACING GUIDELINES:\n";
+                    $systemPrompt .= "- In-row spacing: 10-20cm for bushy varieties, 23cm for tall varieties\n";
+                    $systemPrompt .= "- Between-row spacing: 30-45cm is CORRECT (not 100cm!)\n";
+                    $systemPrompt .= "- Double rows: Can plant in staggered double rows 23cm apart for mutual support\n";
+                    $systemPrompt .= "- Autumn varieties (like Aquadulce): Sow October-November, harvest May-June\n";
+                    $systemPrompt .= "- Spring varieties (like The Sutton): Sow February-April, harvest June-August\n";
+                    $systemPrompt .= "- Pinch out growing tips when in flower to discourage blackfly\n";
+                    $systemPrompt .= "IMPORTANT: The current spacing is APPROPRIATE. Do not suggest increasing to 1 meter!\n";
+                } 
+                // Brassicas spacing guidance
+                else if (isset($plan['between_row_spacing']) && $plan['between_row_spacing'] <= 30) {
                     $systemPrompt .= ' IMPORTANT: Tight spacing (30cm between rows) works for SMALL brassicas (summer cauliflower, baby cabbage, spring greens) but RECOMMEND STAGGERED PLANTING: offset plants in adjacent rows so they sit in gaps, increasing effective spacing. This improves airflow and allows larger heads. Works well for most calabrese/broccoli. Not suitable for large winter cauliflowers or cabbages - those need 45cm+.';
                 }
             } else {
