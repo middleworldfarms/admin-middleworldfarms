@@ -53,11 +53,17 @@ class UpdateCollectionDaysFromHistory extends Command
         
         foreach ($completions as $completion) {
             $subscriptionId = $completion->external_id;
-            $dayOfWeek = Carbon::parse($completion->delivery_date)->format('l'); // Monday, Tuesday, etc.
+            // Use completed_at (actual day they came) instead of delivery_date (scheduled Monday)
+            $dayOfWeek = Carbon::parse($completion->completed_at)->format('l'); // Monday, Tuesday, etc.
             
             // Convert Sunday to Saturday as per requirement
             if ($dayOfWeek === 'Sunday') {
                 $dayOfWeek = 'Saturday';
+            }
+            
+            // Only count Friday and Saturday (ignore other days)
+            if (!in_array($dayOfWeek, ['Friday', 'Saturday'])) {
+                continue;
             }
             
             if (!isset($customerPatterns[$subscriptionId])) {
