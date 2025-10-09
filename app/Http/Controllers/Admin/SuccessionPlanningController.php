@@ -1616,13 +1616,16 @@ class SuccessionPlanningController extends Controller
                 $plantsPerRow = floor(($bedLength * 100) / $currentInRow);
                 $currentTotal = $currentRows * $plantsPerRow;
                 
-                $systemPrompt .= " Your task is to REVIEW the succession plan and provide growing advice. Here are the EXACT numbers (do not recalculate):\n\n";
+                $cropName = $plan['crop_name'] ?? 'unknown';
+                $varietyName = $plan['variety_name'] ?? '';
+                
+                $systemPrompt .= " You are reviewing a succession plan for {$cropName} ({$varietyName}). Here are the EXACT specifications (do not recalculate):\n\n";
                 $systemPrompt .= "BED SPECIFICATIONS:\n";
                 $systemPrompt .= "- Size: {$bedLength}m long × " . ($bedWidthCm / 100) . "m wide\n";
                 $systemPrompt .= "- Spacing: {$currentInRow}cm in-row, {$currentBetweenRow}cm between-row\n";
                 $systemPrompt .= "- Layout: {$currentRows} rows with {$plantsPerRow} plants each\n";
                 $systemPrompt .= "- TOTAL: {$currentTotal} plants per bed\n\n";
-                $systemPrompt .= 'Your advice should focus on: (1) Is this spacing appropriate for this crop? (2) Are succession timings good? (3) Suggest companion plants or crop rotation. DO NOT recalculate plant numbers - they are already correct. DO NOT suggest spacing changes unless clearly beneficial. Keep response under 100 words, be practical and specific.';
+                $systemPrompt .= 'Your advice should focus on: (1) Is this spacing appropriate for ' . $cropName . '? (2) Are succession timings good? (3) Suggest companion plants FOR ' . $cropName . ' (not other crops). DO NOT recalculate numbers. Keep response under 100 words, be practical and specific.';
                 
                 // Get crop info for knowledge lookups
                 $cropType = $validated['crop_type'] ?? null;
