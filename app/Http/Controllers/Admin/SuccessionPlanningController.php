@@ -1552,7 +1552,15 @@ class SuccessionPlanningController extends Controller
                 $planDetails .= "- Crop: {$plan['crop_name']} ({$plan['variety_name']})\n";
                 $planDetails .= "- Total Successions: {$plan['total_successions']}\n";
                 $planDetails .= "- Harvest Window: {$plan['harvest_window_start']} to {$plan['harvest_window_end']}\n";
-                $planDetails .= "- Bed Dimensions: {$plan['bed_length']}m × {$plan['bed_width']}cm\n";
+                
+                // Convert bed width to meters if it's in cm (old format)
+                $bedWidthForDisplay = $plan['bed_width'];
+                $bedWidthUnit = 'm';
+                if ($bedWidthForDisplay > 10) { // Likely in cm (beds are typically < 2m wide)
+                    $bedWidthForDisplay = $bedWidthForDisplay / 100;
+                }
+                
+                $planDetails .= "- Bed Dimensions: {$plan['bed_length']}m × {$bedWidthForDisplay}m\n";
                 $planDetails .= "- Spacing: {$plan['in_row_spacing']}cm in-row, {$plan['between_row_spacing']}cm between rows\n";
                 $planDetails .= "- Method: {$plan['planting_method']}\n\n";
                 $planDetails .= "Planting Schedule:\n";
@@ -1588,7 +1596,13 @@ class SuccessionPlanningController extends Controller
             $systemPrompt = 'You are Symbiosis AI, a practical farm planning assistant. Be direct and specific - no generic advice.';
             
             if ($hasPlan) {
-                $bedWidth = $plan['bed_width'] ?? 75;
+                $bedWidthValue = $plan['bed_width'] ?? 0.75;
+                // Convert from cm to meters if necessary
+                if ($bedWidthValue > 10) { // Likely in cm
+                    $bedWidthValue = $bedWidthValue / 100;
+                }
+                $bedWidthCm = $bedWidthValue * 100; // Convert to cm for row calculations
+                
                 $currentBetweenRow = $plan['between_row_spacing'] ?? 45;
                 $currentInRow = $plan['in_row_spacing'] ?? 30;
                 $bedLength = $plan['bed_length'] ?? 11;
@@ -1597,7 +1611,7 @@ class SuccessionPlanningController extends Controller
                 // Formula: How many rows can fit with given spacing?
                 // For 75cm bed, 30cm spacing: positions at 0, 30, 60 = 3 rows
                 // For 75cm bed, 45cm spacing: positions at 0, 45 = 2 rows (90 doesn't fit)
-                $currentRows = floor($bedWidth / $currentBetweenRow) + 1;
+                $currentRows = floor($bedWidthCm / $currentBetweenRow) + 1;
                 
                 $plantsPerRow = floor(($bedLength * 100) / $currentInRow);
                 $currentTotal = $currentRows * $plantsPerRow;

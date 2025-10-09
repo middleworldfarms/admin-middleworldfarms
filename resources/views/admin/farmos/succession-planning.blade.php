@@ -1505,9 +1505,9 @@
                             <div class="col-md-6">
                                 <label for="bedWidth" class="form-label">
                                     <i class="fas fa-ruler-vertical text-info"></i>
-                                    Bed Width (cm)
+                                    Bed Width (meters)
                                 </label>
-                                <input type="number" class="form-control" id="bedWidth" name="bedWidth" placeholder="e.g., 75" min="10" step="1">
+                                <input type="number" class="form-control" id="bedWidth" name="bedWidth" placeholder="e.g., 0.75" min="0.1" step="0.01">
                             </div>
                         </div>
 
@@ -3929,10 +3929,11 @@ Calculate for ${contextPayload.planning_year}.`;
         
         // Get bed dimensions and spacing for quantity calculations
         const bedLength = parseFloat(document.getElementById('bedLength')?.value) || 30; // default 30m
-        const bedWidthCm = parseFloat(document.getElementById('bedWidth')?.value) || 75; // default 75cm
-        const bedWidth = bedWidthCm / 100; // Convert cm to meters for calculations
+        const bedWidthMeters = parseFloat(document.getElementById('bedWidth')?.value) || 0.75; // default 0.75m
+        const bedWidthCm = bedWidthMeters * 100; // Convert meters to cm for calculations
+        const bedWidth = bedWidthMeters; // Keep as meters
         const inRowSpacing = parseFloat(document.getElementById('inRowSpacing')?.value) || 15; // default 15cm
-        const betweenRowSpacing = parseFloat(document.getElementById('betweenRowSpacing')?.value) || 20; // default 20cm
+        const betweenRowSpacing = parseFloat(document.getElementById('inRowSpacing')?.value) || 20; // default 20cm
         
         // Get selected planting method from radio buttons
         const methodRadio = document.querySelector('input[name="plantingMethod"]:checked');
@@ -6989,8 +6990,9 @@ Plantings:`;
 
         // Calculate seed/transplant amounts based on bed dimensions
         const bedLength = parseFloat(document.getElementById('bedLength')?.value) || 0;
-        const bedWidthCm = parseFloat(document.getElementById('bedWidth')?.value) || 0;
-        const bedWidth = bedWidthCm / 100; // Convert cm to meters
+        const bedWidthMeters = parseFloat(document.getElementById('bedWidth')?.value) || 0;
+        const bedWidthCm = bedWidthMeters * 100; // Convert meters to cm
+        const bedWidth = bedWidthMeters; // Keep as meters
         const bedArea = bedLength * bedWidth; // in square meters
 
         let seedInfoHTML = '';
@@ -7960,8 +7962,14 @@ Plantings:`;
         }
         
         if (savedBedWidth && bedWidthInput && !bedWidthInput.value) {
-            bedWidthInput.value = savedBedWidth;
-            console.log('📂 Loaded bed width:', savedBedWidth, 'cm');
+            // Convert old cm values to meters if necessary
+            let bedWidthMeters = savedBedWidth;
+            if (savedBedWidth > 10) { // Likely in cm (beds are typically < 2m wide)
+                bedWidthMeters = savedBedWidth / 100;
+                console.log('📂 Converting saved bed width from cm to meters:', savedBedWidth, 'cm →', bedWidthMeters, 'm');
+            }
+            bedWidthInput.value = bedWidthMeters;
+            console.log('📂 Loaded bed width:', bedWidthMeters, 'm');
         }
     }
 
@@ -8022,7 +8030,8 @@ Plantings:`;
         
         // Function to update density preset display with current bed width
         function updateDensityPresetDisplay() {
-            const bedWidthCm = parseFloat(bedWidthInput?.value) || 75;
+            const bedWidthMeters = parseFloat(bedWidthInput?.value) || 0.75;
+            const bedWidthCm = bedWidthMeters * 100; // Convert meters to cm
             const densityBedWidthSpan = document.getElementById('densityBedWidth');
             const preset2rowsLabel = document.getElementById('preset2rowsLabel');
             const preset3rowsLabel = document.getElementById('preset3rowsLabel');
@@ -8053,8 +8062,9 @@ Plantings:`;
             console.log('🔄 Recalculating plant quantities with updated bed dimensions/spacing...');
 
             const bedLength = parseFloat(bedLengthInput?.value) || 10;
-            const bedWidthCm = parseFloat(bedWidthInput?.value) || 75;
-            const bedWidth = bedWidthCm / 100; // Convert to meters
+            const bedWidthMeters = parseFloat(bedWidthInput?.value) || 0.75;
+            const bedWidthCm = bedWidthMeters * 100; // Convert meters to cm
+            const bedWidth = bedWidthMeters; // Keep as meters
             const inRowSpacing = parseFloat(inRowSpacingInput?.value) || 15;
             const betweenRowSpacing = parseFloat(betweenRowSpacingInput?.value) || 20;
 
@@ -8126,7 +8136,8 @@ Plantings:`;
                 this.classList.add('active');
                 
                 // Calculate and show preview
-                const bedWidthCm = parseFloat(document.getElementById('bedWidth')?.value) || 75;
+                const bedWidthMeters = parseFloat(document.getElementById('bedWidth')?.value) || 0.75;
+                const bedWidthCm = bedWidthMeters * 100; // Convert meters to cm
                 const actualRows = Math.floor(bedWidthCm / betweenRowSpacing) + 1;
                 
                 console.log(`🥬 Density preset selected: ${rows} rows (${betweenRowSpacing}cm spacing) = ${actualRows} actual rows on ${bedWidthCm}cm bed`);
