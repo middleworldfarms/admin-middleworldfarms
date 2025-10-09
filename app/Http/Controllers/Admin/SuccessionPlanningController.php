@@ -1616,14 +1616,13 @@ class SuccessionPlanningController extends Controller
                 $plantsPerRow = floor(($bedLength * 100) / $currentInRow);
                 $currentTotal = $currentRows * $plantsPerRow;
                 
-                $systemPrompt .= " CRITICAL: Use ONLY these exact numbers from the current plan:\n";
-                $systemPrompt .= "- Bed size: {$bedLength}m long × " . ($bedWidthCm / 100) . "m wide (NOT {$bedWidthCm}m, that's centimeters!)\n";
-                $systemPrompt .= "- Between-row spacing: {$currentBetweenRow}cm\n";
-                $systemPrompt .= "- In-row spacing: {$currentInRow}cm\n";
-                $systemPrompt .= "- Number of rows: {$currentRows} (calculated: floor({$bedWidthCm}/{$currentBetweenRow}) + 1)\n";
-                $systemPrompt .= "- Plants per row: {$plantsPerRow} (calculated: floor({$bedLength}m × 100cm/{$currentInRow}cm) + 1)\n";
-                $systemPrompt .= "- TOTAL PLANTS PER BED: {$currentTotal} ({$currentRows} rows × {$plantsPerRow} plants/row)\n\n";
-                $systemPrompt .= 'DO NOT recalculate these numbers. Use them exactly as provided. When suggesting changes: (1) State current setup using MY numbers, (2) Propose specific spacing change, (3) Calculate new plant count, (4) Show benefit. Mention companion plants or intercrops if beneficial. Keep under 150 words.';
+                $systemPrompt .= " Your task is to REVIEW the succession plan and provide growing advice. Here are the EXACT numbers (do not recalculate):\n\n";
+                $systemPrompt .= "BED SPECIFICATIONS:\n";
+                $systemPrompt .= "- Size: {$bedLength}m long × " . ($bedWidthCm / 100) . "m wide\n";
+                $systemPrompt .= "- Spacing: {$currentInRow}cm in-row, {$currentBetweenRow}cm between-row\n";
+                $systemPrompt .= "- Layout: {$currentRows} rows with {$plantsPerRow} plants each\n";
+                $systemPrompt .= "- TOTAL: {$currentTotal} plants per bed\n\n";
+                $systemPrompt .= 'Your advice should focus on: (1) Is this spacing appropriate for this crop? (2) Are succession timings good? (3) Suggest companion plants or crop rotation. DO NOT recalculate plant numbers - they are already correct. DO NOT suggest spacing changes unless clearly beneficial. Keep response under 100 words, be practical and specific.';
                 
                 // Get crop info for knowledge lookups
                 $cropType = $validated['crop_type'] ?? null;
