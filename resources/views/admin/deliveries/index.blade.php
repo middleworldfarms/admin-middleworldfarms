@@ -3,8 +3,59 @@
 @section('title', 'Symbiosis - Delivery Schedule Management')
 
 @section('page-header')
-    <h1>Delivery Schedule Management</h1>
-    <p class="lead">Real-time delivery data from WooCommerce</p>
+    <div class="d-flex justify-content-between align-items-center w-100">
+        <div>
+            {{-- Week Navigation Buttons --}}
+            <div class="d-flex align-items-center gap-1">
+                @php
+                    $selectedWeek = isset($selectedWeek) ? (int)$selectedWeek : (int)date('W');
+                    $currentWeekActual = (int)date('W');
+                    $prevWeek = max(1, $selectedWeek - 1);
+                    $nextWeek = min(53, $selectedWeek + 1);
+                @endphp
+                
+                {{-- Previous Week Button --}}
+                <form method="GET" action="{{ route('admin.deliveries.index') }}" class="d-inline">
+                    <input type="hidden" name="week" value="{{ $prevWeek }}">
+                    <button type="submit" class="btn btn-outline-light btn-sm" title="Previous Week ({{ $prevWeek }})" @if($selectedWeek <= 1) disabled @endif>
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                </form>
+                
+                {{-- Current Week Button --}}
+                <form method="GET" action="{{ route('admin.deliveries.index') }}" class="d-inline">
+                    <input type="hidden" name="week" value="{{ $currentWeekActual }}">
+                    <button type="submit" class="btn btn-light btn-sm @if($selectedWeek == $currentWeekActual) active fw-bold @endif" title="Current Week ({{ $currentWeekActual }})">
+                        <i class="fas fa-calendar-day"></i> Week {{ $selectedWeek }}
+                    </button>
+                </form>
+                
+                {{-- Next Week Button --}}
+                <form method="GET" action="{{ route('admin.deliveries.index') }}" class="d-inline">
+                    <input type="hidden" name="week" value="{{ $nextWeek }}">
+                    <button type="submit" class="btn btn-outline-light btn-sm" title="Next Week ({{ $nextWeek }})" @if($selectedWeek >= 53) disabled @endif>
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </form>
+                
+                {{-- Week Dropdown --}}
+                <form method="GET" action="{{ route('admin.deliveries.index') }}" class="d-inline ms-2">
+                    <select name="week" class="form-select form-select-sm bg-light" style="width: auto;" onchange="this.form.submit();" title="Jump to specific week">
+                        @for($w = 1; $w <= 53; $w++)
+                            <option value="{{ $w }}" @if($selectedWeek == $w) selected @endif>
+                                Week {{ $w }}
+                            </option>
+                        @endfor
+                    </select>
+                </form>
+            </div>
+        </div>
+        <div class="text-center flex-grow-1">
+            <h1>Delivery Schedule Management</h1>
+            <p class="lead mb-0">Real-time delivery data from WooCommerce</p>
+        </div>
+        <div></div>
+    </div>
 @endsection
 
 @section('content')
