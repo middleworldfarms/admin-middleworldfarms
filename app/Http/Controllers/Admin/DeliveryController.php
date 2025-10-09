@@ -38,8 +38,11 @@ class DeliveryController extends Controller
                 $rawData = [];
             }
             
-            // Transform data to match view expectations
-            $scheduleData = $this->transformScheduleData($rawData, $selectedWeek);
+            // Fetch collection day preferences from WordPress database before transforming
+            $collectionDayPreferences = $this->fetchCollectionDayPreferences($rawData);
+            
+            // Transform data to match view expectations, passing in collection day preferences
+            $scheduleData = $this->transformScheduleData($rawData, $selectedWeek, $collectionDayPreferences);
             
             // Add completion data to schedule data
             $scheduleData = $this->addCompletionData($scheduleData);
@@ -185,7 +188,7 @@ class DeliveryController extends Controller
     /**
      * Transform raw database data to match view expectations
      */
-    private function transformScheduleData($rawData, $selectedWeek = null)
+    private function transformScheduleData($rawData, $selectedWeek = null, $collectionDayPreferences = [])
     {
         // Use current week if no selectedWeek provided, ensure it's an integer
         if ($selectedWeek === null) {
@@ -325,9 +328,10 @@ class DeliveryController extends Controller
 
                 // Get preferred collection day from WP user meta for collection subscriptions
                 $preferred_collection_day = 'Friday'; // Default to Friday
-                // We'll batch load these values later to avoid slow API calls
-                // For now, use the default value to prevent API timeouts
-
+                if (!empty($sub['customer_id']) && isset($collectionDayPreferences[$sub['customer_id']])) {
+                    $preferred_collection_day = $collectionDayPreferences[$sub['customer_id']];
+                }
+                
                 // Store both subscription ID and customer ID - use subscription ID for API operations
                 $extractedEmail = $sub['billing']['email'] ?? '';
                 $extractedFirstName = $sub['billing']['first_name'] ?? '';
@@ -375,10 +379,10 @@ class DeliveryController extends Controller
         // Process DELIVERIES - items from the service where type = 'delivery'
         if (isset($rawData['deliveries'])) {
             foreach ($rawData['deliveries'] as $delivery) {
-                // Instead of using date_created, calculate the delivery date for the selected week
-                // For this week-based view, we'll group all items under the selected week dates
+                // Calculate delivery date for the selected week
+                // All deliveries go out on THURSDAY
                 $selectedWeekStart = $this->getWeekStartDate($selectedWeek);
-                $date = \Carbon\Carbon::parse($selectedWeekStart);
+                $date = \Carbon\Carbon::parse($selectedWeekStart)->addDays(3); // Monday + 3 days = Thursday
                 $dateKey = $date->format('Y-m-d');
                 $dateFormatted = $date->format('l, F j, Y') . " (Week {$selectedWeek})";
                 $customerKey = $delivery['customer_email'] . '_' . $delivery['id'];
@@ -402,9 +406,23 @@ class DeliveryController extends Controller
         // Process COLLECTIONS - items from the service where type = 'collection'
         if (isset($rawData['collections'])) {
             foreach ($rawData['collections'] as $collection) {
-                // Group collections under the selected week as well
+                // Collections are scheduled based on their preferred collection day
+                // Get preferred day from collection data (set later via addCollectionDaysToScheduleData)
+                $preferredDay = $collection['preferred_collection_day'] ?? 'Friday'; // Default to Friday
+                
+                // Calculate the collection date for the selected week based on preferred day
                 $selectedWeekStart = $this->getWeekStartDate($selectedWeek);
-                $date = \Carbon\Carbon::parse($selectedWeekStart);
+                $weekStart = \Carbon\Carbon::parse($selectedWeekStart);
+                
+                // Map day names to day of week (1=Monday, 5=Friday, 6=Saturday)
+                $dayMap = [
+                    'Monday' => 1, 'Tuesday' => 2, 'Wednesday' => 3, 'Thursday' => 4,
+                    'Friday' => 5, 'Saturday' => 6, 'Sunday' => 6 // Sunday treated as Saturday
+                ];
+                
+                $targetDayNumber = $dayMap[$preferredDay] ?? 5; // Default to Friday (5)
+                $date = $weekStart->copy()->addDays($targetDayNumber - 1); // -1 because Monday is day 1
+                
                 $dateKey = $date->format('Y-m-d');
                 $dateFormatted = $date->format('l, F j, Y') . " (Week {$selectedWeek})";
                 $customerKey = $collection['customer_email'] . '_' . $collection['id'];
@@ -1397,6 +1415,50 @@ class DeliveryController extends Controller
                 'success' => false,
                 'error' => $e->getMessage()
             ], 500);
+        }
+    }
+    
+    /**
+     * Fetch collection day preferences for all customers in the raw data
+     * @param array $rawData The raw subscription data from WooCommerce
+     * @return array Array of customer_id => preferred_day mappings
+     */
+    private function fetchCollectionDayPreferences($rawData)
+    {
+        $customerIds = [];
+        
+        // Extract customer IDs from raw data
+        foreach ($rawData as $sub) {
+            if (isset($sub['customer_id'])) {
+                $customerIds[] = $sub['customer_id'];
+            }
+        }
+        
+        if (empty($customerIds)) {
+            return [];
+        }
+        
+        // Get unique IDs
+        $customerIds = array_unique($customerIds);
+        
+        // Fetch from WordPress database
+        try {
+            $results = DB::connection('wordpress')
+                ->table('usermeta')
+                ->whereIn('user_id', $customerIds)
+                ->where('meta_key', 'preferred_collection_day')
+                ->select('user_id', 'meta_value')
+                ->get();
+            
+            $preferences = [];
+            foreach ($results as $result) {
+                $preferences[$result->user_id] = $result->meta_value;
+            }
+            
+            return $preferences;
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch collection day preferences: ' . $e->getMessage());
+            return [];
         }
     }
     
