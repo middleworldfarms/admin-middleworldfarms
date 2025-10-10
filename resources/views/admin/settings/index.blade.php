@@ -3,6 +3,26 @@
 @section('title', 'System Settings')
 @section('page-title', 'System Settings')
 
+@section('styles')
+<style>
+    .editable-suggestion-container {
+        min-width: 300px;
+    }
+    .suggestion-edit {
+        background-color: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        border: 1px solid #dee2e6;
+    }
+    .suggestion-display:hover {
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        padding: 2px 4px;
+        margin: -2px -4px;
+    }
+</style>
+@endsection
+
 @section('content')
 <div class="container-fluid">
     {{-- Success Message --}}
@@ -530,6 +550,324 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- Variety Audit Review Section --}}
+        <div class="row">
+            <div class="col-12 mb-4">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-microscope"></i> AI Variety Audit Review
+                            <span class="badge bg-light text-dark float-end">{{ $auditStats['total_pending'] }} Pending</span>
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {{-- Audit Progress & Control Panel --}}
+                        <div class="alert alert-light border mb-4" id="audit-control-panel">
+                            <div class="row align-items-center">
+                                <div class="col-md-6">
+                                    <h6 class="mb-2"><i class="fas fa-cog"></i> Audit Progress</h6>
+                                    <div id="audit-status-display">
+                                        @if($auditRunning && $auditProgress)
+                                            @php
+                                                $processed = $auditProgress['processed'] ?? 0;
+                                                $total = 2959;
+                                                $percent = $total > 0 ? round(($processed / $total) * 100, 1) : 0;
+                                                $remaining = $total - $processed;
+                                                $estimatedHours = round(($remaining * 60) / 3600, 1);
+                                            @endphp
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-circle-notch fa-spin"></i> Running
+                                            </span>
+                                            <span class="text-muted ms-2">
+                                                {{ $processed }} / {{ $total }} varieties ({{ $percent }}%)
+                                                @if($estimatedHours > 0)
+                                                    · ~{{ $estimatedHours }}h remaining
+                                                @endif
+                                            </span>
+                                        @elseif($auditProgress)
+                                            @php
+                                                $processed = $auditProgress['processed'] ?? 0;
+                                                $total = 2959;
+                                                $percent = $total > 0 ? round(($processed / $total) * 100, 1) : 0;
+                                            @endphp
+                                            <span class="badge bg-warning">
+                                                <i class="fas fa-pause-circle"></i> Paused
+                                            </span>
+                                            <span class="text-muted ms-2">
+                                                {{ $processed }} / {{ $total }} varieties completed ({{ $percent }}%)
+                                            </span>
+                                        @else
+                                            <span class="badge bg-secondary">
+                                                <i class="fas fa-stop-circle"></i> Not Running
+                                            </span>
+                                            <span class="text-muted ms-2">Click "Start Audit" to begin analyzing all 2,959 varieties</span>
+                                        @endif
+                                    </div>
+                                    @if($auditRunning || $auditProgress)
+                                        @php
+                                            $processed = $auditProgress['processed'] ?? 0;
+                                            $total = 2959;
+                                            $percent = $total > 0 ? round(($processed / $total) * 100, 1) : 0;
+                                        @endphp
+                                        <div class="progress mt-2" style="height: 25px;" id="audit-progress-bar-container">
+                                            <div class="progress-bar progress-bar-striped {{ $auditRunning ? 'progress-bar-animated' : '' }} bg-success" 
+                                                 role="progressbar" 
+                                                 id="audit-progress-bar"
+                                                 style="width: {{ $percent }}%"
+                                                 aria-valuenow="{{ $percent }}" 
+                                                 aria-valuemin="0" 
+                                                 aria-valuemax="100">
+                                                <span id="audit-progress-text">{{ $processed }} / {{ $total }} ({{ $percent }}%)</span>
+                                            </div>
+                                        </div>
+                                    @else
+                                        <div class="progress mt-2" style="height: 25px; display: none;" id="audit-progress-bar-container">
+                                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" 
+                                                 role="progressbar" 
+                                                 id="audit-progress-bar"
+                                                 style="width: 0%"
+                                                 aria-valuenow="0" 
+                                                 aria-valuemin="0" 
+                                                 aria-valuemax="100">
+                                                <span id="audit-progress-text">0%</span>
+                                            </div>
+                                        </div>
+                                    @endif
+                                </div>
+                                <div class="col-md-6 text-end">
+                                    <button class="btn btn-success btn-sm me-2" id="start-audit-btn" onclick="startAudit()" style="display: {{ (!$auditRunning && !$auditProgress) ? 'inline-block' : 'none' }};">
+                                        <i class="fas fa-play"></i> Start Audit
+                                    </button>
+                                    <button class="btn btn-warning btn-sm me-2" id="pause-audit-btn" onclick="pauseAudit()" style="display: {{ $auditRunning ? 'inline-block' : 'none' }};">
+                                        <i class="fas fa-pause"></i> Pause Audit
+                                    </button>
+                                    <button class="btn btn-info btn-sm" id="resume-audit-btn" onclick="resumeAudit()" style="display: {{ (!$auditRunning && $auditProgress) ? 'inline-block' : 'none' }};">
+                                        <i class="fas fa-play-circle"></i> Resume Audit
+                                    </button>
+                                    <button class="btn btn-secondary btn-sm" onclick="refreshAuditStatus()">
+                                        <i class="fas fa-sync"></i> Refresh Status
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        @if($auditResults->isEmpty())
+                            <div class="alert alert-info" id="no-results-message">
+                                <i class="fas fa-info-circle"></i> 
+                                @if(isset($auditRunning) && $auditRunning)
+                                    <strong>Audit is running!</strong> Suggestions will appear here as varieties are analyzed. 
+                                    Refresh the page to see new results.
+                                @else
+                                    No pending audit suggestions. All varieties are up to date or no audit has been run yet.
+                                @endif
+                            </div>
+                            <div class="text-center py-4">
+                                <p class="text-muted mb-3">Run a new audit to check for issues:</p>
+                                <code class="bg-light p-2 d-inline-block">php artisan varieties:audit --limit=10 --dry-run</code>
+                                <p class="text-muted mt-3"><small>Or use the control panel above to start a full audit</small></p>
+                            </div>
+                        @else
+                            {{-- Stats Cards --}}
+                            <div class="row mb-4">
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center">
+                                            <h3 class="mb-0">{{ $auditStats['total_pending'] }}</h3>
+                                            <small class="text-muted">Total Pending</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-danger text-white">
+                                        <div class="card-body text-center">
+                                            <h3 class="mb-0">{{ $auditStats['critical'] }}</h3>
+                                            <small>Critical Issues</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-warning text-dark">
+                                        <div class="card-body text-center">
+                                            <h3 class="mb-0">{{ $auditStats['warning'] }}</h3>
+                                            <small>Warnings</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-success text-white">
+                                        <div class="card-body text-center">
+                                            <h3 class="mb-0">{{ $auditStats['high_confidence'] }}</h3>
+                                            <small>High Confidence</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Bulk Actions --}}
+                            <div class="row mb-3">
+                                <div class="col-md-12">
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-success btn-sm" onclick="bulkApprove()">
+                                            <i class="fas fa-check"></i> Approve Selected
+                                        </button>
+                                        <button type="button" class="btn btn-danger btn-sm" onclick="bulkReject()">
+                                            <i class="fas fa-times"></i> Reject Selected
+                                        </button>
+                                        <button type="button" class="btn btn-primary btn-sm" onclick="approveHighConfidence()">
+                                            <i class="fas fa-bolt"></i> Approve All High Confidence
+                                        </button>
+                                    </div>
+                                    <div class="btn-group float-end" role="group">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="filterBySeverity('all')">
+                                            All
+                                        </button>
+                                        <button type="button" class="btn btn-outline-danger btn-sm" onclick="filterBySeverity('critical')">
+                                            Critical
+                                        </button>
+                                        <button type="button" class="btn btn-outline-warning btn-sm" onclick="filterBySeverity('warning')">
+                                            Warning
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Audit Results Table --}}
+                            <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                                <table class="table table-sm table-hover">
+                                    <thead class="table-light sticky-top">
+                                        <tr>
+                                            <th style="width: 40px;">
+                                                <input type="checkbox" id="select-all-audit" class="form-check-input">
+                                            </th>
+                                            <th>Variety</th>
+                                            <th>Issue</th>
+                                            <th>Field</th>
+                                            <th>Current → Suggested</th>
+                                            <th>Severity</th>
+                                            <th>Confidence</th>
+                                            <th style="width: 120px;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($auditResults as $result)
+                                        <tr data-severity="{{ $result->severity }}" data-audit-id="{{ $result->id }}">
+                                            <td>
+                                                <input type="checkbox" class="form-check-input audit-checkbox" value="{{ $result->id }}">
+                                            </td>
+                                            <td>
+                                                <strong>{{ $result->variety->name }}</strong>
+                                                <br>
+                                                <small class="text-muted">ID: {{ $result->variety_id }}</small>
+                                            </td>
+                                            <td>
+                                                <small>{{ Str::limit($result->issue_description, 80) }}</small>
+                                            </td>
+                                            <td>
+                                                @if($result->suggested_field)
+                                                    <code class="text-primary">{{ $result->suggested_field }}</code>
+                                                @else
+                                                    <span class="text-muted">-</span>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                @if($result->suggested_field)
+                                                    <div class="editable-suggestion-container">
+                                                        {{-- Display Mode --}}
+                                                        <div class="suggestion-display" id="display-{{ $result->id }}">
+                                                            <div class="d-flex align-items-center">
+                                                                <span class="text-muted small" style="max-width: 120px; overflow: hidden; text-overflow: ellipsis;" title="{{ $result->current_value ?? 'MISSING' }}">
+                                                                    {{ Str::limit($result->current_value ?? 'MISSING', 25) }}
+                                                                </span>
+                                                                <i class="fas fa-arrow-right mx-2 text-success"></i>
+                                                                <span class="text-success small fw-bold" style="max-width: 120px; overflow: hidden; text-overflow: ellipsis;" title="{{ $result->suggested_value }}">
+                                                                    {{ Str::limit($result->suggested_value, 25) }}
+                                                                </span>
+                                                                <button type="button" class="btn btn-link btn-sm ms-1 p-0" onclick="toggleEdit({{ $result->id }})" title="Edit suggestion">
+                                                                    <i class="fas fa-edit text-primary"></i>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        {{-- Edit Mode --}}
+                                                        <div class="suggestion-edit d-none" id="edit-{{ $result->id }}">
+                                                            <div class="mb-2">
+                                                                <label class="form-label small mb-1">Current Value:</label>
+                                                                <input type="text" class="form-control form-control-sm" 
+                                                                       value="{{ $result->current_value ?? '' }}" 
+                                                                       readonly disabled
+                                                                       style="background-color: #f8f9fa;">
+                                                            </div>
+                                                            <div class="mb-2">
+                                                                <label class="form-label small mb-1 text-success">
+                                                                    <i class="fas fa-magic"></i> New Value:
+                                                                </label>
+                                                                <textarea class="form-control form-control-sm suggestion-value-input" 
+                                                                          id="input-{{ $result->id }}" 
+                                                                          rows="2" 
+                                                                          placeholder="Edit the suggested value...">{{ $result->suggested_value }}</textarea>
+                                                                <small class="text-muted">You can edit AI's suggestion before approving</small>
+                                                            </div>
+                                                            <div class="d-flex gap-1">
+                                                                <button type="button" class="btn btn-success btn-sm" onclick="saveEdit({{ $result->id }})">
+                                                                    <i class="fas fa-save"></i> Save
+                                                                </button>
+                                                                <button type="button" class="btn btn-secondary btn-sm" onclick="cancelEdit({{ $result->id }})">
+                                                                    Cancel
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                @else
+                                                    <span class="text-muted small">No specific suggestion</span>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-{{ $result->severity === 'critical' ? 'danger' : ($result->severity === 'warning' ? 'warning' : 'info') }}">
+                                                    {{ ucfirst($result->severity) }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-{{ $result->confidence === 'high' ? 'success' : ($result->confidence === 'medium' ? 'primary' : 'secondary') }}">
+                                                    {{ ucfirst($result->confidence) }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm" role="group">
+                                                    <button type="button" class="btn btn-success btn-sm" onclick="approveAudit({{ $result->id }})" title="Approve">
+                                                        <i class="fas fa-check"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-danger btn-sm" onclick="rejectAudit({{ $result->id }})" title="Reject">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            @if($auditStats['total_pending'] > 100)
+                                <div class="alert alert-info mt-3">
+                                    <i class="fas fa-info-circle"></i> Showing first 100 results. {{ $auditStats['total_pending'] - 100 }} more pending.
+                                </div>
+                            @endif
+
+                            {{-- Apply Approved Button --}}
+                            <div class="mt-3 text-center">
+                                <button type="button" class="btn btn-primary btn-lg" onclick="applyApprovedChanges()">
+                                    <i class="fas fa-magic"></i> Apply All Approved Changes to Database
+                                </button>
+                                <p class="text-muted mt-2 small">
+                                    This will update the plant_varieties table with all approved suggestions.
+                                </p>
+                            </div>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -1073,6 +1411,488 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // ================== END PASSWORD VISIBILITY TOGGLE ==================
+    
+    // ================== VARIETY AUDIT REVIEW FUNCTIONS ==================
+    
+    // Select all checkbox
+    document.getElementById('select-all-audit')?.addEventListener('change', function() {
+        document.querySelectorAll('.audit-checkbox').forEach(cb => {
+            cb.checked = this.checked;
+        });
+    });
+    
+    // Toggle edit mode for suggestion
+    window.toggleEdit = function(id) {
+        document.getElementById(`display-${id}`).classList.add('d-none');
+        document.getElementById(`edit-${id}`).classList.remove('d-none');
+    };
+    
+    // Cancel edit mode
+    window.cancelEdit = function(id) {
+        document.getElementById(`edit-${id}`).classList.add('d-none');
+        document.getElementById(`display-${id}`).classList.remove('d-none');
+    };
+    
+    // Save edited suggestion
+    window.saveEdit = function(id) {
+        const newValue = document.getElementById(`input-${id}`).value;
+        
+        if (!newValue.trim()) {
+            alert('Please enter a value');
+            return;
+        }
+        
+        fetch(`/admin/variety-audit/${id}/update-suggestion`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ suggested_value: newValue })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update display text
+                const displayEl = document.querySelector(`#display-${id} .text-success`);
+                displayEl.textContent = newValue.length > 25 ? newValue.substring(0, 25) + '...' : newValue;
+                displayEl.title = newValue;
+                
+                cancelEdit(id);
+                showToast('Suggestion updated!', 'success');
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    };
+    
+    // Approve single audit
+    window.approveAudit = function(id) {
+        if (!confirm('Approve this suggestion?')) return;
+        
+        fetch(`/admin/variety-audit/${id}/approve`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.querySelector(`tr[data-audit-id="${id}"]`).remove();
+                showToast('Suggestion approved!', 'success');
+                updateAuditStats();
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    };
+    
+    // Reject single audit
+    window.rejectAudit = function(id) {
+        if (!confirm('Reject this suggestion?')) return;
+        
+        fetch(`/admin/variety-audit/${id}/reject`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.querySelector(`tr[data-audit-id="${id}"]`).remove();
+                showToast('Suggestion rejected', 'info');
+                updateAuditStats();
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    };
+    
+    // Bulk approve
+    window.bulkApprove = function() {
+        const selected = Array.from(document.querySelectorAll('.audit-checkbox:checked')).map(cb => cb.value);
+        if (selected.length === 0) {
+            alert('Please select at least one suggestion');
+            return;
+        }
+        
+        if (!confirm(`Approve ${selected.length} suggestions?`)) return;
+        
+        fetch('/admin/variety-audit/bulk-approve', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ ids: selected })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                selected.forEach(id => {
+                    document.querySelector(`tr[data-audit-id="${id}"]`)?.remove();
+                });
+                showToast(`${data.count} suggestions approved!`, 'success');
+                updateAuditStats();
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    };
+    
+    // Bulk reject
+    window.bulkReject = function() {
+        const selected = Array.from(document.querySelectorAll('.audit-checkbox:checked')).map(cb => cb.value);
+        if (selected.length === 0) {
+            alert('Please select at least one suggestion');
+            return;
+        }
+        
+        if (!confirm(`Reject ${selected.length} suggestions?`)) return;
+        
+        fetch('/admin/variety-audit/bulk-reject', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ ids: selected })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                selected.forEach(id => {
+                    document.querySelector(`tr[data-audit-id="${id}"]`)?.remove();
+                });
+                showToast(`${data.count} suggestions rejected`, 'info');
+                updateAuditStats();
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    };
+    
+    // Approve all high confidence
+    window.approveHighConfidence = function() {
+        if (!confirm('Approve ALL high confidence suggestions?')) return;
+        
+        fetch('/admin/variety-audit/approve-high-confidence', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    };
+    
+    // Filter by severity
+    window.filterBySeverity = function(severity) {
+        const rows = document.querySelectorAll('tr[data-severity]');
+        rows.forEach(row => {
+            if (severity === 'all' || row.dataset.severity === severity) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    };
+    
+    // Apply approved changes
+    window.applyApprovedChanges = function() {
+        if (!confirm('Apply all approved suggestions to the database? This will modify plant_varieties records.')) return;
+        
+        const btn = event.target;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Applying changes...';
+        
+        fetch('/admin/variety-audit/apply-approved', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast(`✅ Applied ${data.count} changes successfully!`, 'success');
+                setTimeout(() => location.reload(), 2000);
+            } else {
+                showToast('Error applying changes', 'danger');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-magic"></i> Apply All Approved Changes to Database';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-magic"></i> Apply All Approved Changes to Database';
+        });
+    };
+    
+    // Update stats
+    function updateAuditStats() {
+        fetch('/admin/variety-audit/stats')
+            .then(response => response.json())
+            .then(data => {
+                // Update badge and stat cards
+                location.reload(); // Simple approach for now
+            });
+    }
+    
+    // Show toast notification
+    function showToast(message, type = 'success') {
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+        toast.style.zIndex = '9999';
+        toast.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+    
+    // ================== AUDIT CONTROL FUNCTIONS ==================
+    
+    // Check audit status on page load
+    window.addEventListener('load', function() {
+        refreshAuditStatus();
+        // Auto-refresh every 30 seconds
+        setInterval(refreshAuditStatus, 30000);
+    });
+    
+    // Refresh audit status
+    window.refreshAuditStatus = function() {
+        fetch('/admin/variety-audit/status', {
+            credentials: 'same-origin',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                const statusDisplay = document.getElementById('audit-status-display');
+                const progressContainer = document.getElementById('audit-progress-bar-container');
+                const progressBar = document.getElementById('audit-progress-bar');
+                const progressText = document.getElementById('audit-progress-text');
+                const startBtn = document.getElementById('start-audit-btn');
+                const pauseBtn = document.getElementById('pause-audit-btn');
+                const resumeBtn = document.getElementById('resume-audit-btn');
+                
+                if (data.is_running) {
+                    // Audit is running
+                    const percent = data.progress_percent || 0;
+                    const processed = data.processed || 0;
+                    const total = data.total || 2959;
+                    const remaining = total - processed;
+                    const estimatedHours = ((remaining * (data.avg_time || 60)) / 3600).toFixed(1);
+                    
+                    statusDisplay.innerHTML = `
+                        <span class="badge bg-success">
+                            <i class="fas fa-circle-notch fa-spin"></i> Running
+                        </span>
+                        <span class="text-muted ms-2">
+                            ${processed} / ${total} varieties (${percent}%)
+                            ${estimatedHours > 0 ? `· ~${estimatedHours}h remaining` : ''}
+                        </span>
+                    `;
+                    
+                    progressContainer.style.display = 'block';
+                    progressBar.style.width = percent + '%';
+                    progressBar.setAttribute('aria-valuenow', percent);
+                    progressText.textContent = `${processed} / ${total} (${percent}%)`;
+                    
+                    startBtn.style.display = 'none';
+                    pauseBtn.style.display = 'inline-block';
+                    resumeBtn.style.display = 'none';
+                    
+                } else if (data.can_resume) {
+                    // Audit paused - can resume
+                    const processed = data.processed || 0;
+                    const total = data.total || 2959;
+                    const percent = data.progress_percent || 0;
+                    
+                    statusDisplay.innerHTML = `
+                        <span class="badge bg-warning">
+                            <i class="fas fa-pause-circle"></i> Paused
+                        </span>
+                        <span class="text-muted ms-2">
+                            ${processed} / ${total} varieties completed (${percent}%)
+                        </span>
+                    `;
+                    
+                    progressContainer.style.display = 'block';
+                    progressBar.style.width = percent + '%';
+                    progressBar.setAttribute('aria-valuenow', percent);
+                    progressBar.classList.remove('progress-bar-animated');
+                    progressText.textContent = `${processed} / ${total} (${percent}%)`;
+                    
+                    startBtn.style.display = 'none';
+                    pauseBtn.style.display = 'none';
+                    resumeBtn.style.display = 'inline-block';
+                    
+                } else {
+                    // No audit running
+                    statusDisplay.innerHTML = `
+                        <span class="badge bg-secondary">
+                            <i class="fas fa-stop-circle"></i> Not Running
+                        </span>
+                        <span class="text-muted ms-2">Click "Start Audit" to begin analyzing all 2,959 varieties</span>
+                    `;
+                    
+                    progressContainer.style.display = 'none';
+                    startBtn.style.display = 'inline-block';
+                    pauseBtn.style.display = 'none';
+                    resumeBtn.style.display = 'none';
+                }
+                
+                // Update the "no results" message if audit is running
+                const noResultsMsg = document.getElementById('no-results-message');
+                if (noResultsMsg && data.is_running) {
+                    const processed = data.processed || 0;
+                    noResultsMsg.className = 'alert alert-info';
+                    noResultsMsg.innerHTML = `
+                        <i class="fas fa-info-circle"></i> 
+                        <strong>Audit is running!</strong> Suggestions will appear as varieties are analyzed. 
+                        <a href="#" onclick="location.reload(); return false;">Refresh page</a> to see new results.
+                        (${processed} varieties analyzed so far)
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching audit status:', error);
+                console.error('Error details:', error.message);
+                document.getElementById('audit-status-display').innerHTML = `
+                    <span class="badge bg-danger">Error</span>
+                    <span class="text-muted ms-2">Unable to check audit status: ${error.message}</span>
+                `;
+            });
+    };
+    
+    // Start audit
+    window.startAudit = function() {
+        if (!confirm('Start the full variety audit? This will analyze all 2,959 varieties and may take 40-60 hours. You can pause and resume at any time.')) {
+            return;
+        }
+        
+        const btn = document.getElementById('start-audit-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
+        
+        fetch('/admin/variety-audit/start', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('✅ Audit started successfully!', 'success');
+                setTimeout(refreshAuditStatus, 2000);
+            } else {
+                showToast('Error starting audit: ' + (data.message || 'Unknown error'), 'danger');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-play"></i> Start Audit';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Error starting audit', 'danger');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-play"></i> Start Audit';
+        });
+    };
+    
+    // Pause audit
+    window.pauseAudit = function() {
+        if (!confirm('Pause the audit? Progress will be saved and you can resume later.')) {
+            return;
+        }
+        
+        const btn = document.getElementById('pause-audit-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Pausing...';
+        
+        fetch('/admin/variety-audit/pause', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('✅ Audit paused successfully!', 'info');
+                setTimeout(refreshAuditStatus, 2000);
+            } else {
+                showToast('Error pausing audit: ' + (data.message || 'Unknown error'), 'danger');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-pause"></i> Pause Audit';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Error pausing audit', 'danger');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-pause"></i> Pause Audit';
+        });
+    };
+    
+    // Resume audit
+    window.resumeAudit = function() {
+        if (!confirm('Resume the audit from where it left off?')) {
+            return;
+        }
+        
+        const btn = document.getElementById('resume-audit-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Resuming...';
+        
+        fetch('/admin/variety-audit/resume', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('✅ Audit resumed successfully!', 'success');
+                setTimeout(refreshAuditStatus, 2000);
+            } else {
+                showToast('Error resuming audit: ' + (data.message || 'Unknown error'), 'danger');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-play-circle"></i> Resume Audit';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Error resuming audit', 'danger');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-play-circle"></i> Resume Audit';
+        });
+    };
+    
+    // ================== END AUDIT CONTROL FUNCTIONS ==================
+    
+    // ================== END VARIETY AUDIT REVIEW FUNCTIONS ==================
     
     });
 </script>

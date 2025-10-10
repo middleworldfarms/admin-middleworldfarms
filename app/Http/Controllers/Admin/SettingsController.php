@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Setting;
+use App\Models\VarietyAuditResult;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
 
@@ -17,7 +18,38 @@ class SettingsController extends Controller
         // Get current settings from database or defaults
         $settings = $this->getAllSettings();
         
-        return view('admin.settings.index', compact('settings'));
+        // Get pending variety audit results
+        $auditResults = VarietyAuditResult::with('variety')
+            ->where('status', 'pending')
+            ->orderBy('severity', 'desc')
+            ->orderBy('confidence', 'desc')
+            ->take(100)
+            ->get();
+        
+        $auditStats = [
+            'total_pending' => VarietyAuditResult::where('status', 'pending')->count(),
+            'critical' => VarietyAuditResult::where('status', 'pending')->where('severity', 'critical')->count(),
+            'warning' => VarietyAuditResult::where('status', 'pending')->where('severity', 'warning')->count(),
+            'high_confidence' => VarietyAuditResult::where('status', 'pending')->where('confidence', 'high')->count(),
+        ];
+        
+        // Check if audit is currently running
+        $auditRunning = false;
+        $auditProgress = null;
+        $pidFile = '/tmp/variety-audit.pid';
+        $progressFile = storage_path('logs/variety-audit/progress.json');
+        
+        if (file_exists($pidFile)) {
+            $pid = trim(file_get_contents($pidFile));
+            $output = shell_exec("ps -p $pid -o pid= 2>/dev/null");
+            $auditRunning = !empty(trim($output));
+        }
+        
+        if (file_exists($progressFile)) {
+            $auditProgress = json_decode(file_get_contents($progressFile), true);
+        }
+        
+        return view('admin.settings.index', compact('settings', 'auditResults', 'auditStats', 'auditRunning', 'auditProgress'));
     }
     
     /**
@@ -372,52 +404,61 @@ class SettingsController extends Controller
     }
     
     /**
-     * Get CPU usage percentage (IONOS hosting compatible)
+     * Get CPU usage percentage
      */
     private function getCpuUsage()
     {
         try {
-            // Try to get CPU usage by running the CLI script if available
-            // Point to the script in the project root
-            $cliScript = base_path('cpu_test.php');
-            $phpBinary = '/var/www/vhosts/middleworldfarms.org/subdomains/admin/php82';
-            $debug = [];
-            if (file_exists($cliScript) && is_executable($phpBinary)) {
-                $output = [];
-                $result = null;
-                $cmd = $phpBinary . ' ' . escapeshellarg($cliScript) . ' 2>&1';
-                exec($cmd, $output, $result);
-                $debug['cmd'] = $cmd;
-                $debug['output'] = $output;
-                $debug['result'] = $result;
-                if (is_array($output) && count($output) > 0) {
-                    if (preg_match('/CPU Usage: ([0-9.]+)/', $output[0], $matches)) {
-                        return (float)$matches[1];
-                    } else {
-                        // Log unexpected output
-                        \Log::warning('CPU CLI script output did not match expected pattern', $debug);
-                        return 'CLI output: ' . implode(' | ', $output) . ' (result: ' . $result . ')';
+            // Method 1: Try reading from /proc/stat (Linux)
+            if (file_exists('/proc/stat')) {
+                static $lastCpuStats = null;
+                static $lastTime = null;
+                
+                $currentTime = microtime(true);
+                $stat = file_get_contents('/proc/stat');
+                
+                if (preg_match('/^cpu\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/m', $stat, $matches)) {
+                    $user = $matches[1];
+                    $nice = $matches[2];
+                    $system = $matches[3];
+                    $idle = $matches[4];
+                    $iowait = isset($matches[5]) ? $matches[5] : 0;
+                    
+                    $total = $user + $nice + $system + $idle + $iowait;
+                    $currentStats = ['total' => $total, 'idle' => $idle];
+                    
+                    // If we have previous stats, calculate usage
+                    if ($lastCpuStats !== null && $lastTime !== null) {
+                        $totalDiff = $currentStats['total'] - $lastCpuStats['total'];
+                        $idleDiff = $currentStats['idle'] - $lastCpuStats['idle'];
+                        
+                        if ($totalDiff > 0) {
+                            $usage = (($totalDiff - $idleDiff) / $totalDiff) * 100;
+                            $lastCpuStats = $currentStats;
+                            $lastTime = $currentTime;
+                            return round($usage, 1);
+                        }
                     }
-                } else {
-                    \Log::warning('CPU CLI script returned no output', $debug);
-                    return 'No CLI output (result: ' . $result . ')';
+                    
+                    // Store current stats for next call
+                    $lastCpuStats = $currentStats;
+                    $lastTime = $currentTime;
                 }
-            } else {
-                $debug['cliScript_exists'] = file_exists($cliScript);
-                $debug['phpBinary_executable'] = is_executable($phpBinary);
-                \Log::warning('CPU CLI script or PHP binary not available or not executable', $debug);
-                return 'CLI script or PHP binary not executable';
             }
-            // Fallback: use load average as rough estimate
+            
+            // Method 2: Use load average as fallback
             if (function_exists('sys_getloadavg')) {
                 $load = sys_getloadavg();
                 $cpuCount = $this->getCpuCount();
-                return round(($load[0] / $cpuCount) * 100, 1);
+                if ($cpuCount > 0) {
+                    return round(($load[0] / $cpuCount) * 100, 1);
+                }
             }
+            
             return 0;
         } catch (\Exception $e) {
             \Log::warning('CPU usage detection failed: ' . $e->getMessage());
-            return 'Exception: ' . $e->getMessage();
+            return 0;
         }
     }
     
@@ -651,7 +692,8 @@ class SettingsController extends Controller
             'huggingface_api_key',
             'stripe_key',
             'stripe_secret',
-        ];
+        ]
+;
         
         $apiKeys = [];
         foreach ($apiKeyFields as $field) {
@@ -659,6 +701,244 @@ class SettingsController extends Controller
         }
         
         return $apiKeys;
+    }
+    
+    // ============================================
+    // VARIETY AUDIT REVIEW METHODS
+    // ============================================
+    
+    /**
+     * Approve a single audit suggestion
+     */
+    public function approveAudit($id)
+    {
+        $result = VarietyAuditResult::findOrFail($id);
+        $result->status = 'approved';
+        $result->save();
+        
+        return response()->json(['success' => true]);
+    }
+    
+    /**
+     * Update the suggested value for an audit result
+     */
+    public function updateSuggestion(Request $request, $id)
+    {
+        $result = VarietyAuditResult::findOrFail($id);
+        $result->suggested_value = $request->input('suggested_value');
+        $result->save();
+        
+        return response()->json(['success' => true]);
+    }
+    
+    /**
+     * Reject a single audit suggestion
+     */
+    public function rejectAudit($id)
+    {
+        $result = VarietyAuditResult::findOrFail($id);
+        $result->status = 'rejected';
+        $result->save();
+        
+        return response()->json(['success' => true]);
+    }
+    
+    /**
+     * Bulk approve audit suggestions
+     */
+    public function bulkApproveAudit(Request $request)
+    {
+        $ids = $request->input('ids', []);
+        $count = VarietyAuditResult::whereIn('id', $ids)->update(['status' => 'approved']);
+        
+        return response()->json(['success' => true, 'count' => $count]);
+    }
+    
+    /**
+     * Bulk reject audit suggestions
+     */
+    public function bulkRejectAudit(Request $request)
+    {
+        $ids = $request->input('ids', []);
+        $count = VarietyAuditResult::whereIn('id', $ids)->update(['status' => 'rejected']);
+        
+        return response()->json(['success' => true, 'count' => $count]);
+    }
+    
+    /**
+     * Approve all high confidence suggestions
+     */
+    public function approveHighConfidence()
+    {
+        $count = VarietyAuditResult::where('status', 'pending')
+            ->where('confidence', 'high')
+            ->update(['status' => 'approved']);
+        
+        return response()->json(['success' => true, 'count' => $count]);
+    }
+    
+    /**
+     * Apply all approved suggestions to the database
+     */
+    public function applyApprovedAudit()
+    {
+        $approved = VarietyAuditResult::with('variety')
+            ->where('status', 'approved')
+            ->whereNotNull('suggested_field')
+            ->get();
+        
+        $count = 0;
+        foreach ($approved as $result) {
+            try {
+                // Map field names
+                $fieldMap = [
+                    'maturityDays' => 'maturity_days',
+                    'harvestDays' => 'harvest_days',
+                    'inRowSpacing' => 'in_row_spacing_cm',
+                    'betweenRowSpacing' => 'between_row_spacing_cm',
+                    'plantingMethod' => 'planting_method',
+                    'description' => 'description',
+                    'harvestNotes' => 'harvest_notes',
+                ];
+                
+                $dbField = $fieldMap[$result->suggested_field] ?? $result->suggested_field;
+                
+                // Update the variety
+                $result->variety->$dbField = $result->suggested_value;
+                $result->variety->save();
+                
+                // Mark as applied
+                $result->status = 'applied';
+                $result->applied_at = now();
+                $result->save();
+                
+                $count++;
+            } catch (\Exception $e) {
+                \Log::error("Failed to apply audit result {$result->id}: " . $e->getMessage());
+            }
+        }
+        
+        return response()->json(['success' => true, 'count' => $count]);
+    }
+    
+    /**
+     * Get current audit stats
+     */
+    public function auditStats()
+    {
+        return response()->json([
+            'total_pending' => VarietyAuditResult::where('status', 'pending')->count(),
+            'critical' => VarietyAuditResult::where('status', 'pending')->where('severity', 'critical')->count(),
+            'warning' => VarietyAuditResult::where('status', 'pending')->where('severity', 'warning')->count(),
+            'high_confidence' => VarietyAuditResult::where('status', 'pending')->where('confidence', 'high')->count(),
+        ]);
+    }
+    
+    /**
+     * Get audit status (running, paused, etc.)
+     */
+    public function auditStatus()
+    {
+        $pidFile = '/tmp/variety-audit.pid';
+        $progressFile = storage_path('logs/variety-audit/progress.json');
+        
+        $isRunning = false;
+        $progress = null;
+        
+        // Check if process is running
+        if (file_exists($pidFile)) {
+            $pid = trim(file_get_contents($pidFile));
+            // Check if PID exists
+            $output = shell_exec("ps -p $pid -o pid= 2>/dev/null");
+            $isRunning = !empty(trim($output));
+        }
+        
+        // Check for saved progress
+        if (file_exists($progressFile)) {
+            $progress = json_decode(file_get_contents($progressFile), true);
+        }
+        
+        $total = 2959;
+        $processed = $progress['processed'] ?? 0;
+        $percent = $total > 0 ? round(($processed / $total) * 100, 1) : 0;
+        
+        return response()->json([
+            'is_running' => $isRunning,
+            'can_resume' => !$isRunning && $progress !== null,
+            'processed' => $processed,
+            'total' => $total,
+            'progress_percent' => $percent,
+            'last_id' => $progress['last_processed_id'] ?? null,
+            'timestamp' => $progress['timestamp'] ?? null,
+            'avg_time' => 60, // Average seconds per variety
+        ]);
+    }
+    
+    /**
+     * Start the audit
+     */
+    public function auditStart()
+    {
+        $pidFile = '/tmp/variety-audit.pid';
+        
+        // Check if already running
+        if (file_exists($pidFile)) {
+            $pid = trim(file_get_contents($pidFile));
+            $output = shell_exec("ps -p $pid -o pid= 2>/dev/null");
+            if (!empty(trim($output))) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Audit is already running'
+                ]);
+            }
+        }
+        
+        // Start the audit in background
+        $command = 'cd ' . base_path() . ' && nohup php artisan varieties:audit > /tmp/variety-audit.log 2>&1 & echo $!';
+        $pid = trim(shell_exec($command));
+        
+        if ($pid) {
+            file_put_contents($pidFile, $pid);
+            return response()->json(['success' => true, 'pid' => $pid]);
+        }
+        
+        return response()->json(['success' => false, 'message' => 'Failed to start audit']);
+    }
+    
+    /**
+     * Pause the audit
+     */
+    public function auditPause()
+    {
+        $pidFile = '/tmp/variety-audit.pid';
+        
+        if (!file_exists($pidFile)) {
+            return response()->json(['success' => false, 'message' => 'No audit is running']);
+        }
+        
+        $pid = trim(file_get_contents($pidFile));
+        
+        // Send SIGTERM to gracefully stop
+        shell_exec("kill -SIGTERM $pid 2>/dev/null");
+        sleep(2);
+        
+        // Check if still running, force kill if necessary
+        $output = shell_exec("ps -p $pid -o pid= 2>/dev/null");
+        if (!empty(trim($output))) {
+            shell_exec("kill -9 $pid 2>/dev/null");
+        }
+        
+        unlink($pidFile);
+        
+        return response()->json(['success' => true]);
+    }
+    
+    /**
+     * Resume the audit
+     */
+    public function auditResume()
+    {
+        return $this->auditStart(); // Same as start, will auto-resume from progress file
     }
 }
 

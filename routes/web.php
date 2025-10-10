@@ -93,6 +93,20 @@ Route::middleware(['admin.auth'])->prefix('admin')->group(function () {
     Route::post('/settings/test-io-speed', [App\Http\Controllers\Admin\SettingsController::class, 'testIOSpeed'])->name('admin.settings.test-io-speed');
     Route::post('/settings/test-db-performance', [App\Http\Controllers\Admin\SettingsController::class, 'testDatabasePerformance'])->name('admin.settings.test-db-performance');
 
+    // Variety Audit routes
+    Route::post('/variety-audit/{id}/approve', [App\Http\Controllers\Admin\SettingsController::class, 'approveAudit']);
+    Route::post('/variety-audit/{id}/reject', [App\Http\Controllers\Admin\SettingsController::class, 'rejectAudit']);
+    Route::post('/variety-audit/{id}/update-suggestion', [App\Http\Controllers\Admin\SettingsController::class, 'updateSuggestion']);
+    Route::post('/variety-audit/bulk-approve', [App\Http\Controllers\Admin\SettingsController::class, 'bulkApproveAudit']);
+    Route::post('/variety-audit/bulk-reject', [App\Http\Controllers\Admin\SettingsController::class, 'bulkRejectAudit']);
+    Route::post('/variety-audit/approve-high-confidence', [App\Http\Controllers\Admin\SettingsController::class, 'approveHighConfidence']);
+    Route::post('/variety-audit/apply-approved', [App\Http\Controllers\Admin\SettingsController::class, 'applyApprovedAudit']);
+    Route::get('/variety-audit/stats', [App\Http\Controllers\Admin\SettingsController::class, 'auditStats']);
+    Route::get('/variety-audit/status', [App\Http\Controllers\Admin\SettingsController::class, 'auditStatus']);
+    Route::post('/variety-audit/start', [App\Http\Controllers\Admin\SettingsController::class, 'auditStart']);
+    Route::post('/variety-audit/pause', [App\Http\Controllers\Admin\SettingsController::class, 'auditPause']);
+    Route::post('/variety-audit/resume', [App\Http\Controllers\Admin\SettingsController::class, 'auditResume']);
+
     Route::get('/logs', function () {
         return view('admin.placeholder', ['title' => 'System Logs', 'description' => 'Activity logs and debugging coming soon']);
     })->name('admin.logs');

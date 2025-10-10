@@ -25,8 +25,12 @@ class SymbiosisAIService
             // Convert messages to a single prompt for Ollama
             $prompt = $this->convertMessagesToPrompt($messages);
             
-            $response = Http::timeout(90)->post($this->baseUrl . '/generate', [
-                'model' => 'phi3:mini',
+            // Allow override of base URL and model via options
+            $baseUrl = $options['base_url'] ?? $this->baseUrl;
+            $model = $options['model'] ?? 'phi3:mini';
+            
+            $response = Http::timeout(120)->post($baseUrl . '/generate', [
+                'model' => $model,
                 'prompt' => $prompt,
                 'stream' => false,
                 'options' => [
@@ -38,8 +42,8 @@ class SymbiosisAIService
             ]);
 
             Log::info('Ollama API request', [
-                'url' => $this->baseUrl . '/generate',
-                'model' => 'phi3:mini',
+                'url' => $baseUrl . '/generate',
+                'model' => $model,
                 'prompt_length' => strlen($prompt)
             ]);
 
@@ -59,7 +63,7 @@ class SymbiosisAIService
             Log::error('Ollama API request failed', [
                 'status' => $response->status(),
                 'body' => $response->body(),
-                'url' => $this->baseUrl . '/generate'
+                'url' => $baseUrl . '/generate'
             ]);
 
             throw new \Exception('Ollama API request failed: ' . $response->body());
@@ -78,6 +82,11 @@ class SymbiosisAIService
         foreach ($messages as $message) {
             $role = $message['role'] ?? 'user';
             $content = $message['content'] ?? '';
+            
+            // Handle array content (convert to string)
+            if (is_array($content)) {
+                $content = json_encode($content);
+            }
             
             if ($role === 'system') {
                 $prompt .= "System: {$content}\n\n";

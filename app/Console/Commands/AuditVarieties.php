@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Models\PlantVariety;
+use App\Models\VarietyAuditResult;
 use App\Services\AI\SymbiosisAIService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -76,10 +77,32 @@ class AuditVarieties extends Command
         $this->info("   Fixed: {$this->fixedFile}");
         $this->newLine();
         
+        // Check for existing progress file
+        $progressFile = storage_path('logs/variety-audit/progress.json');
+        $resumeFromId = null;
+        if (file_exists($progressFile) && !$this->option('start-id')) {
+            $progress = json_decode(file_get_contents($progressFile), true);
+            $this->warn("⏸️  Previous audit found!");
+            $this->info("   Last processed: Variety ID {$progress['last_processed_id']}");
+            $this->info("   Processed: {$progress['processed']} varieties");
+            $this->info("   Timestamp: {$progress['timestamp']}");
+            $this->newLine();
+            
+            if ($this->confirm('Resume from where you left off?', true)) {
+                $resumeFromId = $progress['last_processed_id'] + 1;
+                $this->info("▶️  Resuming from ID: {$resumeFromId}");
+            } else {
+                $this->info("🔄 Starting fresh audit");
+                unlink($progressFile);
+            }
+            $this->newLine();
+        }
+        
         // Build query
         $query = PlantVariety::query();
         
-        if ($startId = $this->option('start-id')) {
+        $startId = $resumeFromId ?? $this->option('start-id');
+        if ($startId) {
             $query->where('id', '>=', $startId);
             $this->info("▶️  Starting from ID: {$startId}");
         }
@@ -118,10 +141,21 @@ class AuditVarieties extends Command
         $this->log("");
         
         // Process each variety
+        $progressFile = storage_path('logs/variety-audit/progress.json');
         foreach ($query->cursor() as $variety) {
             try {
                 $this->processVariety($variety);
                 $this->stats['processed']++;
+                
+                // Save progress every 10 varieties for resume capability
+                if ($this->stats['processed'] % 10 == 0) {
+                    file_put_contents($progressFile, json_encode([
+                        'last_processed_id' => $variety->id,
+                        'processed' => $this->stats['processed'],
+                        'timestamp' => now()->toDateTimeString(),
+                        'stats' => $this->stats
+                    ]));
+                }
             } catch (\Exception $e) {
                 $this->stats['errors']++;
                 $this->logError($variety, "Processing error: " . $e->getMessage());
@@ -163,32 +197,72 @@ class AuditVarieties extends Command
         ];
         
         try {
-            $response = $this->ai->chat($messages, ['max_tokens' => 800, 'temperature' => 0.1]);
-            $analysis = $response['choices'][0]['message']['content'] ?? '';
+            // Add extra logging for debugging
+            Log::info("Audit variety {$variety->id}: Calling AI", [
+                'variety_id' => $variety->id,
+                'variety_name' => $variety->name,
+                'messages_count' => count($messages)
+            ]);
+            
+            // Use dedicated audit AI instance on port 8006 with Mistral 7B
+            $response = $this->ai->chat($messages, [
+                'max_tokens' => 800, 
+                'temperature' => 0.1,
+                'model' => 'mistral:7b',
+                'base_url' => 'http://localhost:8006/api'
+            ]);
+            
+            if (!isset($response['choices'][0]['message']['content'])) {
+                throw new \Exception('Invalid AI response structure: ' . json_encode($response));
+            }
+            
+            $analysis = $response['choices'][0]['message']['content'];
             
             // Parse AI response and take action
             $this->processAIResponse($variety, $analysis);
             
         } catch (\Exception $e) {
-            $this->logError($variety, "AI request failed: " . $e->getMessage());
+            $errorMsg = "AI request failed: " . $e->getMessage();
+            $this->logError($variety, $errorMsg);
             $this->stats['errors']++;
+            
+            // Careful logging to avoid "Array to string conversion" errors
+            try {
+                Log::error("Variety audit error for ID {$variety->id}", [
+                    'variety_id' => $variety->id,
+                    'variety_name' => $variety->name,
+                    'error_message' => $e->getMessage(),
+                    'error_file' => $e->getFile(),
+                    'error_line' => $e->getLine()
+                ]);
+            } catch (\Exception $logError) {
+                // Silently fail logging if it causes issues
+            }
         }
     }
 
     protected function buildAuditPrompt($variety): string
     {
+        // Helper to safely convert values to string
+        $safeString = function($value) {
+            if (is_array($value) || is_object($value)) {
+                return json_encode($value);
+            }
+            return $value ?: 'MISSING';
+        };
+        
         $prompt = "Audit this plant variety data:\n\n";
         $prompt .= "ID: {$variety->id}\n";
-        $prompt .= "Name: {$variety->name}\n";
-        $prompt .= "Plant Type: {$variety->plant_type}\n";
-        $prompt .= "Crop Family: {$variety->crop_family}\n";
-        $prompt .= "Description: " . ($variety->description ?: 'MISSING') . "\n";
-        $prompt .= "Harvest Notes: " . ($variety->harvest_notes ?: 'MISSING') . "\n";
-        $prompt .= "Maturity Days: " . ($variety->maturity_days ?: 'MISSING') . "\n";
-        $prompt .= "Harvest Days: " . ($variety->harvest_days ?: 'MISSING') . "\n";
-        $prompt .= "In-row Spacing: " . ($variety->in_row_spacing_cm ?: 'MISSING') . " cm\n";
-        $prompt .= "Between-row Spacing: " . ($variety->between_row_spacing_cm ?: 'MISSING') . " cm\n";
-        $prompt .= "Planting Method: " . ($variety->planting_method ?: 'MISSING') . "\n\n";
+        $prompt .= "Name: " . $safeString($variety->name) . "\n";
+        $prompt .= "Plant Type: " . $safeString($variety->plant_type) . "\n";
+        $prompt .= "Crop Family: " . $safeString($variety->crop_family) . "\n";
+        $prompt .= "Description: " . $safeString($variety->description) . "\n";
+        $prompt .= "Harvest Notes: " . $safeString($variety->harvest_notes) . "\n";
+        $prompt .= "Maturity Days: " . $safeString($variety->maturity_days) . "\n";
+        $prompt .= "Harvest Days: " . $safeString($variety->harvest_days) . "\n";
+        $prompt .= "In-row Spacing: " . $safeString($variety->in_row_spacing_cm) . " cm\n";
+        $prompt .= "Between-row Spacing: " . $safeString($variety->between_row_spacing_cm) . " cm\n";
+        $prompt .= "Planting Method: " . $safeString($variety->planting_method) . "\n\n";
         
         $prompt .= "RESPOND WITH ONLY THIS JSON (no other text):\n";
         $prompt .= "{\n";
@@ -197,13 +271,28 @@ class AuditVarieties extends Command
         $prompt .= "  \"suggestions\": {},\n";
         $prompt .= "  \"confidence\": \"medium\"\n";
         $prompt .= "}\n\n";
-        $prompt .= "Rules:\n";
-        $prompt .= "- List issues ONLY if data is wrong/missing (empty array if OK)\n";
-        $prompt .= "- severity: critical (missing required), warning (questionable), info (minor)\n";
-        $prompt .= "- suggestions: ONLY include fields that need updating\n";
-        $prompt .= "- confidence: high (certain), medium (likely), low (unsure)\n";
-        $prompt .= "- Focus on UK growing, realistic spacing, accurate timing\n";
-        $prompt .= "- Respond ONLY with valid JSON, nothing else";
+        $prompt .= "CRITICAL RULES:\n";
+        $prompt .= "1. List issues ONLY if data is wrong/missing (empty array if OK)\n";
+        $prompt .= "2. severity: critical (missing required), warning (questionable), info (minor)\n";
+        $prompt .= "3. confidence: high (certain from knowledge), medium (likely), low (unsure)\n";
+        $prompt .= "4. Focus on UK growing conditions, realistic spacing, accurate timing\n\n";
+        $prompt .= "SUGGESTION VALUE REQUIREMENTS:\n";
+        $prompt .= "- For maturityDays: Provide ACTUAL NUMBER (e.g., '70', '90', '120') based on variety knowledge\n";
+        $prompt .= "- For harvestDays: Provide ACTUAL NUMBER (e.g., '14', '21', '30') for harvest window duration\n";
+        $prompt .= "- For spacing: Provide ACTUAL NUMBERS in cm (e.g., '30', '45', '60')\n";
+        $prompt .= "- For descriptions: Provide COMPLETE SENTENCES with variety details\n";
+        $prompt .= "- NEVER suggest vague instructions like 'Determine based on...' or 'Please provide...'\n";
+        $prompt .= "- ALWAYS provide the actual value you would use\n";
+        $prompt .= "- If you don't know exact value, give your best estimate based on similar plants\n\n";
+        $prompt .= "KNOWLEDGE BASE:\n";
+        $prompt .= "- Annuals typically: 60-90 days maturity, 14-30 days harvest window\n";
+        $prompt .= "- Perennials typically: 90-120 days to first harvest, 30-60 days harvest window\n";
+        $prompt .= "- Vegetables: 45-90 days maturity, 7-21 days harvest window\n";
+        $prompt .= "- Flowers: 60-120 days maturity, 14-45 days harvest window\n";
+        $prompt .= "- Small plants: 15-30cm spacing\n";
+        $prompt .= "- Medium plants: 30-60cm spacing\n";
+        $prompt .= "- Large plants: 60-120cm spacing\n\n";
+        $prompt .= "Respond ONLY with valid JSON containing ACTUAL VALUES, nothing else";
         
         return $prompt;
     }
@@ -219,15 +308,39 @@ class AuditVarieties extends Command
             return;
         }
         
-        $issues = $json['issues'] ?? [];
-        $severity = $json['severity'] ?? 'info';
-        $suggestions = $json['suggestions'] ?? [];
-        $confidence = $json['confidence'] ?? 'low';
+        // Debug: Log what we got
+        Log::info("AI JSON Response", ['variety_id' => $variety->id, 'json' => $json]);
         
-        // Log if issues found
-        if (!empty($issues)) {
+        // Ensure arrays are arrays and strings are strings
+        $issues = $json['issues'] ?? [];
+        if (!is_array($issues)) {
+            $issues = [$issues];
+        }
+        
+        $severity = $json['severity'] ?? 'info';
+        if (is_array($severity)) {
+            Log::warning("Severity is array", ['severity' => $severity, 'variety_id' => $variety->id]);
+            $severity = $severity[0] ?? 'info'; // Take first element if array
+        }
+        $severity = (string)$severity; // Force to string
+        
+        $suggestions = $json['suggestions'] ?? [];
+        if (!is_array($suggestions)) {
+            $suggestions = [];
+        }
+        
+        $confidence = $json['confidence'] ?? 'low';
+        if (is_array($confidence)) {
+            Log::warning("Confidence is array", ['confidence' => $confidence, 'variety_id' => $variety->id]);
+            $confidence = $confidence[0] ?? 'low'; // Take first element if array
+        }
+        $confidence = (string)$confidence; // Force to string
+        
+        // Save to database for each issue/suggestion
+        if (!empty($issues) || !empty($suggestions)) {
             $this->stats['issues_found']++;
             $this->logIssue($variety, $severity, $issues, $suggestions, $confidence);
+            $this->saveToDatabase($variety, $issues, $severity, $suggestions, $confidence);
             
             // Auto-fix if enabled and confidence is high
             if ($this->option('fix') && $confidence === 'high' && !$this->option('dry-run')) {
@@ -301,18 +414,86 @@ class AuditVarieties extends Command
         return false;
     }
 
+    protected function saveToDatabase($variety, array $issues, string $severity, array $suggestions, string $confidence)
+    {
+        try {
+            // Combine issues into description
+            $issueDescriptions = [];
+            foreach ($issues as $issue) {
+                if (is_array($issue)) {
+                    $issueDescriptions[] = $issue['description'] ?? json_encode($issue);
+                } else {
+                    $issueDescriptions[] = $issue;
+                }
+            }
+            $issueDescription = implode('; ', $issueDescriptions);
+            
+            // Create one audit result per suggestion field
+            if (!empty($suggestions)) {
+                foreach ($suggestions as $field => $suggestedValue) {
+                    // Get current value from variety
+                    $currentValue = $this->getCurrentFieldValue($variety, $field);
+                    
+                    VarietyAuditResult::create([
+                        'variety_id' => $variety->id,
+                        'issue_description' => $issueDescription,
+                        'severity' => $severity,
+                        'confidence' => $confidence,
+                        'suggested_field' => $field,
+                        'current_value' => is_array($currentValue) ? json_encode($currentValue) : $currentValue,
+                        'suggested_value' => is_array($suggestedValue) ? json_encode($suggestedValue) : $suggestedValue,
+                        'status' => 'pending',
+                    ]);
+                }
+            } else {
+                // No specific suggestions, just log the issue
+                VarietyAuditResult::create([
+                    'variety_id' => $variety->id,
+                    'issue_description' => $issueDescription,
+                    'severity' => $severity,
+                    'confidence' => $confidence,
+                    'status' => 'pending',
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error("Failed to save audit result to database", [
+                'variety_id' => $variety->id,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+    
+    protected function getCurrentFieldValue($variety, string $field)
+    {
+        // Map suggestion field names to variety model properties
+        $fieldMap = [
+            'maturityDays' => 'maturity_days',
+            'harvestDays' => 'harvest_days',
+            'inRowSpacing' => 'in_row_spacing_cm',
+            'betweenRowSpacing' => 'between_row_spacing_cm',
+            'plantingMethod' => 'planting_method',
+            'description' => 'description',
+            'harvestNotes' => 'harvest_notes',
+        ];
+        
+        $propertyName = $fieldMap[$field] ?? $field;
+        return $variety->$propertyName ?? null;
+    }
+
     protected function logIssue($variety, string $severity, array $issues, array $suggestions, string $confidence)
     {
         $log = "⚠️  [{$variety->id}] {$variety->name}\n";
         $log .= "  Severity: {$severity} | Confidence: {$confidence}\n";
         $log .= "  Issues:\n";
         foreach ($issues as $issue) {
-            $log .= "    - {$issue}\n";
+            $issueText = is_array($issue) ? json_encode($issue) : $issue;
+            $log .= "    - {$issueText}\n";
         }
         if (!empty($suggestions)) {
             $log .= "  Suggestions:\n";
             foreach ($suggestions as $field => $value) {
-                $log .= "    {$field}: {$value}\n";
+                $displayValue = is_array($value) ? json_encode($value) : $value;
+                $log .= "    {$field}: {$displayValue}\n";
             }
         }
         $log .= "\n";
